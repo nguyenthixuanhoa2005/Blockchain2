@@ -545,34 +545,62 @@ function renderRoleScreen(role, balance) {
 
   const maxVotesBox = document.getElementById("maxVotesStatBox");
   const shareTokenBox = document.getElementById("shareTokenStatBox");
+  const statsCard = document.getElementById("globalStatsCard");
 
   if (role === "admin") {
     document.getElementById("screenAdmin").classList.add("active");
+    if (statsCard) {
+      const adminMain = document.getElementById("adminMainContent");
+      const topbar = adminMain ? adminMain.querySelector(".admin-main-topbar") : null;
+      if (topbar && topbar.nextSibling) {
+        adminMain.insertBefore(statsCard, topbar.nextSibling);
+      } else if (adminMain) {
+        adminMain.prepend(statsCard);
+      }
+    }
     if (maxVotesBox) maxVotesBox.style.display = "none";
     if (shareTokenBox) shareTokenBox.style.display = "none";
     if (currentAccountInfo.isSuperAdmin) {
       pill.className = "role-pill super-admin";
-      pill.textContent = "👑 Quản Trị Tối Cao (Super Admin)";
+      pill.textContent = "Quản trị tối cao";
       setText("currentRole", "Vai trò: Quản Trị Viên Tối Cao — Toàn quyền kiểm soát và điều hành hệ thống bầu cử công ty");
     } else {
       pill.className = "role-pill admin";
-      pill.textContent = "⚙️ Quản Trị Viên (Admin)";
+      pill.textContent = "Quản trị viên";
       setText("currentRole", "Vai trò: Quản Trị Viên — Toàn quyền tạo kỳ, cấp phiếu, quản lý ứng viên, mở/đóng phiên");
     }
   } else if (role === "voter") {
     document.getElementById("screenVoter").classList.add("active");
+    if (statsCard) {
+      const voterScreen = document.getElementById("screenVoter");
+      const hero = voterScreen ? voterScreen.querySelector(".screen-hero") : null;
+      if (hero && hero.nextSibling) {
+        voterScreen.insertBefore(statsCard, hero.nextSibling);
+      } else if (voterScreen) {
+        voterScreen.prepend(statsCard);
+      }
+    }
     if (maxVotesBox) maxVotesBox.style.display = "";
     if (shareTokenBox) shareTokenBox.style.display = "";
     pill.className = "role-pill voter";
-    pill.textContent = `🗳️ Cổ Đông — ${balance} CP`;
+    pill.textContent = `Cổ đông — ${balance} CP`;
     setText("currentRole", `Vai trò: Cổ Đông (${balance} cổ phần) — Được cấp phiếu bầu và có quyền bỏ phiếu biểu quyết`);
   } else {
     // Ban kiểm soát / Kiểm toán viên (Auditor)
     document.getElementById("screenGuest").classList.add("active");
+    if (statsCard) {
+      const guestScreen = document.getElementById("screenGuest");
+      const hero = guestScreen ? guestScreen.querySelector(".screen-hero") : null;
+      if (hero && hero.nextSibling) {
+        guestScreen.insertBefore(statsCard, hero.nextSibling);
+      } else if (guestScreen) {
+        guestScreen.prepend(statsCard);
+      }
+    }
     if (maxVotesBox) maxVotesBox.style.display = "none";
     if (shareTokenBox) shareTokenBox.style.display = "";
     pill.className = "role-pill auditor";
-    pill.textContent = "🔍 Ban Kiểm Soát / BKS";
+    pill.textContent = "Ban kiểm soát";
     setText("currentRole", "Vai trò: Ban Kiểm Soát — Giám sát độc lập tính minh bạch của các cuộc bầu cử và danh bạ ví công ty");
   }
 }
@@ -603,7 +631,7 @@ function getElectionPhase(election, paused) {
       badgeClass: 'badge-danger',
       cssClass: 'phase-paused',
       infoClass: 'paused',
-      icon: '🛑',
+      icon: '',
       desc: `Kỳ bầu cử này đã bị HỦY BỎ VĨNH VIỄN: "${escapeHtml(reasonText)}". Quyết định bởi: ${escapeHtml(authorText)} lúc ${timeText} (Không thể khôi phục).`
     };
   }
@@ -615,7 +643,7 @@ function getElectionPhase(election, paused) {
       badgeClass: 'badge-paused',
       cssClass: 'phase-paused',
       infoClass: 'paused',
-      icon: '⏸️',
+      icon: '',
       desc: 'Cuộc bầu cử này đang được tạm hoãn mở phiên. Hệ thống không tự động mở phiên cho đến khi Ban tổ chức kích hoạt lại.'
     };
   }
@@ -627,7 +655,7 @@ function getElectionPhase(election, paused) {
       badgeClass: 'badge-secondary',
       cssClass: 'phase-closed',
       infoClass: 'closed',
-      icon: '✅',
+      icon: '',
       desc: 'Khóa bầu chọn; Mở công khai kết quả chi tiết cho tất cả mọi người.'
     };
   }
@@ -639,7 +667,7 @@ function getElectionPhase(election, paused) {
       badgeClass: 'badge-paused',
       cssClass: 'phase-paused',
       infoClass: 'paused',
-      icon: '🚨',
+      icon: '',
       desc: 'Toàn bộ hệ thống đang dừng & hoãn khẩn cấp trên Smart Contract.'
     };
   }
@@ -651,7 +679,7 @@ function getElectionPhase(election, paused) {
       badgeClass: 'badge-paused',
       cssClass: 'phase-paused',
       infoClass: 'paused',
-      icon: '⏸️',
+      icon: '',
       desc: 'Ban tổ chức tạm dừng nhận phiếu bầu cho kỳ này. Giữ nguyên số phiếu đã bầu.'
     };
   }
@@ -663,7 +691,7 @@ function getElectionPhase(election, paused) {
       badgeClass: 'badge-success',
       cssClass: 'phase-active',
       infoClass: 'active',
-      icon: '🗳️',
+      icon: '',
       desc: 'Khóa quyền sửa của Admin; Cổ đông được phép Bầu chọn.'
     };
   }
@@ -677,7 +705,7 @@ function getElectionPhase(election, paused) {
         badgeClass: 'badge-warning',
         cssClass: 'phase-upcoming',
         infoClass: 'upcoming',
-        icon: '📅',
+        icon: '',
         desc: 'Chưa đến giờ mở bầu cử. Admin đang tạo ứng viên & cấp phiếu; Cổ đông & Khách chỉ xem.'
       };
     }
@@ -686,7 +714,7 @@ function getElectionPhase(election, paused) {
       badgeClass: 'badge-warning',
       cssClass: 'phase-upcoming',
       infoClass: 'upcoming',
-      icon: '⏳',
+      icon: '',
       desc: 'Đang trong giai đoạn đăng ký ứng viên & cấp phiếu. Chờ Admin kích hoạt mở phiên on-chain.'
     };
   }
@@ -697,7 +725,7 @@ function getElectionPhase(election, paused) {
     badgeClass: 'badge-warning',
     cssClass: 'phase-upcoming',
     infoClass: 'upcoming',
-    icon: '📅',
+    icon: '',
     desc: 'Admin đang chuẩn bị ứng viên & cấp phiếu; Cổ đông & Khách chỉ xem.'
   };
 }
@@ -715,7 +743,7 @@ async function loadAllElections() {
     if (sidebarTotal) sidebarTotal.textContent = count;
     const sidebarSys = document.getElementById("sidebarSystemStatus");
     if (sidebarSys) {
-      sidebarSys.textContent = isPaused ? "🛑 Tạm Dừng" : "● Hoạt động";
+      sidebarSys.textContent = isPaused ? "Tạm dừng" : "● Hoạt động";
       sidebarSys.style.color = isPaused ? "#ef4444" : "#10b981";
     }
 
@@ -982,13 +1010,13 @@ async function adminSelectElection(id) {
   const candHint = document.getElementById("candidateElectionStatusHint");
   if (candHint) {
     if (election.status === STATUS_CONTRACT.REGISTRATION && !isPaused) {
-      candHint.innerHTML = `✅ Đang chọn nạp cho: <strong>#${election.id} — ${election.title}</strong> [Chưa mở phiên]. Trạng thái on-chain cho phép Admin thêm ứng viên.`;
+      candHint.innerHTML = `Đang chọn: <strong>#${election.id} — ${election.title}</strong>. Có thể thêm ứng viên.`;
       candHint.style.color = "#15803d";
     } else if (isPaused) {
-      candHint.innerHTML = `⚠️ Toàn hệ thống đang tạm dừng khẩn cấp trên Smart Contract.`;
+      candHint.innerHTML = `Toàn hệ thống đang tạm dừng trên Smart Contract.`;
       candHint.style.color = "#b91c1c";
     } else {
-      candHint.innerHTML = `🔒 Đang chọn: <strong>#${election.id} — ${election.title}</strong> [Phiên đã mở hoặc đã kết thúc trên Smart Contract]. Form thêm ứng viên bị khóa.`;
+      candHint.innerHTML = `Đang chọn: <strong>#${election.id} — ${election.title}</strong>. Phiên đã mở hoặc kết thúc; không thể thêm ứng viên.`;
       candHint.style.color = "#b91c1c";
     }
   }
@@ -1067,7 +1095,7 @@ function updateCountdown(countdownId, endTimeId, election) {
     // 00. Trường hợp: Kỳ bị Hủy bỏ Vĩnh viễn
     if (isCancelled) {
       if (el) {
-        el.textContent = "🛑 Đã hủy vĩnh viễn";
+        el.textContent = "Đã hủy vĩnh viễn";
         el.className = "stat-value countdown-urgent";
       }
       if (endEl) {
@@ -1284,14 +1312,14 @@ async function openSnapshotModal() {
     statusBadge = `<span class="badge badge-success" style="font-size:11px;">Đã chốt on-chain • Hợp lệ</span>`;
     statusCallout = `
       <div style="display:flex; align-items:flex-start; gap:8px; color:#15803d; font-size:12.5px; margin-top:8px; background:#f0fdf4; padding:8px 10px; border-radius:6px; border:1px solid #bbf7d0;">
-        <span>✅</span> <span>Toàn bộ <strong>${balNum} CP</strong> trong ví của bạn đã được chốt hợp lệ tại block mở phiên. Bạn có đủ <strong>${maxVotes.toLocaleString()} phiếu bầu dồn</strong> để phân bổ cho các ứng viên.</span>
+        <span>Toàn bộ <strong>${balNum} CP</strong> trong ví của bạn đã được chốt hợp lệ tại block mở phiên. Bạn có đủ <strong>${maxVotes.toLocaleString()} phiếu bầu dồn</strong> để phân bổ cho các ứng viên.</span>
       </div>
     `;
   } else if (snapShares === 0 && balNum > 0) {
     statusBadge = `<span class="badge badge-danger" style="font-size:11px;">0 CP tại Snapshot</span>`;
     statusCallout = `
       <div style="display:flex; align-items:flex-start; gap:8px; color:#b91c1c; font-size:12.5px; margin-top:8px; background:#fef2f2; padding:8px 10px; border-radius:6px; border:1px solid #fecaca;">
-        <span>⚠️</span> <span><strong>Chưa có quyền biểu quyết kỳ này:</strong> Số dư ví hiện tại là <strong>${balNum} CP</strong>, nhưng số cổ phần này được cấp hoặc chuyển vào ví <em>sau thời điểm kỳ bầu cử mở phiên</em> (Snapshot Block ghi nhận 0 CP). Số cổ phần hiện tại sẽ có hiệu lực đầy đủ ở các kỳ bầu cử tiếp theo.</span>
+        <span><strong>Chưa có quyền biểu quyết kỳ này:</strong> Số dư ví hiện tại là <strong>${balNum} CP</strong>, nhưng số cổ phần này được cấp hoặc chuyển vào ví <em>sau thời điểm kỳ bầu cử mở phiên</em> (Snapshot Block ghi nhận 0 CP). Số cổ phần hiện tại sẽ có hiệu lực đầy đủ ở các kỳ bầu cử tiếp theo.</span>
       </div>
     `;
   } else if (snapShares < balNum) {
@@ -1299,14 +1327,14 @@ async function openSnapshotModal() {
     statusBadge = `<span class="badge badge-warning" style="font-size:11px;">Lệch snapshot (${snapShares}/${balNum} CP)</span>`;
     statusCallout = `
       <div style="display:flex; align-items:flex-start; gap:8px; color:#b45309; font-size:12.5px; margin-top:8px; background:#fffbeb; padding:8px 10px; border-radius:6px; border:1px solid #fde68a;">
-        <span>📌</span> <span><strong>Chênh lệch số dư Snapshot:</strong> Tại thời điểm chốt mở phiên ví chỉ có <strong>${snapShares} CP</strong> (= ${maxVotes.toLocaleString()} phiếu). Phần <strong>${diff} CP</strong> được cấp bổ sung sau khi mở phiên sẽ có hiệu lực ở các kỳ tiếp theo.</span>
+        <span><strong>Chênh lệch số dư Snapshot:</strong> Tại thời điểm chốt mở phiên ví chỉ có <strong>${snapShares} CP</strong> (= ${maxVotes.toLocaleString()} phiếu). Phần <strong>${diff} CP</strong> được cấp bổ sung sau khi mở phiên sẽ có hiệu lực ở các kỳ tiếp theo.</span>
       </div>
     `;
   } else {
     statusBadge = `<span class="badge badge-danger" style="font-size:11px;">0 Cổ phần</span>`;
     statusCallout = `
       <div style="display:flex; align-items:flex-start; gap:8px; color:#475569; font-size:12.5px; margin-top:8px; background:#f1f5f9; padding:8px 10px; border-radius:6px; border:1px solid #cbd5e1;">
-        <span>🪙</span> <span>Ví của bạn hiện chưa sở hữu token cổ phần (0 CP). Cần liên hệ Quản trị viên để được cấp phát cổ phần trước khi phiên bầu cử diễn ra.</span>
+        <span>Ví của bạn hiện chưa sở hữu token cổ phần (0 CP). Cần liên hệ Quản trị viên để được cấp phát cổ phần trước khi phiên bầu cử diễn ra.</span>
       </div>
     `;
   }
@@ -1314,7 +1342,7 @@ async function openSnapshotModal() {
   if (card) {
     card.innerHTML = `
       <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px; margin-bottom:10px; padding-bottom:8px; border-bottom:1px solid #e2e8f0;">
-        <span style="font-weight:700; color:#1e293b; font-size:13.5px;">📍 ${electionLabel}</span>
+        <span style="font-weight:700; color:#1e293b; font-size:13.5px;">${electionLabel}</span>
         ${statusBadge}
       </div>
       <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap:10px; font-size:13px;">
@@ -1415,7 +1443,7 @@ async function updateAccountCard() {
             setText("formulaDesc", `= ${snapShares} CP (snapshot) × ${election.seats} ghế (Ví có ${balNum} CP)`);
             if (diffNoteEl) {
               diffNoteEl.style.display = "block";
-              diffNoteEl.innerHTML = `📌 <strong>Lưu ý:</strong> Kỳ #${election.id} chốt danh sách khi mở phiên (${snapShares} CP). Phần ${Math.abs(balNum - snapShares)} CP cấp bổ sung sau khi mở phiên sẽ có hiệu lực ở kỳ tiếp theo.`;
+              diffNoteEl.innerHTML = `<strong>Lưu ý:</strong> Kỳ #${election.id} chốt danh sách khi mở phiên (${snapShares} CP). Phần ${Math.abs(balNum - snapShares)} CP cấp bổ sung sau khi mở phiên sẽ có hiệu lực ở kỳ tiếp theo.`;
             }
           } else {
             setText("formulaDesc", `= ${snapShares} CP × ${election.seats} ghế HĐQT`);
@@ -1473,10 +1501,10 @@ function updateAdminControls(status, paused, electionObj) {
     btnPause.disabled = false;
     if (paused) {
       btnPause.className = "btn btn-success";
-      btnPause.innerHTML = "▶️ Kích Hoạt Lại Toàn Bộ Hệ Thống (Unpause All)";
+      btnPause.innerHTML = "Kích hoạt lại toàn bộ hệ thống";
     } else {
       btnPause.className = "btn btn-danger";
-      btnPause.innerHTML = "🚨 Dừng Khẩn Cấp Toàn Bộ Hệ Thống (Tất Cả Cuộc Bầu Cử)";
+      btnPause.innerHTML = "Dừng khẩn cấp toàn bộ hệ thống";
     }
   }
 
@@ -1485,13 +1513,13 @@ function updateAdminControls(status, paused, electionObj) {
     if (btnAddCandidate) btnAddCandidate.disabled = paused;
     if (addCandidateLock) {
       addCandidateLock.style.display = paused ? "block" : "none";
-      if (paused) addCandidateLock.textContent = "🔒 Toàn hệ thống đang tạm dừng khẩn cấp!";
+      if (paused) addCandidateLock.textContent = "Toàn hệ thống đang tạm dừng khẩn cấp!";
     }
   } else {
     if (btnAddCandidate) btnAddCandidate.disabled = true;
     if (addCandidateLock) {
       addCandidateLock.style.display = "block";
-      addCandidateLock.textContent = "🔒 Đã khóa quyền sửa ứng viên vì phiên đang diễn ra hoặc đã kết thúc!";
+      addCandidateLock.textContent = "Đã khóa quyền sửa ứng viên vì phiên đang diễn ra hoặc đã kết thúc!";
     }
   }
 
@@ -1526,15 +1554,15 @@ function updateAdminPreflightChecklist(status, paused, election) {
     preflightBox.style.display = "block";
     if (badge) {
       badge.className = "badge badge-danger";
-      badge.textContent = "🛑 Đã hủy vĩnh viễn";
+      badge.textContent = "Đã hủy vĩnh viễn";
     }
     if (btnStart) {
       btnStart.disabled = true;
       btnStart.style.opacity = "0.5";
-      btnStart.innerHTML = "🛑 Cuộc Bầu Cử Đã Bị Hủy Bỏ Vĩnh Viễn";
+      btnStart.innerHTML = "Cuộc bầu cử đã bị hủy vĩnh viễn";
     }
     if (notice) {
-      notice.innerHTML = `⚠️ <strong>Kỳ này đã bị hủy bỏ vĩnh viễn:</strong> ${escapeHtml(phase.desc)}`;
+      notice.innerHTML = `<strong>Kỳ này đã bị hủy bỏ vĩnh viễn:</strong> ${escapeHtml(phase.desc)}`;
     }
     return;
   }
@@ -1549,12 +1577,12 @@ function updateAdminPreflightChecklist(status, paused, election) {
     if (btnStart) {
       btnStart.disabled = true;
       btnStart.style.opacity = "0.5";
-      btnStart.innerHTML = status === STATUS_CONTRACT.VOTING ? "🗳️ Đang trong thời gian bỏ phiếu" : "✅ Phiên đã kết thúc";
+      btnStart.innerHTML = status === STATUS_CONTRACT.VOTING ? "Đang trong thời gian bỏ phiếu" : "Phiên đã kết thúc";
     }
     if (notice) {
       notice.innerHTML = status === STATUS_CONTRACT.VOTING 
-        ? "ℹ️ Cuộc bầu cử này đã được kích hoạt thành công trên Smart Contract và đã chốt snapshot quyền biểu quyết."
-        : "ℹ️ Cuộc bầu cử này đã đóng phiên bỏ phiếu.";
+        ? "Cuộc bầu cử đã được kích hoạt trên Smart Contract và đã chốt snapshot quyền biểu quyết."
+        : "Cuộc bầu cử đã đóng phiên bỏ phiếu.";
     }
     return;
   }
@@ -1572,10 +1600,10 @@ function updateAdminPreflightChecklist(status, paused, election) {
   const condCandidate = candidateCount >= seats;
   if (condCandidate) {
     if (cardCand) cardCand.style.borderColor = "#10b981";
-    if (descCand) descCand.innerHTML = `<span style="color:#059669; font-weight:600;">✅ Đạt (${candidateCount}/${seats} ứng viên)</span>`;
+    if (descCand) descCand.innerHTML = `<span style="color:#059669; font-weight:600;">Đạt (${candidateCount}/${seats} ứng viên)</span>`;
   } else {
     if (cardCand) cardCand.style.borderColor = "#ef4444";
-    if (descCand) descCand.innerHTML = `<span style="color:#dc2626; font-weight:600;">❌ Chưa đạt: Có ${candidateCount}/${seats} ứng viên (Cần thêm ít nhất ${seats - candidateCount} người)</span>`;
+    if (descCand) descCand.innerHTML = `<span style="color:#dc2626; font-weight:600;">Chưa đạt: ${candidateCount}/${seats} ứng viên (Cần thêm ${seats - candidateCount})</span>`;
   }
 
   // Điều kiện 2: Thời gian bắt đầu
@@ -1583,16 +1611,16 @@ function updateAdminPreflightChecklist(status, paused, election) {
   if (startTs > 0) {
     if (now >= startTs) {
       if (cardTime) cardTime.style.borderColor = "#10b981";
-      if (descTime) descTime.innerHTML = `<span style="color:#059669; font-weight:600;">✅ Đã đến giờ hẹn bắt đầu</span>`;
+      if (descTime) descTime.innerHTML = `<span style="color:#059669; font-weight:600;">Đã đến giờ bắt đầu</span>`;
     } else {
       condTime = false;
       const waitMin = Math.ceil((startTs - now) / 60);
       if (cardTime) cardTime.style.borderColor = "#f59e0b";
-      if (descTime) descTime.innerHTML = `<span style="color:#d97706; font-weight:600;">⏳ Chưa đến giờ hẹn (Còn ~${waitMin} phút)</span>`;
+      if (descTime) descTime.innerHTML = `<span style="color:#d97706; font-weight:600;">Chưa đến giờ hẹn (còn khoảng ${waitMin} phút)</span>`;
     }
   } else {
     if (cardTime) cardTime.style.borderColor = "#10b981";
-    if (descTime) descTime.innerHTML = `<span style="color:#059669; font-weight:600;">✅ Không hẹn giờ (Mở bất kỳ lúc nào)</span>`;
+    if (descTime) descTime.innerHTML = `<span style="color:#059669; font-weight:600;">Không hẹn giờ (có thể mở bất cứ lúc nào)</span>`;
   }
 
   // Điều kiện 3: Trạng thái hệ thống & hoãn
@@ -1600,14 +1628,14 @@ function updateAdminPreflightChecklist(status, paused, election) {
   if (paused) {
     condSystem = false;
     if (cardSys) cardSys.style.borderColor = "#ef4444";
-    if (descSys) descSys.innerHTML = `<span style="color:#dc2626; font-weight:600;">❌ Toàn hệ thống đang tạm dừng</span>`;
+    if (descSys) descSys.innerHTML = `<span style="color:#dc2626; font-weight:600;">Toàn hệ thống đang tạm dừng</span>`;
   } else if (isPostponed) {
     condSystem = false;
     if (cardSys) cardSys.style.borderColor = "#f59e0b";
-    if (descSys) descSys.innerHTML = `<span style="color:#d97706; font-weight:600;">⏸️ Đang bị tạm hoãn mở</span>`;
+    if (descSys) descSys.innerHTML = `<span style="color:#d97706; font-weight:600;">Đang tạm hoãn</span>`;
   } else {
     if (cardSys) cardSys.style.borderColor = "#10b981";
-    if (descSys) descSys.innerHTML = `<span style="color:#059669; font-weight:600;">✅ Hệ thống sẵn sàng</span>`;
+    if (descSys) descSys.innerHTML = `<span style="color:#059669; font-weight:600;">Hệ thống sẵn sàng</span>`;
   }
 
   // Đánh giá tổng thể
@@ -1617,31 +1645,31 @@ function updateAdminPreflightChecklist(status, paused, election) {
   if (readyToStart) {
     if (badge) {
       badge.className = "badge badge-success";
-      badge.textContent = "✅ Đủ điều kiện mở phiên";
+      badge.textContent = "Đủ điều kiện mở phiên";
     }
     if (btnStart) {
       btnStart.disabled = false;
       btnStart.style.opacity = "1";
       btnStart.className = "btn btn-success";
-      btnStart.innerHTML = "<span>🚀</span> Mở Phiên Bỏ Phiếu Ngay";
+      btnStart.innerHTML = "Mở phiên bỏ phiếu";
     }
     if (notice) {
       if (!condTime) {
-        notice.innerHTML = `💡 Chưa đến giờ hẹn nhưng <strong>đã đủ ứng viên</strong>. Admin có thể bấm <strong>"Mở Phiên Bỏ Phiếu Ngay"</strong> trước giờ hẹn nếu muốn!`;
+        notice.innerHTML = `Chưa đến giờ hẹn nhưng <strong>đã đủ ứng viên</strong>. Quản trị viên có thể mở phiên trước giờ hẹn.`;
       } else {
-        notice.innerHTML = `💡 Đã đủ điều kiện! Bấm <strong>"Mở Phiên Bỏ Phiếu Ngay"</strong> để chốt snapshot cổ phần và mở cho cổ đông bỏ phiếu.`;
+        notice.innerHTML = `Đã đủ điều kiện. Mở phiên để chốt snapshot cổ phần và bắt đầu bỏ phiếu.`;
       }
     }
   } else {
     if (badge) {
       badge.className = "badge badge-danger";
-      badge.textContent = "❌ Chưa đủ điều kiện";
+      badge.textContent = "Chưa đủ điều kiện";
     }
     if (btnStart) {
       btnStart.disabled = true;
       btnStart.style.opacity = "0.5";
       btnStart.className = "btn btn-outline";
-      btnStart.innerHTML = "<span>⚠️</span> Chưa Thể Mở Phiên";
+      btnStart.innerHTML = "Chưa thể mở phiên";
     }
     if (notice) {
       if (!condCandidate) {
@@ -1666,11 +1694,11 @@ function toggleAdminCandidateTable() {
   const isHidden = window.getComputedStyle(section).display === "none";
   if (isHidden) {
     section.style.display = "block";
-    if (btn) btn.innerHTML = "👁️ Thu gọn";
+    if (btn) btn.innerHTML = "Thu gọn";
     section.scrollIntoView({ behavior: "smooth", block: "nearest" });
   } else {
     section.style.display = "none";
-    if (btn) btn.innerHTML = "👁️ Xem chi tiết";
+    if (btn) btn.innerHTML = "Xem chi tiết";
   }
 }
 
@@ -1688,7 +1716,7 @@ function formatIpfsLink(cid) {
     <a href="${url}" target="_blank" rel="noopener noreferrer" 
        title="Mở hồ sơ trên IPFS Gateway (${cid})" 
        style="display:inline-flex;align-items:center;gap:4px;font-family:monospace;font-size:12px;background:#eff6ff;color:#1d4ed8;padding:3px 8px;border-radius:4px;border:1px solid #bfdbfe;text-decoration:none;font-weight:600;">
-      📄 ${shortCid} <span style="font-size:10px;">↗</span>
+      CID ${shortCid} <span style="font-size:10px;">↗</span>
     </a>
   `;
 }
@@ -1768,21 +1796,21 @@ async function loadCandidatesAndVoting(election) {
   const isCancelled = phase.isCancelled || phase.label === 'Đã hủy vĩnh viễn';
 
   if (isCancelled) {
-    if (votedBadge) { votedBadge.textContent = "🛑 Đã hủy vĩnh viễn"; votedBadge.className = "badge badge-danger"; }
-    if (submitBtn)  { submitBtn.disabled = true; submitBtn.innerHTML = "🛑 Cuộc Bầu Cử Đã Bị Hủy Bỏ Vĩnh Viễn"; }
+    if (votedBadge) { votedBadge.textContent = "Đã hủy vĩnh viễn"; votedBadge.className = "badge badge-danger"; }
+    if (submitBtn)  { submitBtn.disabled = true; submitBtn.innerHTML = "Cuộc bầu cử đã bị hủy vĩnh viễn"; }
     if (receiptBox) { receiptBox.style.display = "none"; }
     if (blockedBox) {
       blockedBox.style.display = "flex";
       blockedBox.className = "status-info-box paused";
       const blockedTitle = document.getElementById("voterBlockedTitle");
       const blockedDesc  = document.getElementById("voterBlockedDesc");
-      if (blockedTitle) blockedTitle.textContent = "🛑 Cuộc bầu cử đã bị hủy bỏ vĩnh viễn";
+      if (blockedTitle) blockedTitle.textContent = "Cuộc bầu cử đã bị hủy bỏ vĩnh viễn";
       if (blockedDesc)  blockedDesc.textContent  = phase.desc;
     }
     if (voteDesc) voteDesc.style.display = "none";
   } else if (hasVoted) {
-    if (votedBadge) { votedBadge.textContent = "✅ Đã bỏ phiếu"; votedBadge.className = "badge badge-success"; }
-    if (submitBtn)  { submitBtn.disabled = true; submitBtn.innerHTML = "✅ Bạn Đã Hoàn Thành Bỏ Phiếu"; }
+    if (votedBadge) { votedBadge.textContent = "Đã bỏ phiếu"; votedBadge.className = "badge badge-success"; }
+    if (submitBtn)  { submitBtn.disabled = true; submitBtn.innerHTML = "Bạn đã hoàn thành bỏ phiếu"; }
     if (blockedBox) { blockedBox.style.display = "none"; }
     if (voteDesc)   { voteDesc.style.display = "none"; }
 
@@ -1794,7 +1822,7 @@ async function loadCandidatesAndVoting(election) {
         <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px;">
           <div>
             <div style="font-weight:700; color:#15803d; font-size:15px; display:flex; align-items:center; gap:6px;">
-              <span>✅</span> <span>BẠN ĐÃ HOÀN THÀNH BỎ PHIẾU CHO KỲ NÀY</span>
+              <span>BẠN ĐÃ HOÀN THÀNH BỎ PHIẾU CHO KỲ NÀY</span>
             </div>
             <div style="font-size:13px; color:#166534; margin-top:4px;">
               Tổng số phiếu đã phân bổ: <strong style="font-size:14px; color:#15803d;">${votesDisp} / ${allowedVotes} phiếu</strong>
@@ -1807,7 +1835,7 @@ async function loadCandidatesAndVoting(election) {
             ` : ''}
           </div>
           <button type="button" class="btn btn-outline btn-sm" onclick="switchTab('voterHistoryTab', document.querySelector('[onclick*=\\'voterHistoryTab\\']'))" style="border-color:#16a34a; color:#15803d; font-weight:600;">
-            📋 Xem Nhật Ký Bỏ Phiếu Chi Tiết
+            Xem lịch sử bỏ phiếu
           </button>
         </div>
       `;
@@ -1819,7 +1847,7 @@ async function loadCandidatesAndVoting(election) {
         votedBadge.textContent = phase.label;
         votedBadge.className = `badge ${phase.badgeClass}`;
       }
-      if (submitBtn)  { submitBtn.disabled = true; submitBtn.innerHTML = "🗳️ Ký &amp; Gửi Phiếu Bầu Lên Blockchain"; }
+      if (submitBtn)  { submitBtn.disabled = true; submitBtn.innerHTML = "Ký &amp; gửi phiếu bầu"; }
       if (blockedBox) {
         blockedBox.style.display = "flex";
         const blockedTitle = document.getElementById("voterBlockedTitle");
@@ -1831,7 +1859,7 @@ async function loadCandidatesAndVoting(election) {
       if (voteDesc) voteDesc.style.display = "none";
     } else if (allowedVotes === 0) {
       if (votedBadge) { votedBadge.textContent = "0 phiếu tại snapshot"; votedBadge.className = "badge badge-danger"; }
-      if (submitBtn)  { submitBtn.disabled = true; submitBtn.innerHTML = "🚫 Không Có Quyền Biểu Quyết Kỳ Này"; }
+      if (submitBtn)  { submitBtn.disabled = true; submitBtn.innerHTML = "Không có quyền biểu quyết kỳ này"; }
       if (blockedBox) {
         blockedBox.style.display = "flex";
         blockedBox.className = "status-info-box paused";
@@ -1846,7 +1874,7 @@ async function loadCandidatesAndVoting(election) {
       if (voteDesc) voteDesc.style.display = "none";
     } else {
       if (votedBadge) { votedBadge.textContent = "Chưa bỏ phiếu"; votedBadge.className = "badge badge-primary"; }
-      if (submitBtn)  { submitBtn.disabled = false; submitBtn.innerHTML = "🗳️ Ký &amp; Gửi Phiếu Bầu Lên Blockchain"; }
+      if (submitBtn)  { submitBtn.disabled = false; submitBtn.innerHTML = "Ký &amp; gửi phiếu bầu"; }
       if (blockedBox) blockedBox.style.display = "none";
       if (voteDesc)   voteDesc.style.display = "";
     }
@@ -1863,7 +1891,7 @@ async function loadCandidatesAndVoting(election) {
       if (snapShares !== curBal) {
         snapNotice.style.display = "block";
         snapNotice.innerHTML = `
-          📌 <strong>Cơ chế Chốt Snapshot On-Chain (${escapeHtml(election.title)}):</strong><br>
+          <strong>Cơ chế Snapshot On-Chain (${escapeHtml(election.title)}):</strong><br>
           Quyền biểu quyết của kỳ này được chốt tại block mở phiên với <strong>${snapShares} CP</strong> 
           (= <strong>${snapShares} CP × ${election.seats} ghế = ${allowedVotes.toLocaleString()} phiếu</strong>).<br>
           Số dư ví hiện tại của bạn là <strong>${curBal} CP</strong>. 
@@ -1899,7 +1927,7 @@ async function loadCandidatesAndVoting(election) {
     if (hasVoted) {
       voteColumnHtml = (userVotedAmount > 0)
         ? `<div style="font-size:14px; font-weight:700; color:#15803d; display:flex; align-items:center; gap:6px;">
-             <span>🗳️</span> <span>Đã dồn: <strong>${userVotedAmount}</strong> phiếu</span>
+             <span>Đã dồn: <strong>${userVotedAmount}</strong> phiếu</span>
            </div>`
         : `<span style="font-size:12.5px; color:var(--text-muted); font-style:italic;">-- 0 phiếu --</span>`;
     } else {
@@ -1977,7 +2005,7 @@ function calculateAllocatedVotes() {
     if (box)  box.className = "vote-calc-box";
     if (fill) { fill.className = "vote-progress-fill"; fill.style.width = "0%"; }
     if (remTextEl) remTextEl.innerHTML = `<span style="color:var(--danger);font-weight:600;">Bạn có 0 phiếu biểu quyết tại kỳ này (do snapshot chốt 0 CP).</span>`;
-    if (submitBtn) { submitBtn.disabled = true; submitBtn.innerHTML = "🚫 Không Có Quyền Biểu Quyết Kỳ Này"; }
+    if (submitBtn) { submitBtn.disabled = true; submitBtn.innerHTML = "Không có quyền biểu quyết kỳ này"; }
     return;
   }
 
@@ -1995,7 +2023,7 @@ function calculateAllocatedVotes() {
     if (submitBtn) {
       if (totalAllocated > 0 && ph && ph.label === "Đang diễn ra" && !isPaused) {
         submitBtn.disabled = false;
-        submitBtn.innerHTML = "🗳️ Ký &amp; Gửi Phiếu Bầu Lên Blockchain";
+        submitBtn.innerHTML = "Ký &amp; gửi phiếu bầu";
       } else {
         submitBtn.disabled = true;
       }
@@ -2068,7 +2096,7 @@ async function submitVote() {
     console.error("Lỗi bỏ phiếu:", err);
     showToast("Bỏ phiếu thất bại: " + parseErrorMessage(err), "danger");
     const submitBtn = document.getElementById("btnSubmitVote");
-    if (submitBtn) { submitBtn.disabled = false; submitBtn.innerHTML = "🗳️ Ký &amp; Gửi Phiếu Bầu Lên Blockchain"; }
+    if (submitBtn) { submitBtn.disabled = false; submitBtn.innerHTML = "Ký &amp; gửi phiếu bầu"; }
   }
 }
 
@@ -2183,7 +2211,6 @@ async function checkAndRenderElectedShareholderNotice() {
     <div style="background: linear-gradient(135deg, #fefce8 0%, #fef3c7 100%); border: 2px solid #f59e0b; border-radius: 12px; padding: 16px 20px; margin-bottom: 14px; box-shadow: 0 4px 16px rgba(245, 158, 11, 0.15); position: relative;">
       <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px;">
         <div style="display: flex; align-items: center; gap: 14px;">
-          <span style="font-size: 34px;">🏆</span>
           <div>
             <div style="font-size: 16px; font-weight: 800; color: #92400e; display: flex; align-items: center; gap: 6px;">
               <span>CHÚC MỪNG BẠN ĐÃ TRÚNG CỬ THÀNH VIÊN HỘI ĐỒNG QUẢN TRỊ!</span>
@@ -2194,7 +2221,7 @@ async function checkAndRenderElectedShareholderNotice() {
           </div>
         </div>
         <button type="button" class="btn btn-warning" onclick="openElectionScoreboardModal(${w.election.id})" style="font-weight: 700; background: #f59e0b; border-color: #d97706; color: #fff; box-shadow: 0 2px 8px rgba(217,119,6,0.25);">
-          📊 Xem Bảng Điểm Kỳ #${w.election.id}
+          Xem bảng điểm kỳ #${w.election.id}
         </button>
       </div>
     </div>
@@ -2216,7 +2243,6 @@ async function loadVoteHistory() {
       <div style="background: linear-gradient(135deg, #fefce8 0%, #fef3c7 100%); border: 2px solid #f59e0b; border-radius: 12px; padding: 16px 20px; margin-bottom: 22px; box-shadow: 0 4px 14px rgba(245,158,11,0.12);">
         <div style="font-size: 15.5px; font-weight: 800; color: #92400e; margin-bottom: 6px; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px;">
           <div style="display: flex; align-items: center; gap: 8px;">
-            <span style="font-size: 22px;">🏆</span>
             <span>KẾT QUẢ ĐẮC CỬ HỘI ĐỒNG QUẢN TRỊ CỦA BẠN (${wins.length} KỲ TRÚNG CỬ)</span>
           </div>
           <span style="font-size: 12px; font-weight: 700; color: #b45309; background: #fff; border: 1px solid #fde68a; padding: 3px 10px; border-radius: 20px;">
@@ -2231,7 +2257,7 @@ async function loadVoteHistory() {
             <div style="display: flex; align-items: center; justify-content: space-between; background: #fff; border: 1px solid #fde68a; border-radius: 8px; padding: 10px 14px; flex-wrap: wrap; gap: 10px;">
               <div>
                 <div style="font-weight: 800; color: #0f172a; font-size: 14px;">
-                  🥇 Kỳ #${w.election.id}: ${escapeHtml(w.election.title)} (${w.election.seats} ghế HĐQT)
+                  Kỳ #${w.election.id}: ${escapeHtml(w.election.title)} (${w.election.seats} ghế HĐQT)
                 </div>
                 <div style="font-size: 12px; color: #64748b; margin-top: 2px;">
                   Tên ứng viên: <strong>${escapeHtml(w.candidate.name)}</strong> • Xếp hạng: <strong>Hạng #${w.rank}</strong> • Ngày chốt kết quả: ${w.election.endTime > 0 ? new Date(w.election.endTime * 1000).toLocaleDateString('vi-VN') : '--'}
@@ -2240,10 +2266,10 @@ async function loadVoteHistory() {
               <div style="display: flex; align-items: center; gap: 12px;">
                 <div style="text-align: right;">
                   <div style="font-size: 15px; font-weight: 800; color: #059669;">${w.candidate.votes} phiếu</div>
-                  <div style="font-size: 11px; font-weight: 700; color: #92400e;">🏆 ĐẮC CỬ HĐQT</div>
+                  <div style="font-size: 11px; font-weight: 700; color: #92400e;">ĐẮC CỬ HĐQT</div>
                 </div>
                 <button type="button" class="btn btn-outline btn-sm" onclick="openElectionScoreboardModal(${w.election.id})" style="border-color: #f59e0b; color: #b45309; font-weight: 700;">
-                  📊 Xem Bảng Điểm
+                  Xem bảng điểm
                 </button>
               </div>
             </div>
@@ -2256,7 +2282,6 @@ async function loadVoteHistory() {
   if (history.length === 0 && wins.length === 0) {
     container.innerHTML = `
       <div class="history-empty">
-        <div class="history-icon">📋</div>
         <div>Chưa có lịch sử bỏ phiếu hoặc đắc cử nào cho ví này. Hãy tham gia bỏ phiếu để đối chiếu!</div>
       </div>`;
     return;
@@ -2277,7 +2302,7 @@ async function loadVoteHistory() {
           <td><strong style="color:var(--primary); font-size:15px;">${h.totalVotes}</strong> phiếu</td>
           <td>
             ${h.txHash
-              ? `<a class="tx-link" href="javascript:void(0)" onclick="copyToClipboard('${h.txHash}')" title="Sao chép toàn bộ Transaction Hash: ${h.txHash}">${shortHash} 📋 Copy</a>`
+              ? `<a class="tx-link" href="javascript:void(0)" onclick="copyToClipboard('${h.txHash}')" title="Sao chép toàn bộ Transaction Hash: ${h.txHash}">${shortHash} Copy</a>`
               : "--"
             }
           </td>
@@ -2288,7 +2313,7 @@ async function loadVoteHistory() {
 
     tableHtml = `
       <div style="font-weight: 700; font-size: 14px; color: #0f172a; margin-bottom: 8px;">
-        📋 Lịch Sử Các Lần Bỏ Phiếu Của Bạn:
+        Lịch sử bỏ phiếu
       </div>
       <div class="table-container">
         <table>
@@ -2305,7 +2330,7 @@ async function loadVoteHistory() {
         </table>
       </div>
       <p style="font-size:12px;color:var(--text-muted);margin-top:10px;">
-        💡 Dữ liệu đối chiếu được lưu trữ theo địa chỉ ví. Nhấp <strong>Copy</strong> để lấy toàn bộ mã Transaction Hash và tra cứu trên blockchain.
+        Dữ liệu đối chiếu được lưu theo địa chỉ ví. Chọn <strong>Copy</strong> để lấy mã giao dịch và tra cứu trên blockchain.
       </p>
     `;
   }
@@ -2330,7 +2355,7 @@ async function openElectionScoreboardModal(electionId) {
   }
 
   const phase = getElectionPhase(election, isPaused);
-  setText("scoreboardModalTitle", `📊 Bảng Điểm Chi Tiết & Kết Quả Chốt Sổ: ${election.title} (Kỳ #${election.id})`);
+  setText("scoreboardModalTitle", `Bảng điểm & kết quả: ${election.title} (Kỳ #${election.id})`);
   setText("scoreboardModalSubtitle", `Trạng thái: ${phase.label} • Tổ chức bởi Ban Quản Trị Công Ty`);
 
   const badgeEl = document.getElementById("scoreboardPhaseBadge");
@@ -2392,7 +2417,6 @@ async function openElectionScoreboardModal(electionId) {
       winnersCard.innerHTML = `
         <div style="background: linear-gradient(135deg, #fefce8 0%, #fef3c7 100%); border: 2px solid #f59e0b; border-radius: 10px; padding: 14px 18px; box-shadow: 0 4px 12px rgba(245,158,11,0.12);">
           <div style="font-weight: 800; font-size: 14.5px; color: #92400e; margin-bottom: 8px; display: flex; align-items: center; gap: 8px;">
-            <span style="font-size: 20px;">🏆</span>
             <span>DANH SÁCH THÀNH VIÊN TRÚNG CỬ HỘI ĐỒNG QUẢN TRỊ (${winnerCands.length}/${election.seats} GHẾ)</span>
           </div>
           <div style="font-size: 12.5px; color: #78350f; margin-bottom: 10px; line-height: 1.4;">
@@ -2402,7 +2426,7 @@ async function openElectionScoreboardModal(electionId) {
             ${winnerCands.map((w, idx) => `
               <div style="display: flex; align-items: center; justify-content: space-between; background: #fff; border: 1px solid #fde68a; border-radius: 6px; padding: 8px 12px;">
                 <div style="display: flex; align-items: center; gap: 10px;">
-                  <span style="font-size: 16px;">${idx === 0 ? "🥇" : idx === 1 ? "🥈" : idx === 2 ? "🥉" : "🎖️"}</span>
+                  <span style="font-size: 13px; font-weight:700;">#${idx + 1}</span>
                   <div>
                     <strong style="color: #0f172a; font-size: 13.5px;">${escapeHtml(w.name)}</strong>
                     <div style="font-size: 11px; color: #64748b;">Mã ID #${w.id}</div>
@@ -2410,7 +2434,7 @@ async function openElectionScoreboardModal(electionId) {
                 </div>
                 <div style="text-align: right;">
                   <span style="font-weight: 800; color: #059669; font-size: 14px;">${w.votes} phiếu</span>
-                  <div style="font-size: 11px; color: #92400e; font-weight: 700;">🏆 ĐẮC CỬ HĐQT</div>
+                  <div style="font-size: 11px; color: #92400e; font-weight: 700;">ĐẮC CỬ HĐQT</div>
                 </div>
               </div>
             `).join("")}
@@ -2421,7 +2445,7 @@ async function openElectionScoreboardModal(electionId) {
       winnersCard.style.display = "block";
       winnersCard.innerHTML = `
         <div style="background: #fff1f2; border: 1.5px solid #f43f5e; border-radius: 10px; padding: 12px 16px; color: #9f1239; font-size: 13px; line-height: 1.5;">
-          🛑 <strong>Kỳ bầu cử đã bị hủy bỏ vĩnh viễn:</strong> Toàn bộ kết quả và phiếu bầu của kỳ này đã bị vô hiệu hóa pháp lý hoàn toàn.
+          <strong>Kỳ bầu cử đã bị hủy vĩnh viễn:</strong> Toàn bộ kết quả và phiếu bầu của kỳ này đã bị vô hiệu hóa.
         </div>
       `;
     } else {
@@ -2436,17 +2460,17 @@ async function openElectionScoreboardModal(electionId) {
       const pct = totalAllVotes > 0 ? Math.round((cand.votes / totalAllVotes) * 100) : 0;
       let statusBadge;
       if (election.status === STATUS_CONTRACT.CLOSED && winners.includes(cand.id)) {
-        statusBadge = `<span class="badge badge-success">🏆 ĐẮC CỬ HĐQT</span>`;
+        statusBadge = `<span class="badge badge-success">Đắc cử HĐQT</span>`;
       } else if (election.status === STATUS_CONTRACT.CLOSED) {
         statusBadge = `<span class="badge badge-secondary">Không đắc cử</span>`;
       } else if (election.status === STATUS_CONTRACT.VOTING && rank < election.seats && cand.votes > 0) {
-        statusBadge = `<span class="badge badge-primary">📈 Tạm dẫn đầu</span>`;
+        statusBadge = `<span class="badge badge-primary">Tạm dẫn đầu</span>`;
       } else {
         statusBadge = `<span class="badge badge-secondary">Đang tranh cử</span>`;
       }
 
       const ipfsDisplay = formatIpfsLink(cand.profileCid);
-      const rankIcon = rank === 0 ? "🥇" : rank === 1 ? "🥈" : rank === 2 ? "🥉" : `#${rank + 1}`;
+      const rankIcon = `#${rank + 1}`;
       return `
         <tr>
           <td><strong>${rankIcon}</strong></td>
@@ -2552,14 +2576,14 @@ async function loadResults(forcedEid) {
     const pct = totalAllVotes > 0 ? Math.round((cand.votes / totalAllVotes) * 100) : 0;
     let statusBadge;
     if (election.status === STATUS_CONTRACT.CLOSED && winners.includes(cand.id))
-      statusBadge = `<span class="badge badge-success">🏆 ĐẮC CỬ HĐQT</span>`;
+      statusBadge = `<span class="badge badge-success">Đắc cử HĐQT</span>`;
     else if (election.status === STATUS_CONTRACT.VOTING && rank < election.seats && cand.votes > 0)
-      statusBadge = `<span class="badge badge-primary">📈 Tạm dẫn đầu</span>`;
+      statusBadge = `<span class="badge badge-primary">Tạm dẫn đầu</span>`;
     else
       statusBadge = `<span class="badge badge-secondary">Đang tranh cử</span>`;
 
     const ipfsDisplay = formatIpfsLink(cand.profileCid);
-    const rankIcon = rank === 0 ? "🥇" : rank === 1 ? "🥈" : rank === 2 ? "🥉" : `#${rank + 1}`;
+    const rankIcon = `#${rank + 1}`;
     return `
       <tr>
         <td><strong>${rankIcon}</strong></td>
@@ -2623,12 +2647,12 @@ async function renderAllElectionsResults(containerId) {
           const pct = totalVotes > 0 ? Math.round((c.votes / totalVotes) * 100) : 0;
           let badge;
           if (election.status === STATUS_CONTRACT.CLOSED && winners.includes(c.id))
-            badge = `<span class="badge badge-success">🏆 Đắc Cử</span>`;
+            badge = `<span class="badge badge-success">Đắc cử</span>`;
           else if (election.status === STATUS_CONTRACT.VOTING && rank < election.seats && c.votes > 0)
-            badge = `<span class="badge badge-primary">📈 Dẫn đầu</span>`;
+            badge = `<span class="badge badge-primary">Dẫn đầu</span>`;
           else
             badge = `<span class="badge badge-secondary">Tranh cử</span>`;
-          const rankIcon = rank === 0 ? "🥇" : rank === 1 ? "🥈" : rank === 2 ? "🥉" : `#${rank+1}`;
+          const rankIcon = `#${rank + 1}`;
           return `<tr>
             <td>${rankIcon}</td>
             <td><strong>${c.name}</strong><div style="font-size:11px;color:var(--text-muted);">ID #${c.id}</div></td>
@@ -2645,7 +2669,7 @@ async function renderAllElectionsResults(containerId) {
           </tr>`;
         }).join("");
         resultHtml = `
-          ${isTied ? `<div class="tied-warning" style="display:block;margin-bottom:10px;">⚠️ Phát hiện đồng phiếu ở vị trí cuối cùng!</div>` : ""}
+          ${isTied ? `<div class="tied-warning" style="display:block;margin-bottom:10px;">Phát hiện đồng phiếu ở vị trí cuối cùng.</div>` : ""}
           <div class="table-container"><table>
             <thead><tr><th style="width:50px">Hạng</th><th>Ứng viên</th><th>Số phiếu</th><th>Tỷ lệ</th><th>Trạng thái</th></tr></thead>
             <tbody>${rows}</tbody>
@@ -2671,14 +2695,14 @@ async function renderAllElectionsResults(containerId) {
       };">
         <div style="display:flex;align-items:flex-start;justify-content:space-between;flex-wrap:wrap;gap:10px;margin-bottom:16px;">
           <div>
-            <div style="font-size:17px;font-weight:800;color:#0f172a;">${phase.icon} ${election.title}</div>
+            <div style="font-size:17px;font-weight:800;color:#0f172a;">${election.title}</div>
             <div style="font-size:12px;color:var(--text-muted);margin-top:3px;">
               Cuộc bầu cử #${election.id} • ${election.seats} ghế HĐQT • Kết thúc: ${endTimeStr}
             </div>
           </div>
           <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
             <button type="button" class="btn btn-outline btn-sm" onclick="openElectionScoreboardModal(${election.id})" style="font-size:12px;font-weight:700;border-color:#3b82f6;color:#2563eb;">
-              📊 Xem Chi Tiết Bảng Điểm Kỳ #${election.id}
+              Xem bảng điểm kỳ #${election.id}
             </button>
             <span class="badge ${phase.badgeClass}" style="font-size:13px;padding:5px 14px;">${phase.label}</span>
           </div>
@@ -2738,25 +2762,24 @@ async function renderAdminUnifiedElectionList() {
       globalHint.style.background = "#fef2f2";
       globalHint.style.borderColor = "#fecaca";
       globalHint.style.color = "#991b1b";
-      globalHint.innerHTML = "🚨 Trạng thái hiện tại: <strong>HỆ THỐNG ĐANG DỪNG KHẨN CẤP TRÊN BLOCKCHAIN</strong>";
+      globalHint.innerHTML = "Trạng thái hiện tại: <strong>Hệ thống đang dừng khẩn cấp trên blockchain</strong>";
     } else {
       globalHint.style.background = "#f0fdf4";
       globalHint.style.borderColor = "#bbf7d0";
       globalHint.style.color = "#166534";
-      globalHint.innerHTML = "✅ Trạng thái hiện tại: <strong>Hệ thống hoạt động bình thường, sẵn sàng giao dịch</strong>";
+      globalHint.innerHTML = "Trạng thái hiện tại: <strong>Hệ thống hoạt động bình thường, sẵn sàng giao dịch</strong>";
     }
   }
 
   if (total === 0) {
     container.innerHTML = `
       <div style="text-align:center; padding:48px 24px; background:#f8fafc; border:1px dashed #cbd5e1; border-radius:12px;">
-        <div style="font-size:44px; margin-bottom:10px;">🏛️</div>
         <h4 style="font-size:16px; font-weight:700; color:#334155; margin-bottom:6px;">Chưa có cuộc bầu cử nào được tạo</h4>
         <p style="font-size:13px; color:var(--text-muted); margin-bottom:16px;">
           Bắt đầu thiết lập cuộc bầu cử HĐQT đầu tiên bằng nút bên dưới.
         </p>
         <button type="button" class="btn btn-primary" onclick="openCreateElectionModal()">
-          ➕ Tạo Cuộc Bầu Cử Đầu Tiên
+          Tạo cuộc bầu cử đầu tiên
         </button>
       </div>
     `;
@@ -2843,7 +2866,7 @@ async function renderAdminUnifiedElectionList() {
       actionAreaHtml = `
         <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
           <span style="font-size:12px; font-weight:700; color:#e11d48; background:#fff1f2; padding:5px 12px; border-radius:6px; border:1.5px solid #fecdd3; display:inline-flex; align-items:center; gap:6px;">
-            🛑 Kỳ đã bị hủy bỏ vĩnh viễn (Không thể khôi phục)
+            Kỳ đã bị hủy vĩnh viễn (không thể khôi phục)
           </span>
         </div>
       `;
@@ -2851,10 +2874,10 @@ async function renderAdminUnifiedElectionList() {
       actionAreaHtml = `
         <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
           <button type="button" class="btn btn-outline btn-sm" onclick="openAddCandidateModal(${e.id})" style="border-color:#3b82f6; color:#2563eb; background:#eff6ff; font-weight:700;">
-            👤 + Thêm Ứng Viên (${candCount}/${seats})
+            + Thêm ứng viên (${candCount}/${seats})
           </button>
           <button type="button" class="btn btn-success btn-sm" onclick="adminQuickStartVoting(${e.id})" ${!hasEnoughCand || isPaused ? 'disabled style="opacity:0.5;"' : 'style="font-weight:700;"'}>
-            🚀 Mở Phiên Ngay
+            Mở phiên
           </button>
         </div>
       `;
@@ -2862,17 +2885,17 @@ async function renderAdminUnifiedElectionList() {
       actionAreaHtml = `
         <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
           <span style="font-size:12px; font-weight:600; color:#16a34a; background:#dcfce7; padding:4px 10px; border-radius:6px; border:1px solid #bbf7d0;">
-            🗳️ Phiên đang mở nhận phiếu bầu
+            Phiên đang nhận phiếu bầu
           </span>
           <button type="button" class="btn btn-outline btn-sm" onclick="adminQuickCloseVoting(${e.id})" title="Đóng phiên bỏ phiếu trên blockchain">
-            🔒 Đóng Phiên
+            Đóng phiên
           </button>
         </div>
       `;
     } else {
       actionAreaHtml = `
         <span style="font-size:12px; font-weight:600; color:#475569; background:#f1f5f9; padding:4px 10px; border-radius:6px; border:1px solid #cbd5e1;">
-          ✅ Đã kết thúc &amp; chốt kết quả
+          Đã kết thúc &amp; chốt kết quả
         </span>
       `;
     }
@@ -2890,15 +2913,15 @@ async function renderAdminUnifiedElectionList() {
         <div style="margin-top:12px; padding:14px 18px; background:linear-gradient(135deg, #fff1f2 0%, #ffe4e6 100%); border:1.5px solid #f43f5e; border-radius:10px; box-shadow:0 2px 8px rgba(225,29,72,0.08);">
           <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px;">
             <strong style="color:#9f1239; font-size:14px; display:flex; align-items:center; gap:8px;">
-              <span style="font-size:18px;">🛑</span> QUYẾT ĐỊNH HỦY BỎ VĨNH VIỄN KỲ BẦU CỬ ON-CHAIN
+              QUYẾT ĐỊNH HỦY VĨNH VIỄN KỲ BẦU CỬ ON-CHAIN
             </strong>
             <span style="font-size:12px; color:#be123c; font-weight:600;">Thời gian: ${timeText} • Bởi: ${escapeHtml(authorText)}</span>
           </div>
           <div style="font-size:13px; color:#881337; margin-top:8px; line-height:1.6; background:#fff; padding:10px 14px; border-radius:6px; border:1px solid #fecdd3;">
-            👉 <strong>Lý do giải trình:</strong> ${escapeHtml(reasonText)}
+            <strong>Lý do giải trình:</strong> ${escapeHtml(reasonText)}
           </div>
           <div style="font-size:12px; color:#9f1239; margin-top:8px; display:flex; align-items:center; gap:6px;">
-            <span>⚠️ <strong>Lưu ý:</strong> Quyết định hủy bỏ này có hiệu lực <strong>VĨNH VIỄN</strong> và không thể khôi phục. Toàn bộ hoạt động bỏ phiếu và kết quả của kỳ này đã bị vô hiệu hóa hoàn toàn.</span>
+            <span><strong>Lưu ý:</strong> Quyết định này có hiệu lực <strong>VĨNH VIỄN</strong> và không thể khôi phục. Toàn bộ hoạt động bỏ phiếu và kết quả đã bị vô hiệu hóa.</span>
           </div>
         </div>
       `;
@@ -2907,9 +2930,9 @@ async function renderAdminUnifiedElectionList() {
       if (candList.length === 0) {
         detailsHtml = `
           <div style="padding:14px; background:#fffbeb; border:1px dashed #fde68a; border-radius:8px; font-size:13px; color:#92400e; display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:8px;">
-            <span>⚠️ <strong>Chưa có ứng viên nào:</strong> Cần thêm ít nhất <strong>${seats} ứng viên</strong> để đáp ứng điều kiện mở phiên bỏ phiếu.</span>
+            <span><strong>Chưa có ứng viên:</strong> Cần ít nhất <strong>${seats} ứng viên</strong> để mở phiên bỏ phiếu.</span>
             <button type="button" class="btn btn-warning btn-sm" onclick="openAddCandidateModal(${e.id})">
-              ➕ Thêm Ứng Viên Đầu Tiên
+              Thêm ứng viên đầu tiên
             </button>
           </div>
         `;
@@ -2936,7 +2959,7 @@ async function renderAdminUnifiedElectionList() {
                 Danh sách ứng viên đã đăng ký (${candList.length}/${seats} ghế):
               </span>
               <span style="font-size:12px; font-weight:600; color:${hasEnoughCand ? '#16a34a' : '#dc2626'};">
-                ${hasEnoughCand ? '✅ Đủ điều kiện mở phiên' : `⚠️ Thiếu ${seats - candList.length} người`}
+                ${hasEnoughCand ? 'Đủ điều kiện mở phiên' : `Thiếu ${seats - candList.length} ứng viên`}
               </span>
             </div>
             <div style="display:grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap:8px;">
@@ -2955,13 +2978,13 @@ async function renderAdminUnifiedElectionList() {
           const pct = totalVotes > 0 ? Math.round((c.votes / totalVotes) * 100) : 0;
           let badgeHtml = "";
           if (isClosed && winners.includes(c.id)) {
-            badgeHtml = `<span class="badge badge-success" style="font-weight:700;">🏆 ĐẮC CỬ</span>`;
+            badgeHtml = `<span class="badge badge-success" style="font-weight:700;">ĐẮC CỬ</span>`;
           } else if (isActive && rank < seats && c.votes > 0) {
-            badgeHtml = `<span class="badge badge-primary">📈 Dẫn đầu</span>`;
+            badgeHtml = `<span class="badge badge-primary">Dẫn đầu</span>`;
           } else {
             badgeHtml = `<span class="badge badge-secondary">Tranh cử</span>`;
           }
-          const rankIcon = rank === 0 ? "🥇" : rank === 1 ? "🥈" : rank === 2 ? "🥉" : `#${rank + 1}`;
+          const rankIcon = `#${rank + 1}`;
           return `
             <tr>
               <td style="font-weight:700;">${rankIcon}</td>
@@ -2988,13 +3011,13 @@ async function renderAdminUnifiedElectionList() {
           <div style="margin-top:12px; border-top:1px solid #e2e8f0; padding-top:12px;">
             <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
               <span style="font-size:13px; font-weight:700; color:#334155;">
-                📊 Bảng thống kê số phiếu &amp; ứng viên trúng cử:
+                Bảng thống kê phiếu bầu &amp; ứng viên trúng cử
               </span>
               <span style="font-size:12px; color:var(--text-muted);">
                 Tổng phiếu đã bỏ: <strong style="color:var(--primary);">${totalVotes}</strong> phiếu
               </span>
             </div>
-            ${isTied ? `<div class="tied-warning" style="display:block; margin-bottom:8px;">⚠️ Phát hiện đồng phiếu ở ghế cuối cùng! Cần bầu lại hoặc xử lý theo điều lệ.</div>` : ""}
+            ${isTied ? `<div class="tied-warning" style="display:block; margin-bottom:8px;">Phát hiện đồng phiếu ở ghế cuối cùng. Cần xử lý theo điều lệ.</div>` : ""}
             <div class="table-container">
               <table>
                 <thead>
@@ -3021,16 +3044,16 @@ async function renderAdminUnifiedElectionList() {
           <div>
             <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
               <h4 style="font-size:16px; font-weight:800; color:#0f172a; margin:0;">
-                ${phase.icon} #${e.id} — ${e.title}
+                #${e.id} — ${e.title}
               </h4>
               <span class="badge ${phase.badgeClass}">${phase.label}</span>
             </div>
             <div style="font-size:12px; color:var(--text-muted); margin-top:4px; display:flex; gap:14px; flex-wrap:wrap;">
-              <span>🪑 Số ghế: <strong>${e.seats} ghế</strong></span>
-              <span>👤 Ứng viên: <strong>${candCount} người</strong></span>
-              <span>📅 Bắt đầu: <strong>${startStr}</strong></span>
-              <span>⏰ Kết thúc: <strong>${endStr}</strong></span>
-              ${e.snapshotBlock > 0 ? `<span>🔗 Snapshot: <strong>Block #${e.snapshotBlock}</strong></span>` : ''}
+              <span>Số ghế: <strong>${e.seats} ghế</strong></span>
+              <span>Ứng viên: <strong>${candCount} người</strong></span>
+              <span>Bắt đầu: <strong>${startStr}</strong></span>
+              <span>Kết thúc: <strong>${endStr}</strong></span>
+              ${e.snapshotBlock > 0 ? `<span>Snapshot: <strong>Block #${e.snapshotBlock}</strong></span>` : ''}
             </div>
           </div>
           <div>
@@ -3258,7 +3281,7 @@ function setupEventListeners() {
       if (processedEventKeys.has(eventKey)) return;
       processedEventKeys.add(eventKey);
 
-      addLog(`📢 VoteCast: Cổ đông ${String(voter).substring(0,10)}... đã bỏ ${totalVotes} phiếu (Kỳ #${electionId})`);
+      addLog(`VoteCast: Cổ đông ${String(voter).substring(0,10)}... đã bỏ ${totalVotes} phiếu (Kỳ #${electionId})`);
       debouncedLoadAllElections();
     });
 
@@ -3267,7 +3290,7 @@ function setupEventListeners() {
       if (processedEventKeys.has(eventKey)) return;
       processedEventKeys.add(eventKey);
 
-      addLog(`📢 CandidateAdded: Thêm ứng viên #${candidateId} "${name}" vào Kỳ #${electionId}`);
+      addLog(`CandidateAdded: Thêm ứng viên #${candidateId} "${name}" vào Kỳ #${electionId}`);
       debouncedLoadAllElections();
     });
 
@@ -3276,7 +3299,7 @@ function setupEventListeners() {
       if (processedEventKeys.has(eventKey)) return;
       processedEventKeys.add(eventKey);
 
-      addLog(`📢 ElectionCreated: Khởi tạo cuộc bầu cử #${electionId} "${title}" (${seats} ghế)`);
+      addLog(`ElectionCreated: Khởi tạo cuộc bầu cử #${electionId} "${title}" (${seats} ghế)`);
       debouncedLoadAllElections();
     });
 
@@ -3285,7 +3308,7 @@ function setupEventListeners() {
       if (processedEventKeys.has(eventKey)) return;
       processedEventKeys.add(eventKey);
 
-      addLog(`📢 VotingStarted: Mở phiên Kỳ #${electionId} tại snapshot block ${snapshotBlock}`);
+      addLog(`VotingStarted: Mở phiên kỳ #${electionId} tại snapshot block ${snapshotBlock}`);
       debouncedLoadAllElections();
     });
 
@@ -3294,7 +3317,7 @@ function setupEventListeners() {
       if (processedEventKeys.has(eventKey)) return;
       processedEventKeys.add(eventKey);
 
-      addLog(`📢 ElectionClosed: Kỳ #${electionId} đã kết thúc và chốt kết quả.`);
+      addLog(`ElectionClosed: Kỳ #${electionId} đã kết thúc và chốt kết quả.`);
       debouncedLoadAllElections();
     });
   } catch (e) {
@@ -3470,7 +3493,7 @@ async function handleCandidateFileUpload(input) {
   if (progressEl) progressEl.style.display = "block";
   if (successBox) successBox.style.display = "none";
 
-  showToast(`🌐 Đang đọc tệp "${file.name}" và tải lên Pinata IPFS...`, "primary");
+  showToast(`Đang đọc tệp "${file.name}" và tải lên Pinata IPFS...`, "primary");
 
   try {
     // Đọc file thành base64
@@ -3731,7 +3754,7 @@ function renderUpcomingChecklist() {
     const isPostponed = localStorage.getItem(`postponed_election_${e.id}`) === "true";
     const badgeHtml = isPostponed
       ? `<span class="badge badge-paused" style="font-weight:700;">⏸️ Đang tạm hoãn</span>`
-      : `<span class="badge badge-warning" style="font-weight:600;">📅 Sắp diễn ra</span>`;
+      : `<span class="badge badge-warning" style="font-weight:600;">Sắp diễn ra</span>`;
 
     const timeStr = e.startTime > 0
       ? `Bắt đầu: ${new Date(e.startTime * 1000).toLocaleTimeString("vi-VN")} ${new Date(e.startTime * 1000).toLocaleDateString("vi-VN")}`
@@ -3815,7 +3838,7 @@ function renderActiveChecklist() {
     const isPausedElection = localStorage.getItem(`paused_election_${e.id}`) === "true";
     const badgeHtml = isPausedElection
       ? `<span class="badge badge-paused" style="font-weight:700;">⏸️ Đang tạm dừng</span>`
-      : `<span class="badge badge-success" style="font-weight:600;">🗳️ Đang mở bỏ phiếu</span>`;
+      : `<span class="badge badge-success" style="font-weight:600;">Đang mở bỏ phiếu</span>`;
 
     const endStr = e.endTime > 0
       ? `Hạn chót: ${new Date(e.endTime * 1000).toLocaleTimeString("vi-VN")}`
@@ -3948,7 +3971,7 @@ function renderCancelChecklist() {
     const cancelReason = cancelItem?.reason || localStorage.getItem(`cancelled_reason_${e.id}`) || 'Đã hủy vĩnh viễn';
 
     const badgeHtml = isCancelled
-      ? `<span class="badge badge-danger" style="font-weight:700;">🛑 Đã hủy vĩnh viễn</span>`
+      ? `<span class="badge badge-danger" style="font-weight:700;">Đã hủy vĩnh viễn</span>`
       : `<span class="badge ${e.status === STATUS_CONTRACT.VOTING ? 'badge-success' : 'badge-warning'}" style="font-size:11px;">
            ${e.status === STATUS_CONTRACT.VOTING ? 'Đang bỏ phiếu' : 'Sắp diễn ra'}
          </span>`;
@@ -3962,7 +3985,7 @@ function renderCancelChecklist() {
           <div>
             <div style="font-weight:700; font-size:13px; color:#1e293b;">#${e.id} — ${escapeHtml(e.title)}</div>
             <div style="font-size:11.5px; color:${isCancelled ? '#be123c' : 'var(--text-muted)'}; margin-top:2px;">
-              ${isCancelled ? `🛑 Đã dừng hẳn vĩnh viễn: ${escapeHtml(cancelReason)}` : `${e.seats} ghế • ${e.candidateCount} ứng viên`}
+              ${isCancelled ? `Đã dừng vĩnh viễn: ${escapeHtml(cancelReason)}` : `${e.seats} ghế • ${e.candidateCount} ứng viên`}
             </div>
           </div>
         </div>
@@ -4137,7 +4160,7 @@ async function executePermanentCancelElection() {
       announcements.unshift(newAnn);
     }
 
-    addLog(`🛑 ADMIN HỦY VĨNH VIỄN KỲ #${id}: "${reason}"`);
+    addLog(`Admin hủy vĩnh viễn kỳ #${id}: "${reason}"`);
 
     // Lưu vào backend REST API (chạy bất đồng bộ)
     try {
@@ -4152,7 +4175,7 @@ async function executePermanentCancelElection() {
   localStorage.setItem("election_announcements_cache", JSON.stringify(announcements));
 
   closeCancelElectionModal();
-  showToast(`🛑 Đã hủy bỏ vĩnh viễn ${selectedIds.length} kỳ bầu cử và phát thông báo đến toàn bộ thành viên!`, "success");
+  showToast(`Đã hủy vĩnh viễn ${selectedIds.length} kỳ bầu cử và phát thông báo đến toàn bộ thành viên.`, "success");
 
   await refreshAllScreensAfterLifecycleChange();
 }
@@ -4235,8 +4258,7 @@ function renderAlertBannerHtml(containerId) {
       <div style="background: linear-gradient(135deg, #fff1f2 0%, #ffe4e6 100%); border: 1.5px solid #f43f5e; border-radius: 10px; padding: 14px 18px; margin-bottom: 10px; box-shadow: 0 4px 12px rgba(225,29,72,0.1); position: relative;">
         <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px;">
           <div style="font-weight:800; font-size:14px; color:#9f1239; display:flex; align-items:center; gap:8px;">
-            <span style="font-size:18px;">🛑</span>
-            <span>THÔNG BÁO KHẨN CẤP: HỦY BỎ VĨNH VIỄN KỲ BẦU CỬ #${a.electionId}</span>
+            <span>THÔNG BÁO KHẨN CẤP: HỦY VĨNH VIỄN KỲ BẦU CỬ #${a.electionId}</span>
           </div>
           <div style="display:flex; align-items:center; gap:12px;">
             <span style="font-size:11.5px; color:#be123c; font-weight:600;">
@@ -4251,7 +4273,7 @@ function renderAlertBannerHtml(containerId) {
           <strong>Lý do giải trình:</strong> ${escapeHtml(a.reason)}
         </div>
         <div style="font-size:11.5px; color:#be123c; margin-top:6px; display:flex; align-items:center; gap:6px; flex-wrap:wrap;">
-          <span>👤 Quyết định bởi Ban Quản Trị / BKS: <strong>${escapeHtml(a.author)}</strong></span>
+          <span>Quyết định bởi Ban Quản Trị / BKS: <strong>${escapeHtml(a.author)}</strong></span>
           <span>•</span>
           <span>Quyết định hủy bỏ là VĨNH VIỄN (không thể khôi phục). Toàn bộ hoạt động bỏ phiếu và kết quả của kỳ này đã bị vô hiệu hóa.</span>
         </div>
@@ -4315,8 +4337,8 @@ async function adminTogglePause() {
     } else {
       // Đang bình thường -> chuẩn bị pause (tạm dừng)
       if (titleEl) titleEl.textContent = "Xác Nhận Tạm Dừng Khẩn Cấp Toàn Bộ Hệ Thống";
-      if (iconEl) iconEl.textContent = "🚨";
-      if (largeIconEl) largeIconEl.textContent = "🚨";
+      if (iconEl) iconEl.textContent = "!";
+      if (largeIconEl) largeIconEl.textContent = "!";
       if (headingEl) {
         headingEl.textContent = "Bạn có chắc chắn muốn TẠM DỪNG KHẨN CẤP toàn bộ hệ thống bầu cử?";
         headingEl.style.color = "#991b1b";
@@ -4330,7 +4352,7 @@ async function adminTogglePause() {
       }
       if (btnConfirm) {
         btnConfirm.className = "btn btn-danger";
-        btnConfirm.textContent = "🚨 Xác Nhận Tạm Dừng Khẩn Cấp";
+        btnConfirm.textContent = "Xác nhận tạm dừng khẩn cấp";
         btnConfirm.style.background = "#dc2626";
         btnConfirm.style.borderColor = "#b91c1c";
       }
@@ -4363,7 +4385,7 @@ async function executeAdminTogglePause() {
       showToast("Đang gửi giao dịch tạm dừng khẩn cấp lên blockchain...", "primary");
       tx = await electionContract.pause();
       await tx.wait(1);
-      showToast("🚨 Toàn bộ hệ thống bầu cử đã được tạm dừng khẩn cấp!", "warning");
+      showToast("Toàn bộ hệ thống bầu cử đã được tạm dừng khẩn cấp.", "warning");
       addLog(`Admin kích hoạt tạm dừng khẩn cấp toàn hệ thống (tx: ${tx.hash})`);
     }
     isPaused = !paused;
@@ -4411,10 +4433,10 @@ function switchTab(tabId, btn) {
 
   const breadcrumbEl = document.getElementById("adminActiveTabBreadcrumb");
   if (breadcrumbEl) {
-    if (tabId === "adminPanelTab") breadcrumbEl.innerHTML = "⚙️ Quản Trị &amp; Điều Hành Cuộc Bầu Cử";
-    if (tabId === "adminWalletsTab") breadcrumbEl.innerHTML = "🏢 Danh Sách Ví &amp; Cổ Phần Nội Bộ Công Ty";
-    if (tabId === "adminResultsTab") breadcrumbEl.innerHTML = "📊 Bảng Xếp Hạng Kết Quả &amp; Giám Sát";
-    if (tabId === "adminLogsTab") breadcrumbEl.innerHTML = "📜 Nhật Ký Sự Kiện Blockchain On-chain";
+    if (tabId === "adminPanelTab") breadcrumbEl.innerHTML = "Quản trị cuộc bầu cử";
+    if (tabId === "adminWalletsTab") breadcrumbEl.innerHTML = "Ví &amp; cổ phần nội bộ";
+    if (tabId === "adminResultsTab") breadcrumbEl.innerHTML = "Kết quả &amp; giám sát";
+    if (tabId === "adminLogsTab") breadcrumbEl.innerHTML = "Nhật ký blockchain";
   }
 
   if (tabId === "adminPanelTab") {
@@ -4798,10 +4820,10 @@ function renderCompanyWalletsTable() {
             <td>
               <div class="addr-badge-wrapper" title="${w.address}">
                 <span class="addr-mono">${shortAddr}</span>
-                <button type="button" class="btn-icon-link" onclick="copyWalletAddress('${w.address}')" title="Sao chép địa chỉ">📋</button>
+                <button type="button" class="btn-icon-link" onclick="copyWalletAddress('${w.address}')" title="Sao chép địa chỉ">Copy</button>
                 <a href="${etherscanUrl}" target="_blank" rel="noopener noreferrer" class="btn-icon-link" title="Xem trên Sepolia Etherscan">↗️</a>
               </div>
-              ${isSuper ? '<div style="font-size:10px; color:#d97706; font-weight:700; margin-top:3px;">👑 Genesis Super Admin</div>' : ''}
+              ${isSuper ? '<div style="font-size:10px; color:#d97706; font-weight:700; margin-top:3px;">Genesis Super Admin</div>' : ''}
             </td>
             <td>
               <div class="wallet-person-name">${escapeHtml(w.name || "Chưa đặt tên")}</div>
@@ -4817,7 +4839,7 @@ function renderCompanyWalletsTable() {
                 <div style="display:flex; flex-direction:column; gap:2px;">
                   <div style="display:flex; align-items:center; gap:6px;">
                     <strong style="color:#1d4ed8; font-size:14px;">${actualShares.toLocaleString()} CP</strong>
-                    <button type="button" class="btn-icon-link" onclick="checkWalletOnChainBalance('${w.address}')" title="Kiểm tra số dư Smart Contract trực tiếp">🔍</button>
+                    <button type="button" class="btn-icon-link" onclick="checkWalletOnChainBalance('${w.address}')" title="Kiểm tra số dư Smart Contract trực tiếp">Xem</button>
                   </div>
                   <div style="font-size:11px; color:#15803d; font-weight:600;">
                     ✓ On-Chain: ${actualShares.toLocaleString()}
@@ -4830,13 +4852,13 @@ function renderCompanyWalletsTable() {
                 <div style="display:flex; flex-direction:column; gap:3px;">
                   <div style="display:flex; align-items:center; gap:6px;">
                     <strong style="color:#dc2626; font-size:14px;">0 CP</strong>
-                    <button type="button" class="btn-icon-link" onclick="checkWalletOnChainBalance('${w.address}')" title="Kiểm tra số dư Smart Contract trực tiếp">🔍</button>
+                    <button type="button" class="btn-icon-link" onclick="checkWalletOnChainBalance('${w.address}')" title="Kiểm tra số dư Smart Contract trực tiếp">Xem</button>
                   </div>
                   <div style="font-size:11px; color:#b91c1c; font-weight:600; background:#fef2f2; border:1px solid #fee2e2; border-radius:4px; padding:2px 6px; width:fit-content;">
                     ⚠️ Chưa đủ quyền biểu quyết (0 CP)
                   </div>
                   <div style="font-size:11px; color:var(--text-muted);">
-                    Cần bấm <strong>🪙 Mint</strong> để cấp cổ phần
+                    Cần cấp cổ phần
                   </div>
                 </div>
               `)}
@@ -4849,15 +4871,15 @@ function renderCompanyWalletsTable() {
                 </button>
                 ${isAdmin ? '' : `
                   <button type="button" class="btn btn-success btn-sm" onclick="openQuickMintModal('${w.address}')" title="Cấp thêm cổ phần On-chain">
-                    🪙 Mint
+                    Mint
                   </button>
                 `}
                 <button type="button" class="btn btn-primary btn-sm" onclick="openManageRoleModal('${w.address}')" title="Phân quyền Admin trên Smart Contract">
-                  👑 Phân quyền
+                  Phân quyền
                 </button>
                 ${isSuper ? '' : `
                   <button type="button" class="btn btn-danger btn-sm" onclick="deleteCompanyWallet('${w.address}')" title="Xóa khỏi danh bạ">
-                    🗑️ Xóa
+                    Xóa
                   </button>
                 `}
               </div>
@@ -5240,7 +5262,7 @@ async function openManageRoleModal(address) {
       }
       statusEl.innerHTML = `
         <div style="font-weight:700; color:#b45309; font-size:14px; margin-bottom:4px;">
-          👑 VAI TRÒ HIỆN TẠI: QUẢN TRỊ VIÊN (ADMIN)
+          VAI TRÒ HIỆN TẠI: QUẢN TRỊ VIÊN
         </div>
         <div style="font-size:12px; color:#92400e; line-height:1.5;">
           Ví này đang nắm giữ quyền <code>ELECTION_ADMIN_ROLE</code> trên Smart Contract. Theo quy chế quản trị độc lập, Quản trị viên chỉ làm nhiệm vụ tổ chức điều phối và <strong>không được nhận/bầu cổ phần</strong> để tránh xung đột lợi ích.
@@ -5259,7 +5281,7 @@ async function openManageRoleModal(address) {
         btnRevoke.style.opacity = "1";
         btnRevoke.style.cursor = "pointer";
         btnRevoke.className = "btn btn-primary";
-        btnRevoke.innerHTML = "🗳️ Chuyển Về Cổ Đông Biểu Quyết (revokeRole)";
+        btnRevoke.innerHTML = "Chuyển về cổ đông biểu quyết";
       }
     } else {
       if (statusCard) {
@@ -5268,7 +5290,7 @@ async function openManageRoleModal(address) {
       }
       statusEl.innerHTML = `
         <div style="font-weight:700; color:#15803d; font-size:14px; margin-bottom:4px;">
-          🗳️ VAI TRÒ HIỆN TẠI: CỔ ĐÔNG BIỂU QUYẾT (VOTER)
+          VAI TRÒ HIỆN TẠI: CỔ ĐÔNG BIỂU QUYẾT
         </div>
         <div style="font-size:12px; color:#166534; line-height:1.5;">
           Ví này hiện là Cổ đông biểu quyết nội bộ công ty (không nắm quyền Admin Smart Contract). Cổ đông tham gia bỏ phiếu bầu dồn HĐQT độc lập, minh bạch theo tỷ lệ cổ phần sở hữu.
@@ -5280,7 +5302,7 @@ async function openManageRoleModal(address) {
         btnGrant.style.opacity = "1";
         btnGrant.style.cursor = "pointer";
         btnGrant.className = "btn btn-primary";
-        btnGrant.innerHTML = "👑 Nâng Lên Quản Trị Viên (Admin - grantRole)";
+        btnGrant.innerHTML = "Cấp quyền quản trị viên";
       }
       if (btnRevoke) {
         btnRevoke.disabled = true;
@@ -5334,8 +5356,8 @@ async function executeRoleAction(grant = true) {
     const confirmGrant = confirm(
       `⚠️ CẢNH BÁO NGUY CƠ THAO TÚNG & THU HỒI QUYỀN BIỂU QUYẾT:\n\n` +
       `Bạn đang chuẩn bị nâng cấp ví sau lên QUẢN TRỊ VIÊN (Admin):\n` +
-      `👉 Nhân sự: ${name}\n` +
-      `👉 Địa chỉ: ${addr}\n\n` +
+      `Nhân sự: ${name}\n` +
+      `Địa chỉ: ${addr}\n\n` +
       `LƯU Ý QUY CHẾ BẦU CỬ QUAN TRỌNG:\n` +
       `1. Quản trị viên có toàn quyền cấu hình, khởi tạo, tạm hoãn hoặc dừng các cuộc bầu cử.\n` +
       `2. Nhằm đảm bảo tính khách quan và phòng chống thao túng phiếu bầu, Quản trị viên KHÔNG ĐƯỢC sở hữu cổ phần hay tham gia bỏ phiếu.\n` +
@@ -5347,8 +5369,8 @@ async function executeRoleAction(grant = true) {
     const confirmRevoke = confirm(
       `XÁC NHẬN CHUYỂN VỀ CỔ ĐÔNG BIỂU QUYẾT:\n\n` +
       `Bạn có chắc chắn muốn thu hồi quyền Quản trị viên (revokeRole) của ví:\n` +
-      `👉 Nhân sự: ${name}\n` +
-      `👉 Địa chỉ: ${addr}\n\n` +
+      `Nhân sự: ${name}\n` +
+      `Địa chỉ: ${addr}\n\n` +
       `Sau khi thu hồi, ví này sẽ trở lại vai trò Cổ đông biểu quyết thông thường và có thể nhận cấp phát cổ phần để bỏ phiếu bầu cử HĐQT.`
     );
     if (!confirmRevoke) return;
