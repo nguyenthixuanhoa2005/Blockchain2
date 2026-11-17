@@ -471,6 +471,7 @@ async function initContractsAndRole() {
     renderRoleScreen(resolvedRole, balNum);
 
     // Tải dữ liệu toàn bộ cuộc bầu cử & danh bạ ví nội bộ
+    await fetchAnnouncements();
     await loadAllElections();
     await updateAccountCard();
     fetchCompanyWallets();
@@ -508,8 +509,11 @@ function renderRoleScreen(role, balance) {
     headerAddr.textContent = `${currentAccountInfo.address.substring(0, 8)}...${currentAccountInfo.address.substring(36)}`;
   }
 
+  const maxVotesBox = document.getElementById("maxVotesStatBox");
+
   if (role === "admin") {
     document.getElementById("screenAdmin").classList.add("active");
+    if (maxVotesBox) maxVotesBox.style.display = "none";
     if (currentAccountInfo.isSuperAdmin) {
       pill.className = "role-pill super-admin";
       pill.textContent = "👑 Quản Trị Tối Cao (Super Admin)";
@@ -521,12 +525,14 @@ function renderRoleScreen(role, balance) {
     }
   } else if (role === "voter") {
     document.getElementById("screenVoter").classList.add("active");
+    if (maxVotesBox) maxVotesBox.style.display = "";
     pill.className = "role-pill voter";
     pill.textContent = `🗳️ Cổ Đông — ${balance} CP`;
     setText("currentRole", `Vai trò: Cổ Đông (${balance} cổ phần) — Được cấp phiếu bầu và có quyền bỏ phiếu biểu quyết`);
   } else {
     // Ban kiểm soát / Kiểm toán viên (Auditor)
     document.getElementById("screenGuest").classList.add("active");
+    if (maxVotesBox) maxVotesBox.style.display = "none";
     pill.className = "role-pill auditor";
     pill.textContent = "🔍 Ban Kiểm Soát / BKS";
     setText("currentRole", "Vai trò: Ban Kiểm Soát — Giám sát độc lập tính minh bạch của các cuộc bầu cử và danh bạ ví công ty");
@@ -543,6 +549,20 @@ function getElectionPhase(election, paused) {
   const eid = typeof election === "object" ? election.id : null;
   const isPostponed = eid ? localStorage.getItem(`postponed_election_${eid}`) === "true" : false;
   const isElectionPaused = eid ? localStorage.getItem(`paused_election_${eid}`) === "true" : false;
+
+  // 0. Nếu kỳ bị Hủy / Dừng hẳn do nghi vấn gian lận
+  const cancelAnnouncements = getCachedAnnouncements();
+  const cancelItem = eid ? cancelAnnouncements.find(a => Number(a.electionId) === Number(eid)) : null;
+  if (cancelItem) {
+    return {
+      label: 'Đã hủy / Dừng hẳn',
+      badgeClass: 'badge-danger',
+      cssClass: 'phase-paused',
+      infoClass: 'paused',
+      icon: '🛑',
+      desc: `Kỳ bầu cử này đã bị HỦY/DỪNG HẲN: "${escapeHtml(cancelItem.reason)}". Quyết định bởi: ${escapeHtml(cancelItem.author)} lúc ${new Date(cancelItem.createdAt).toLocaleString('vi-VN')}.`
+    };
+  }
 
   // 1. Nếu kỳ chưa diễn ra bị Admin tạm hoãn
   if (isPostponed && status === STATUS_CONTRACT.REGISTRATION) {
@@ -659,6 +679,7 @@ async function loadAllElections() {
       renderAdminUnifiedElectionList();
       renderUpcomingChecklist();
       renderActiveChecklist();
+      renderCancelChecklist();
       return;
     }
 
@@ -677,6 +698,8 @@ async function loadAllElections() {
     renderAdminUnifiedElectionList();
     renderUpcomingChecklist();
     renderActiveChecklist();
+    renderCancelChecklist();
+    renderVoterAlertBanner();
 
     // Auto-select cho Admin
     if (currentAccountInfo?.resolvedRole === "admin") {
@@ -1098,16 +1121,128 @@ function updateCountdown(countdownId, endTimeId, election) {
 // ============================================================
 // THẺ TỔNG QUAN TÀI KHOẢN (ACCOUNT STATUS CARD)
 // ============================================================
+async function openSnapshotModal() {
+  const modal = document.getElementById("modalSnapshotExplainer");
+  if (!modal) return;
+
+  const card = document.getElementById("modalSnapVoterCard");
+  const balNum = Number(currentAccountInfo?.balance || 0);
+
+  // Xác định kỳ bầu cử đang xét: ưu tiên kỳ cử tri đang chọn, hoặc kỳ đang mở
+  let targetEid = voterCurrentElectionId;
+  if (!targetEid) {
+    const activeEl = allElections.find(e => e.status === STATUS_CONTRACT.VOTING && !isPaused);
+    if (activeEl) targetEid = activeEl.id;
+    else if (allElections.length > 0) targetEid = allElections[0].id;
+  }
+
+  const election = targetEid ? allElections.find(e => e.id === Number(targetEid)) : null;
+  const seats = election?.seats || 3;
+  let snapShares = 0;
+  let maxVotes = 0;
+  let electionLabel = election ? `Kỳ #${election.id}: ${escapeHtml(election.title || 'Bầu cử HĐQT')}` : "Chưa chọn kỳ bầu cử";
+
+  if (election) {
+    if (election.status >= STATUS_CONTRACT.VOTING) {
+      try {
+        if (electionContract && currentAccountInfo?.address) {
+          const onChainVotes = await electionContract.votingPowerOf(election.id, currentAccountInfo.address);
+          maxVotes = Number(onChainVotes);
+          snapShares = (seats > 0) ? Math.floor(maxVotes / seats) : 0;
+        }
+      } catch (err) {
+        console.warn("Lỗi đọc votingPowerOf cho modal:", err);
+        maxVotes = 0;
+        snapShares = 0;
+      }
+    } else {
+      // Kỳ chưa mở
+      snapShares = balNum;
+      maxVotes = balNum * seats;
+    }
+  } else {
+    snapShares = balNum;
+    maxVotes = balNum * seats;
+  }
+
+  let statusBadge = "";
+  let statusCallout = "";
+
+  if (!election || election.status < STATUS_CONTRACT.VOTING) {
+    statusBadge = `<span class="badge badge-warning" style="font-size:11px;">Chưa mở phiên (Dự kiến)</span>`;
+    statusCallout = `
+      <div style="display:flex; align-items:flex-start; gap:8px; color:#1d4ed8; font-size:12.5px; margin-top:8px; background:#eff6ff; padding:8px 10px; border-radius:6px; border:1px solid #bfdbfe;">
+        <span>ℹ️</span> <span>Kỳ bầu cử này chưa mở phiên bỏ phiếu. Số phiếu hiển thị là dự tính dựa trên số dư cổ phần ví hiện tại (${balNum} CP). Quyền biểu quyết chính thức sẽ được chốt tại block mở phiên.</span>
+      </div>
+    `;
+  } else if (snapShares === balNum && balNum > 0) {
+    statusBadge = `<span class="badge badge-success" style="font-size:11px;">Đã chốt on-chain • Hợp lệ</span>`;
+    statusCallout = `
+      <div style="display:flex; align-items:flex-start; gap:8px; color:#15803d; font-size:12.5px; margin-top:8px; background:#f0fdf4; padding:8px 10px; border-radius:6px; border:1px solid #bbf7d0;">
+        <span>✅</span> <span>Toàn bộ <strong>${balNum} CP</strong> trong ví của bạn đã được chốt hợp lệ tại block mở phiên. Bạn có đủ <strong>${maxVotes.toLocaleString()} phiếu bầu dồn</strong> để phân bổ cho các ứng viên.</span>
+      </div>
+    `;
+  } else if (snapShares === 0 && balNum > 0) {
+    statusBadge = `<span class="badge badge-danger" style="font-size:11px;">0 CP tại Snapshot</span>`;
+    statusCallout = `
+      <div style="display:flex; align-items:flex-start; gap:8px; color:#b91c1c; font-size:12.5px; margin-top:8px; background:#fef2f2; padding:8px 10px; border-radius:6px; border:1px solid #fecaca;">
+        <span>⚠️</span> <span><strong>Chưa có quyền biểu quyết kỳ này:</strong> Số dư ví hiện tại là <strong>${balNum} CP</strong>, nhưng số cổ phần này được cấp hoặc chuyển vào ví <em>sau thời điểm kỳ bầu cử mở phiên</em> (Snapshot Block ghi nhận 0 CP). Số cổ phần hiện tại sẽ có hiệu lực đầy đủ ở các kỳ bầu cử tiếp theo.</span>
+      </div>
+    `;
+  } else if (snapShares < balNum) {
+    const diff = balNum - snapShares;
+    statusBadge = `<span class="badge badge-warning" style="font-size:11px;">Lệch snapshot (${snapShares}/${balNum} CP)</span>`;
+    statusCallout = `
+      <div style="display:flex; align-items:flex-start; gap:8px; color:#b45309; font-size:12.5px; margin-top:8px; background:#fffbeb; padding:8px 10px; border-radius:6px; border:1px solid #fde68a;">
+        <span>📌</span> <span><strong>Chênh lệch số dư Snapshot:</strong> Tại thời điểm chốt mở phiên ví chỉ có <strong>${snapShares} CP</strong> (= ${maxVotes.toLocaleString()} phiếu). Phần <strong>${diff} CP</strong> được cấp bổ sung sau khi mở phiên sẽ có hiệu lực ở các kỳ tiếp theo.</span>
+      </div>
+    `;
+  } else {
+    statusBadge = `<span class="badge badge-danger" style="font-size:11px;">0 Cổ phần</span>`;
+    statusCallout = `
+      <div style="display:flex; align-items:flex-start; gap:8px; color:#475569; font-size:12.5px; margin-top:8px; background:#f1f5f9; padding:8px 10px; border-radius:6px; border:1px solid #cbd5e1;">
+        <span>🪙</span> <span>Ví của bạn hiện chưa sở hữu token cổ phần (0 CP). Cần liên hệ Quản trị viên để được cấp phát cổ phần trước khi phiên bầu cử diễn ra.</span>
+      </div>
+    `;
+  }
+
+  if (card) {
+    card.innerHTML = `
+      <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px; margin-bottom:10px; padding-bottom:8px; border-bottom:1px solid #e2e8f0;">
+        <span style="font-weight:700; color:#1e293b; font-size:13.5px;">📍 ${electionLabel}</span>
+        ${statusBadge}
+      </div>
+      <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap:10px; font-size:13px;">
+        <div style="background:#fff; border:1px solid #e2e8f0; border-radius:8px; padding:8px 12px;">
+          <div style="font-size:11px; color:var(--text-muted); margin-bottom:2px;">Số dư ví hiện tại</div>
+          <div style="font-size:16px; font-weight:700; color:#1e293b;">${balNum} CP</div>
+        </div>
+        <div style="background:#fff; border:1px solid #e2e8f0; border-radius:8px; padding:8px 12px;">
+          <div style="font-size:11px; color:var(--text-muted); margin-bottom:2px;">Cổ phần tại Snapshot</div>
+          <div style="font-size:16px; font-weight:700; color:${snapShares > 0 ? '#15803d' : '#dc2626'};">${snapShares} CP</div>
+        </div>
+        <div style="background:#fff; border:1px solid #e2e8f0; border-radius:8px; padding:8px 12px;">
+          <div style="font-size:11px; color:var(--text-muted); margin-bottom:2px;">Phiếu bầu tối đa (Kỳ này)</div>
+          <div style="font-size:16px; font-weight:700; color:#2563eb;">${maxVotes.toLocaleString()} Phiếu</div>
+        </div>
+      </div>
+      <div style="font-size:12px; color:#475569; margin-top:10px; font-family:monospace; background:#f1f5f9; padding:6px 10px; border-radius:6px;">
+        Công thức: ${snapShares} CP (snapshot) × ${seats} ghế HĐQT = <strong>${maxVotes.toLocaleString()} phiếu</strong>
+      </div>
+      ${statusCallout}
+    `;
+  }
+
+  modal.style.display = "flex";
+}
+
+function closeSnapshotModal() {
+  const modal = document.getElementById("modalSnapshotExplainer");
+  if (modal) modal.style.display = "none";
+}
+
 function toggleSnapshotTooltip() {
-  alert(
-    "💡 CƠ CHẾ SNAPSHOT TRÊN BLOCKCHAIN (THEO LUẬT DOANH NGHIỆP):\n\n" +
-    "1. Chốt danh sách cổ đông tại block mở phiên:\n" +
-    "Khi cuộc bầu cử chuyển sang trạng thái bỏ phiếu, Smart Contract chụp lại 'ảnh tức thời' (Snapshot) số dư cổ phần tại block đó để cố định quyền biểu quyết.\n\n" +
-    "2. Mục đích bảo mật & chống thao túng:\n" +
-    "Ngăn chặn việc chuyển token qua lại giữa các ví hoặc mint thêm cổ phần trong lúc đang diễn ra bỏ phiếu để làm sai lệch kết quả bầu cử.\n\n" +
-    "3. Cổ phần nhận sau khi mở phiên:\n" +
-    "Vẫn thuộc quyền sở hữu thực tế của bạn trên blockchain và sẽ có hiệu lực đầy đủ ở các kỳ bầu cử tiếp theo."
-  );
+  openSnapshotModal();
 }
 
 async function updateAccountCard() {
@@ -1117,22 +1252,24 @@ async function updateAccountCard() {
   const diffNoteEl = document.getElementById("snapshotDiffNote");
   if (diffNoteEl) diffNoteEl.style.display = "none";
 
-  if (currentAccountInfo.isGuest) {
-    setText("currentShares", "0 CP (Khách)");
-    setText("currentMaxVotes", "0 Phiếu");
-    setText("formulaDesc", "Khách không có quyền biểu quyết");
-    setText("maxVotesBoxTitle", "Phiếu bầu tối đa (Khách)");
+  const maxVotesBox = document.getElementById("maxVotesStatBox");
+
+  // Quản trị viên (Admin) chỉ điều hành, không có quyền bỏ phiếu => Ẩn hoàn toàn khối Phiếu bầu tối đa
+  if (currentAccountInfo.resolvedRole === "admin" || currentAccountInfo.isSuperAdmin) {
+    if (maxVotesBox) maxVotesBox.style.display = "none";
+    setText("currentShares", "0 CP (Admin)");
     return;
   }
 
-  // Quản trị viên (Admin) chỉ điều hành, không có quyền bỏ phiếu
-  if (currentAccountInfo.resolvedRole === "admin") {
-    setText("currentShares", "0 CP (Admin)");
-    setText("currentMaxVotes", "0 Phiếu");
-    setText("formulaDesc", "Admin chỉ quản trị hệ thống, không nhận phiếu bầu");
-    setText("maxVotesBoxTitle", "Phiếu bầu tối đa (Admin)");
+  // Khách (Guest / Ban kiểm soát)
+  if (currentAccountInfo.isGuest) {
+    if (maxVotesBox) maxVotesBox.style.display = "none";
+    setText("currentShares", "0 CP (Khách)");
     return;
   }
+
+  // Cổ đông (Voter): Luôn hiển thị khối Phiếu bầu tối đa
+  if (maxVotesBox) maxVotesBox.style.display = "";
 
   try {
     const balance = await tokenContract.balanceOf(currentAccountInfo.address);
@@ -1245,6 +1382,7 @@ function updateAdminControls(status, paused, electionObj) {
   // 3. Cập nhật lại 2 checklist: Tạm hoãn (chưa diễn ra) và Tạm dừng (đang diễn ra)
   renderUpcomingChecklist();
   renderActiveChecklist();
+  renderCancelChecklist();
 }
 
 // Cập nhật Pre-flight Checklist cho Admin
@@ -1542,13 +1680,19 @@ async function loadCandidatesAndVoting(election) {
       if (voteDesc) voteDesc.style.display = "none";
     } else if (allowedVotes === 0) {
       if (votedBadge) { votedBadge.textContent = "0 phiếu tại snapshot"; votedBadge.className = "badge badge-danger"; }
-      if (submitBtn)  { submitBtn.disabled = true; }
+      if (submitBtn)  { submitBtn.disabled = true; submitBtn.innerHTML = "🚫 Không Có Quyền Biểu Quyết Kỳ Này"; }
       if (blockedBox) {
         blockedBox.style.display = "flex";
         blockedBox.className = "status-info-box paused";
-        setText("voterBlockedTitle", "Không có quyền biểu quyết");
-        setText("voterBlockedDesc", "Tài khoản không sở hữu cổ phần tại thời điểm chốt snapshot.");
+        setText("voterBlockedTitle", "Không có quyền biểu quyết tại kỳ này");
+        const curBal = Number(currentAccountInfo?.balance || 0);
+        if (curBal > 0) {
+          setText("voterBlockedDesc", `Tài khoản hiện có ${curBal} CP, nhưng không sở hữu cổ phần tại thời điểm mở phiên (chốt snapshot block của kỳ bầu cử này). Phần ${curBal} CP được cấp sau khi mở phiên sẽ có hiệu lực đầy đủ ở các kỳ bầu cử tiếp theo.`);
+        } else {
+          setText("voterBlockedDesc", "Tài khoản không sở hữu cổ phần tại thời điểm chốt snapshot.");
+        }
       }
+      if (voteDesc) voteDesc.style.display = "none";
     } else {
       if (votedBadge) { votedBadge.textContent = "Chưa bỏ phiếu"; votedBadge.className = "badge badge-primary"; }
       if (submitBtn)  { submitBtn.disabled = false; submitBtn.innerHTML = "🗳️ Ký &amp; Gửi Phiếu Bầu Lên Blockchain"; }
@@ -1664,17 +1808,12 @@ function calculateAllocatedVotes() {
   let totalAllocated = 0;
   inputs.forEach(inp => { totalAllocated += Number(inp.value) || 0; });
 
-  let allowedVotes = Number(document.getElementById("totalAllowedVotes")?.textContent) || 0;
-  if (allowedVotes === 0 && currentAccountInfo?.balance > 0) {
-    const election = allElections.find(e => e.id === voterCurrentElectionId);
-    allowedVotes = currentAccountInfo.balance * (election?.seats || 3);
-    setText("totalAllowedVotes", allowedVotes);
-  }
+  const allowedVotes = Number(document.getElementById("totalAllowedVotes")?.textContent) || 0;
   const remaining = allowedVotes - totalAllocated;
   const pct = allowedVotes > 0 ? Math.min(100, Math.round((totalAllocated / allowedVotes) * 100)) : 0;
 
   setText("allocatedVotes", totalAllocated);
-  setText("remainingVotes", remaining);
+  setText("remainingVotes", Math.max(0, remaining));
 
   const fill = document.getElementById("voteProgressFill");
   if (fill) fill.style.width = pct + "%";
@@ -1683,19 +1822,32 @@ function calculateAllocatedVotes() {
   const remTextEl = document.getElementById("remainingVotesText");
   const submitBtn = document.getElementById("btnSubmitVote");
 
+  if (allowedVotes <= 0) {
+    if (box)  box.className = "vote-calc-box";
+    if (fill) { fill.className = "vote-progress-fill"; fill.style.width = "0%"; }
+    if (remTextEl) remTextEl.innerHTML = `<span style="color:var(--danger);font-weight:600;">Bạn có 0 phiếu biểu quyết tại kỳ này (do snapshot chốt 0 CP).</span>`;
+    if (submitBtn) { submitBtn.disabled = true; submitBtn.innerHTML = "🚫 Không Có Quyền Biểu Quyết Kỳ Này"; }
+    return;
+  }
+
   if (totalAllocated > allowedVotes) {
     if (box)  box.className = "vote-calc-box exceeded";
     if (fill) fill.className = "vote-progress-fill exceeded";
     if (remTextEl) remTextEl.innerHTML = `<span style="color:var(--danger);font-weight:700;">Vượt quá ${Math.abs(remaining)} phiếu sở hữu! Smart contract sẽ từ chối giao dịch.</span>`;
-    if (submitBtn && !submitBtn.disabled) submitBtn.disabled = true;
+    if (submitBtn) submitBtn.disabled = true;
   } else {
     if (box)  box.className = "vote-calc-box";
     if (fill) fill.className = "vote-progress-fill";
     if (remTextEl) remTextEl.innerHTML = `Còn lại: <strong>${remaining}</strong> phiếu có thể dồn`;
     const election = allElections.find(e => e.id === voterCurrentElectionId);
     const ph = election ? getElectionPhase(election, isPaused) : null;
-    if (submitBtn && totalAllocated > 0 && ph && ph.label === "Đang diễn ra" && !isPaused) {
-      submitBtn.disabled = false;
+    if (submitBtn) {
+      if (totalAllocated > 0 && ph && ph.label === "Đang diễn ra" && !isPaused) {
+        submitBtn.disabled = false;
+        submitBtn.innerHTML = "🗳️ Ký &amp; Gửi Phiếu Bầu Lên Blockchain";
+      } else {
+        submitBtn.disabled = true;
+      }
     }
   }
 }
@@ -1723,7 +1875,15 @@ async function submitVote() {
     if (candidateIds.length === 0) { showToast("Vui lòng nhập ít nhất 1 phiếu bầu!", "warning"); return; }
     const totalVotes = amounts.reduce((a, b) => a + b, 0);
     const maxVotes   = Number(document.getElementById("totalAllowedVotes")?.textContent || 0);
-    if (totalVotes > maxVotes) { showToast("Tổng số phiếu dồn vượt quá số phiếu tối đa bạn sở hữu!", "danger"); return; }
+
+    if (maxVotes <= 0) {
+      showToast("Bạn không có quyền biểu quyết tại kỳ này (0 phiếu tại thời điểm chốt snapshot)!", "danger");
+      return;
+    }
+    if (totalVotes > maxVotes) {
+      showToast("Tổng số phiếu dồn vượt quá số phiếu tối đa bạn sở hữu!", "danger");
+      return;
+    }
 
     const submitBtn = document.getElementById("btnSubmitVote");
     if (submitBtn) { submitBtn.disabled = true; submitBtn.textContent = "⏳ Đang gửi giao dịch ký lên Blockchain..."; }
@@ -2310,6 +2470,7 @@ async function renderAdminUnifiedElectionList() {
   container.innerHTML = itemsHtml.join("");
   renderUpcomingChecklist();
   renderActiveChecklist();
+  renderCancelChecklist();
 }
 
 // ------------------------------------------------------------
@@ -3092,6 +3253,243 @@ function adminApplyActivePause(pause) {
   loadAllElections();
 }
 
+// ============================================================
+// HỦY / DỪNG HẲN KỲ BẦU CỬ DO NGHI VẤN GIAN LẬN / SAI PHẠM
+// ============================================================
+function getCachedAnnouncements() {
+  try {
+    return JSON.parse(localStorage.getItem("election_announcements_cache") || "[]");
+  } catch {
+    return [];
+  }
+}
+
+async function fetchAnnouncements() {
+  try {
+    const res = await fetch("/api/announcements", { cache: "no-cache" });
+    if (res.ok) {
+      const data = await res.json();
+      if (Array.isArray(data)) {
+        localStorage.setItem("election_announcements_cache", JSON.stringify(data));
+        return data;
+      }
+    }
+  } catch (err) {
+    console.warn("Lỗi đồng bộ /api/announcements:", err);
+  }
+  return getCachedAnnouncements();
+}
+
+function renderCancelChecklist() {
+  const container = document.getElementById("cancelChecklistContainer");
+  if (!container) return;
+
+  const cancelAnnouncements = getCachedAnnouncements();
+  const cancelEidSet = new Set(cancelAnnouncements.map(a => Number(a.electionId)));
+
+  // Cho phép chọn các kỳ chưa kết thúc hoặc kỳ đã bị hủy
+  const eligibleList = allElections.filter(e => e.status !== STATUS_CONTRACT.CLOSED || cancelEidSet.has(e.id));
+  if (eligibleList.length === 0) {
+    container.innerHTML = `<div style="padding:15px; text-align:center; color:var(--text-muted); font-size:12px;">Hiện không có cuộc bầu cử nào khả dụng để hủy/dừng.</div>`;
+    return;
+  }
+
+  const prevChecked = new Set(
+    Array.from(container.querySelectorAll(".cancel-chk:checked")).map(el => Number(el.value))
+  );
+
+  container.innerHTML = eligibleList.slice().reverse().map(e => {
+    const isCancelled = cancelEidSet.has(e.id);
+    const cancelItem = cancelAnnouncements.find(a => Number(a.electionId) === Number(e.id));
+
+    const badgeHtml = isCancelled
+      ? `<span class="badge badge-danger" style="font-weight:700;">🛑 Đã hủy / Dừng hẳn</span>`
+      : `<span class="badge ${e.status === STATUS_CONTRACT.VOTING ? 'badge-success' : 'badge-warning'}" style="font-size:11px;">
+           ${e.status === STATUS_CONTRACT.VOTING ? 'Đang bỏ phiếu' : 'Sắp diễn ra'}
+         </span>`;
+
+    const isChecked = prevChecked.has(e.id) || (!isCancelled && e.id === currentElectionId);
+
+    return `
+      <label style="display:flex; align-items:center; justify-content:space-between; padding:10px 12px; border-bottom:1px solid #fee2e2; cursor:pointer; user-select:none; transition:background 0.2s; background:${isCancelled ? '#fff1f2' : '#fff'}; border-radius:6px; margin-bottom:4px;" onmouseover="this.style.background='#ffe4e6'" onmouseout="this.style.background='${isCancelled ? '#fff1f2' : '#fff'}'">
+        <div style="display:flex; align-items:center; gap:10px;">
+          <input type="checkbox" class="cancel-chk" value="${e.id}" data-cancelled="${isCancelled ? '1' : '0'}" ${isChecked ? "checked" : ""} style="width:16px; height:16px; cursor:pointer; accent-color:#e11d48;">
+          <div>
+            <div style="font-weight:700; font-size:13px; color:#1e293b;">#${e.id} — ${escapeHtml(e.title)}</div>
+            <div style="font-size:11.5px; color:${isCancelled ? '#be123c' : 'var(--text-muted)'}; margin-top:2px;">
+              ${isCancelled ? `🛑 Lý do: ${escapeHtml(cancelItem?.reason || 'Đã hủy')}` : `${e.seats} ghế • ${e.candidateCount} ứng viên`}
+            </div>
+          </div>
+        </div>
+        <div>${badgeHtml}</div>
+      </label>
+    `;
+  }).join("");
+}
+
+function adminSelectAllCancelable(selectAll) {
+  const checkboxes = document.querySelectorAll("#cancelChecklistContainer .cancel-chk");
+  checkboxes.forEach(chk => { chk.checked = selectAll; });
+}
+
+function openCancelElectionModal() {
+  if (!assertAdmin()) return;
+  const checkboxes = document.querySelectorAll("#cancelChecklistContainer .cancel-chk:checked");
+  if (checkboxes.length === 0) {
+    showToast("Vui lòng tích chọn ít nhất một cuộc bầu cử trong danh sách!", "warning");
+    return;
+  }
+
+  const selectedListEl = document.getElementById("modalCancelSelectedList");
+  const selectedInfo = [];
+  checkboxes.forEach(chk => {
+    const id = Number(chk.value);
+    const el = allElections.find(e => e.id === id);
+    selectedInfo.push(`Kỳ #${id}: ${el?.title || 'Bầu cử'}`);
+  });
+
+  if (selectedListEl) {
+    selectedListEl.innerHTML = selectedInfo.map(str => `<div>• <strong>${escapeHtml(str)}</strong></div>`).join("");
+  }
+
+  const authorEl = document.getElementById("modalCancelAuthor");
+  if (authorEl) authorEl.textContent = currentAccountInfo?.name || "Admin";
+
+  const timeEl = document.getElementById("modalCancelTimestamp");
+  if (timeEl) timeEl.textContent = new Date().toLocaleString("vi-VN");
+
+  const presetSel = document.getElementById("modalCancelReasonPreset");
+  const textarea = document.getElementById("modalCancelReasonText");
+  if (presetSel && textarea) {
+    textarea.value = presetSel.value;
+  }
+
+  const modal = document.getElementById("modalCancelElection");
+  if (modal) modal.style.display = "flex";
+}
+
+function closeCancelElectionModal() {
+  const modal = document.getElementById("modalCancelElection");
+  if (modal) modal.style.display = "none";
+}
+
+function onCancelReasonPresetChange(val) {
+  const textarea = document.getElementById("modalCancelReasonText");
+  if (!textarea) return;
+  if (val === "custom") {
+    textarea.value = "";
+    textarea.focus();
+  } else {
+    textarea.value = val;
+  }
+}
+
+async function adminConfirmCancelElection() {
+  if (!assertAdmin()) return;
+  const checkboxes = document.querySelectorAll("#cancelChecklistContainer .cancel-chk:checked");
+  if (checkboxes.length === 0) return;
+
+  const reason = (document.getElementById("modalCancelReasonText")?.value || "").trim();
+  if (!reason) {
+    showToast("Vui lòng cung cấp lý do hủy / dừng cuộc bầu cử!", "warning");
+    return;
+  }
+
+  const selectedIds = Array.from(checkboxes).map(chk => Number(chk.value));
+  showToast(`Đang phát thông báo dừng và hủy ${selectedIds.length} kỳ bầu cử...`, "primary");
+
+  for (const id of selectedIds) {
+    const election = allElections.find(e => e.id === id);
+    // Lưu vào backend REST API
+    try {
+      await fetch("/api/announcements", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          electionId: id,
+          title: election?.title || `Cuộc bầu cử #${id}`,
+          actionType: "CANCEL",
+          reason: reason,
+          author: currentAccountInfo?.name || currentAccountInfo?.address || "Admin"
+        })
+      });
+    } catch (e) {
+      console.warn("Backend announcement post failed:", e);
+    }
+
+    // Đánh dấu dừng bỏ phiếu trong cache
+    localStorage.setItem(`cancelled_election_${id}`, "true");
+    localStorage.setItem(`paused_election_${id}`, "true");
+    addLog(`🛑 ADMIN HỦY/DỪNG KỲ #${id}: "${reason}"`);
+  }
+
+  closeCancelElectionModal();
+  await fetchAnnouncements();
+  showToast(`🛑 Đã hủy và phát thông báo dừng ${selectedIds.length} kỳ bầu cử đến toàn bộ thành viên!`, "success");
+  await loadAllElections();
+  renderVoterAlertBanner();
+}
+
+async function adminRestoreCancelledElections() {
+  if (!assertAdmin()) return;
+  const checkboxes = document.querySelectorAll("#cancelChecklistContainer .cancel-chk:checked");
+  if (checkboxes.length === 0) {
+    showToast("Vui lòng tích chọn kỳ bầu cử đã hủy để khôi phục!", "warning");
+    return;
+  }
+
+  const selectedIds = Array.from(checkboxes).map(chk => Number(chk.value));
+  for (const id of selectedIds) {
+    try {
+      await fetch(`/api/announcements/${id}`, { method: "DELETE" });
+    } catch {}
+    localStorage.removeItem(`cancelled_election_${id}`);
+    localStorage.removeItem(`paused_election_${id}`);
+    addLog(`↩️ Admin khôi phục lại kỳ bầu cử #${id}`);
+  }
+
+  await fetchAnnouncements();
+  showToast(`✅ Đã khôi phục lại ${selectedIds.length} kỳ bầu cử!`, "success");
+  await loadAllElections();
+  renderVoterAlertBanner();
+}
+
+function renderVoterAlertBanner() {
+  const banner = document.getElementById("voterElectionAlertBanner");
+  if (!banner) return;
+
+  const announcements = getCachedAnnouncements();
+  if (announcements.length === 0) {
+    banner.style.display = "none";
+    banner.innerHTML = "";
+    return;
+  }
+
+  // Lấy các thông báo dừng kỳ gần nhất
+  banner.style.display = "block";
+  banner.innerHTML = announcements.slice(0, 3).map(a => `
+    <div style="background: linear-gradient(135deg, #fff1f2 0%, #ffe4e6 100%); border: 1.5px solid #f43f5e; border-radius: 10px; padding: 14px 18px; margin-bottom: 10px; box-shadow: 0 4px 12px rgba(225,29,72,0.1);">
+      <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px;">
+        <div style="font-weight:800; font-size:14px; color:#9f1239; display:flex; align-items:center; gap:8px;">
+          <span style="font-size:18px;">🛑</span>
+          <span>THÔNG BÁO KHẨN CẤP: DỪNG / HỦY KỲ BẦU CỬ #${a.electionId}</span>
+        </div>
+        <span style="font-size:11.5px; color:#be123c; font-weight:600;">
+          ${new Date(a.createdAt).toLocaleString('vi-VN')}
+        </span>
+      </div>
+      <div style="font-size:13px; color:#881337; margin-top:6px; line-height:1.5;">
+        <strong>Lý do giải trình:</strong> ${escapeHtml(a.reason)}
+      </div>
+      <div style="font-size:11.5px; color:#be123c; margin-top:6px; display:flex; align-items:center; gap:6px;">
+        <span>👤 Quyết định bởi Ban Quản Trị / BKS: <strong>${escapeHtml(a.author)}</strong></span>
+        <span>•</span>
+        <span>Toàn bộ hoạt động bỏ phiếu của kỳ này đã được tạm dừng bảo vệ cử tri.</span>
+      </div>
+    </div>
+  `).join("");
+}
+
 // 3. Dừng khẩn cấp toàn bộ hệ thống (Áp dụng cho TẤT CẢ cuộc bầu cử trên Smart Contract)
 async function adminTogglePause() {
   if (!assertAdmin()) return;
@@ -3152,6 +3550,7 @@ function switchTab(tabId, btn) {
     renderAdminUnifiedElectionList();
     renderUpcomingChecklist();
     renderActiveChecklist();
+    renderCancelChecklist();
   }
   if (tabId === "voterVotingTab" && voterCurrentElectionId) {
     voterSelectElection(voterCurrentElectionId);
@@ -3160,32 +3559,28 @@ function switchTab(tabId, btn) {
   if (tabId === "voterResultsTab") renderAllElectionsResults("voterAllElections");
   if (tabId === "guestResultsTab") renderAllElectionsResults("guestAllElections");
   if (tabId === "adminResultsTab") { loadResults(); renderAllElectionsResults("allElectionsListAdmin"); }
-  if (tabId === "adminWalletsTab" || tabId === "voterWalletsTab" || tabId === "guestWalletsTab") {
+  if (tabId === "adminWalletsTab") {
     fetchCompanyWallets();
   }
 }
 
 // ============================================================
-// GHI NHẬT KÝ (LOGS)
+// GHI NHẬT KÝ (LOGS - CHỈ DÀNH CHO ADMIN)
 // ============================================================
 function addLog(text) {
   const time = new Date().toLocaleTimeString("vi-VN");
-  ["logsContainer", "logsContainer2", "logsContainer3"].forEach(id => {
-    const container = document.getElementById(id);
-    if (!container) return;
-    const div = document.createElement("div");
-    div.className = "log-entry";
-    div.textContent = `[${time}] ${text}`;
-    container.insertBefore(div, container.firstChild);
-    while (container.children.length > 100) container.removeChild(container.lastChild);
-  });
+  const container = document.getElementById("logsContainer");
+  if (!container) return;
+  const div = document.createElement("div");
+  div.className = "log-entry";
+  div.textContent = `[${time}] ${text}`;
+  container.insertBefore(div, container.firstChild);
+  while (container.children.length > 100) container.removeChild(container.lastChild);
 }
 
 function clearLogs() {
-  ["logsContainer", "logsContainer2", "logsContainer3"].forEach(id => {
-    const c = document.getElementById(id);
-    if (c) c.innerHTML = "";
-  });
+  const c = document.getElementById("logsContainer");
+  if (c) c.innerHTML = "";
 }
 
 // ============================================================
@@ -3475,53 +3870,6 @@ function renderCompanyWalletsTable() {
         `;
       }).join("");
     }
-  }
-
-  // 3. Render Voter Table (View-Only)
-  const voterTbody = document.getElementById("voterCompanyWalletsTableBody");
-  if (voterTbody) {
-    voterTbody.innerHTML = companyWallets.map((w, idx) => {
-      const isAdmin = (w.role === "admin");
-      const shortAddr = `${w.address.substring(0, 8)}...${w.address.substring(36)}`;
-      const etherscanUrl = `${SEPOLIA_EXPLORER_URL}/address/${w.address}`;
-      const actualShares = (w.onChainBalance !== undefined) ? w.onChainBalance : (Number(w.shares) || 0);
-
-      return `
-        <tr>
-          <td>${idx + 1}</td>
-          <td>
-            <div class="addr-badge-wrapper" title="${w.address}">
-              <span class="addr-mono">${shortAddr}</span>
-              <button type="button" class="btn-icon-link" onclick="copyWalletAddress('${w.address}')" title="Sao chép">📋</button>
-              <a href="${etherscanUrl}" target="_blank" rel="noopener noreferrer" class="btn-icon-link" title="Etherscan">↗️</a>
-            </div>
-          </td>
-          <td>
-            <div class="wallet-person-name">${escapeHtml(w.name || "")}</div>
-            <div class="wallet-person-title">${escapeHtml(w.title || "")}</div>
-          </td>
-          <td>${getRoleBadgeHtml(w.role)}</td>
-          <td>
-            ${isAdmin ? `
-              <span style="font-size:12px; color:var(--text-muted); font-style:italic;">Admin (Không nhận CP)</span>
-            ` : (actualShares > 0 ? `
-              <strong style="color:#1d4ed8;">${actualShares.toLocaleString()} CP</strong>
-              <div style="font-size:11px; color:#15803d; font-weight:600;">✓ Đủ quyền biểu quyết</div>
-            ` : `
-              <strong style="color:#dc2626;">0 CP</strong>
-              <div style="font-size:11px; color:#b91c1c; font-weight:600;">⚠️ Chưa đủ quyền biểu quyết</div>
-            `)}
-          </td>
-          <td style="font-size:12.5px; color:#475569;">${escapeHtml(w.notes || "--")}</td>
-        </tr>
-      `;
-    }).join("");
-  }
-
-  // 4. Render Guest Table (View-Only)
-  const guestTbody = document.getElementById("guestCompanyWalletsTableBody");
-  if (guestTbody) {
-    guestTbody.innerHTML = voterTbody ? voterTbody.innerHTML : "";
   }
 }
 

@@ -124,10 +124,10 @@
             <div class="stat-value" id="currentShares">0 CP</div>
             <div class="stat-desc">1 Token = 1 Cổ phần (Decimals = 0)</div>
           </div>
-          <div class="stat-box stat-box-primary">
+          <div class="stat-box stat-box-primary" id="maxVotesStatBox">
             <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:4px;">
               <div class="stat-label" id="maxVotesBoxTitle" style="margin-bottom:0;">Phiếu bầu tối đa (Bầu dồn)</div>
-              <button type="button" class="btn-icon-link" onclick="toggleSnapshotTooltip()" title="Xem giải thích cơ chế Snapshot quyền biểu quyết" style="font-size:12px; color:#1d4ed8; font-weight:600; cursor:pointer;">ℹ️ Giải thích</button>
+              <button type="button" class="btn-icon-link" onclick="openSnapshotModal()" title="Xem giải thích cơ chế Snapshot quyền biểu quyết" style="font-size:12px; color:#1d4ed8; font-weight:600; cursor:pointer; padding:2px 8px; background:rgba(37,99,235,0.08); border:1px solid rgba(37,99,235,0.2); border-radius:6px; transition:all 0.2s;">ℹ️ Giải thích</button>
             </div>
             <div class="stat-value" id="currentMaxVotes">0 Phiếu</div>
             <div class="stat-desc" id="formulaDesc">= Số cổ phần × Số ghế HĐQT</div>
@@ -235,7 +235,7 @@
               Ban tổ chức linh hoạt quản lý bằng danh sách hộp tích chọn (checkbox): <strong>Tạm hoãn</strong> kỳ chưa diễn ra (để thêm ứng viên, dời lịch), <strong>Tạm dừng</strong> kỳ đang bỏ phiếu, hoặc <strong>Dừng khẩn cấp cả hệ thống</strong>:
             </p>
 
-            <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap:16px;">
+            <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap:16px;">
               <!-- Khối 1: TẠM HOÃN (Chỉ hiển thị các cuộc bầu cử CHƯA DIỄN RA) -->
               <div style="border:1px solid #cbd5e1; border-radius:10px; padding:16px; background:#f8fafc; display:flex; flex-direction:column;">
                 <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px; flex-wrap:wrap; gap:6px;">
@@ -290,7 +290,34 @@
                 </div>
               </div>
 
-              <!-- Khối 3: DỪNG + HOÃN CẢ HỆ THỐNG (Smart Contract Global Pause) -->
+              <!-- Khối 3: HỦY / DỪNG HẲN KỲ BẦU CỬ DO NGHI VẤN GIAN LẬN / SỰ CỐ -->
+              <div style="border:1px solid #f87171; border-radius:10px; padding:16px; background:#fff1f2; display:flex; flex-direction:column;">
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px; flex-wrap:wrap; gap:6px;">
+                  <div style="font-weight:700; font-size:14px; display:flex; align-items:center; gap:6px; color:#be123c;">
+                    <span>🛑</span> Hủy / Dừng Hẳn Kỳ Bầu Cử
+                  </div>
+                  <div style="display:flex; gap:4px;">
+                    <button type="button" class="btn btn-outline btn-sm" style="font-size:11px; padding:2px 8px;" onclick="adminSelectAllCancelable(true)">✓ Chọn tất cả</button>
+                    <button type="button" class="btn btn-outline btn-sm" style="font-size:11px; padding:2px 8px;" onclick="adminSelectAllCancelable(false)">✕ Bỏ chọn</button>
+                  </div>
+                </div>
+                <p style="font-size:12px; color:#9f1239; margin-bottom:10px;">
+                  Hủy bỏ kỳ bầu cử do nghi vấn gian lận/sai phạm, đóng băng kết quả &amp; gửi thông báo đến toàn bộ ví công ty.
+                </p>
+                <div id="cancelChecklistContainer" style="flex:1; max-height:170px; min-height:100px; overflow-y:auto; border:1px solid #fecdd3; border-radius:8px; background:#fff; margin-bottom:12px; padding:6px;">
+                  <div style="padding:15px; text-align:center; color:var(--text-muted); font-size:12px;">⏳ Đang nạp danh sách từ Smart Contract...</div>
+                </div>
+                <div style="display:flex; gap:8px;">
+                  <button type="button" class="btn btn-danger btn-sm" style="flex:1; font-weight:700;" onclick="openCancelElectionModal()">
+                    🛑 Hủy / Dừng Hẳn Kỳ Đã Chọn
+                  </button>
+                  <button type="button" class="btn btn-outline btn-sm" style="flex:0.6; font-weight:600; border-color:#fda4af; color:#be123c;" onclick="adminRestoreCancelledElections()" title="Hủy quyết định dừng và khôi phục lại kỳ bầu cử">
+                    ↩️ Khôi Phục
+                  </button>
+                </div>
+              </div>
+
+              <!-- Khối 4: DỪNG + HOÃN CẢ HỆ THỐNG (Smart Contract Global Pause) -->
               <div style="border:1px solid #fecaca; border-radius:10px; padding:16px; background:#fff5f5; grid-column: 1 / -1;">
                 <div style="font-weight:700; font-size:14px; margin-bottom:6px; color:#b91c1c; display:flex; align-items:center; gap:6px;">
                   <span>🚨</span> Dừng &amp; Hoãn Cả Hệ Thống (Smart Contract Pausable)
@@ -471,11 +498,12 @@
 
         <div class="tabs">
           <button class="tab-btn active" onclick="switchTab('voterVotingTab', this)">🗳️ Bỏ Phiếu</button>
-          <button class="tab-btn" onclick="switchTab('voterWalletsTab', this)">🏢 Danh Sách Ví Công Ty</button>
           <button class="tab-btn" onclick="switchTab('voterResultsTab', this)">📊 Xem Cuộc Bầu Cử &amp; Kết Quả</button>
-          <button class="tab-btn" onclick="switchTab('voterHistoryTab', this)">📋 Xác Nhận &amp; Lịch Sử Bỏ Phiếu</button>
-          <button class="tab-btn" onclick="switchTab('voterLogsTab', this)">📜 Nhật Ký Giao Dịch</button>
+          <button class="tab-btn" onclick="switchTab('voterHistoryTab', this)">📋 Xác Nhận &amp; Lịch Sử Bỏ Phiếu Của Tôi</button>
         </div>
+
+        <!-- Banner cảnh báo thông báo hủy / dừng kỳ bầu cử khẩn cấp cho cử tri -->
+        <div id="voterElectionAlertBanner" style="display:none; margin-bottom:16px;"></div>
 
         <!-- Tab 2.1: Bỏ phiếu -->
         <section id="voterVotingTab" class="tab-content active">
@@ -585,40 +613,7 @@
           </div>
         </section>
 
-        <!-- Tab 2.2: Danh sách ví công ty (Dành cho cổ đông xem minh bạch) -->
-        <section id="voterWalletsTab" class="tab-content">
-          <div class="card">
-            <div class="card-title">
-              <div style="display:flex; align-items:center; gap:8px;">
-                <span>🏢</span>
-                <span>Danh Sách Cổ Đông &amp; Nhân Sự Nội Bộ Công Ty</span>
-              </div>
-              <button class="btn btn-outline btn-sm" onclick="fetchCompanyWallets(true)">🔄 Cập nhật</button>
-            </div>
-            <p style="font-size:13px; color:var(--text-muted); margin-bottom:14px;">
-              Danh sách các cổ đông sở hữu cổ phần biểu quyết và các ví chức năng trong ban quản trị công ty được ghi nhận minh bạch trên hệ thống.
-            </p>
-            <div class="table-container">
-              <table>
-                <thead>
-                  <tr>
-                    <th style="width:40px;">#</th>
-                    <th>Địa Chỉ Ví &amp; Sepolia Etherscan</th>
-                    <th>Họ Tên &amp; Chức Danh</th>
-                    <th style="width:140px;">Vai Trò</th>
-                    <th style="width:130px;">Cổ Phần (CP)</th>
-                    <th>Ghi Chú</th>
-                  </tr>
-                </thead>
-                <tbody id="voterCompanyWalletsTableBody">
-                  <tr><td colspan="6" style="text-align:center; padding:20px; color:var(--text-muted);">Đang tải danh sách...</td></tr>
-                </tbody>
-              </table>
-            </div>
-          </div>
-        </section>
-
-        <!-- Tab 2.3: Xem cuộc bầu cử & kết quả -->
+        <!-- Tab 2.2: Xem cuộc bầu cử & kết quả -->
         <section id="voterResultsTab" class="tab-content">
           <div class="card">
             <div class="card-title">
@@ -631,11 +626,11 @@
           </div>
         </section>
 
-        <!-- Tab 2.3: Xác nhận & Lịch sử bỏ phiếu -->
+        <!-- Tab 2.3: Xác nhận & Lịch sử bỏ phiếu của tôi -->
         <section id="voterHistoryTab" class="tab-content">
           <div class="card">
             <div class="card-title">
-              📋 Xác Nhận &amp; Lịch Sử Bỏ Phiếu Của Cổ Đông
+              📋 Xác Nhận &amp; Lịch Sử Bỏ Phiếu Của Tôi
               <button class="btn btn-outline btn-sm" onclick="loadVoteHistory()">🔄 Cập nhật</button>
             </div>
             <p style="font-size:13px;color:var(--text-muted);margin-bottom:14px;">
@@ -646,19 +641,6 @@
                 <div class="history-icon">📋</div>
                 <div>Chưa có lịch sử bỏ phiếu nào cho ví này.</div>
               </div>
-            </div>
-          </div>
-        </section>
-
-        <!-- Tab 2.4: Nhật ký -->
-        <section id="voterLogsTab" class="tab-content">
-          <div class="card">
-            <div class="card-title">
-              <span>📜 Nhật Ký Giao Dịch &amp; Sự Kiện On-chain</span>
-              <button class="btn btn-outline btn-sm" onclick="clearLogs()">Xóa log</button>
-            </div>
-            <div id="logsContainer2" style="max-height:450px;overflow-y:auto;background:#020617;padding:16px;border-radius:8px;">
-              <div class="log-entry">[Hệ thống] Đang lắng nghe sự kiện từ Smart Contract...</div>
             </div>
           </div>
         </section>
@@ -682,8 +664,6 @@
 
         <div class="tabs">
           <button class="tab-btn active" onclick="switchTab('guestResultsTab', this)">📊 Xem Các Cuộc Bầu Cử &amp; Kết Quả</button>
-          <button class="tab-btn" onclick="switchTab('guestWalletsTab', this)">🏢 Danh Sách Ví Công Ty</button>
-          <button class="tab-btn" onclick="switchTab('guestLogsTab', this)">📜 Nhật Ký Giao Dịch On-chain</button>
         </div>
 
         <section id="guestResultsTab" class="tab-content active">
@@ -694,48 +674,6 @@
             </div>
             <div id="guestAllElections" class="election-list">
               <div style="text-align:center;padding:20px;color:var(--text-muted);">Đang tải...</div>
-            </div>
-          </div>
-        </section>
-
-        <!-- Tab 3.2: Danh sách ví công ty (Dành cho khách xem) -->
-        <section id="guestWalletsTab" class="tab-content">
-          <div class="card">
-            <div class="card-title">
-              <div style="display:flex; align-items:center; gap:8px;">
-                <span>🏢</span>
-                <span>Danh Sách Cổ Đông &amp; Ban Quản Trị Công Ty</span>
-              </div>
-              <button class="btn btn-outline btn-sm" onclick="fetchCompanyWallets(true)">🔄 Cập nhật</button>
-            </div>
-            <p style="font-size:13px; color:var(--text-muted); margin-bottom:14px;">
-              Danh sách định danh các cổ đông và ban quản trị công ty được công khai minh bạch.
-            </p>
-            <div class="table-container">
-              <table>
-                <thead>
-                  <tr>
-                    <th style="width:40px;">#</th>
-                    <th>Địa Chỉ Ví &amp; Sepolia Etherscan</th>
-                    <th>Họ Tên &amp; Chức Danh</th>
-                    <th style="width:140px;">Vai Trò</th>
-                    <th style="width:130px;">Cổ Phần (CP)</th>
-                    <th>Ghi Chú</th>
-                  </tr>
-                </thead>
-                <tbody id="guestCompanyWalletsTableBody">
-                  <tr><td colspan="6" style="text-align:center; padding:20px; color:var(--text-muted);">Đang tải danh sách...</td></tr>
-                </tbody>
-              </table>
-            </div>
-          </div>
-        </section>
-
-        <section id="guestLogsTab" class="tab-content">
-          <div class="card">
-            <div class="card-title">📜 Nhật Ký Giao Dịch &amp; Sự Kiện On-chain</div>
-            <div id="logsContainer3" style="max-height:450px;overflow-y:auto;background:#020617;padding:16px;border-radius:8px;">
-              <div class="log-entry">[Hệ thống] Đang lắng nghe sự kiện từ Smart Contract...</div>
             </div>
           </div>
         </section>
@@ -1044,6 +982,137 @@
         <button type="button" class="btn btn-outline" onclick="closeAddCandidateModal()">Hủy Bỏ</button>
         <button type="button" id="btnAddCandidate" class="btn btn-primary" onclick="adminAddCandidate()" style="font-weight:700;">
           👤 Thêm Vào Danh Sách Ứng Viên Trên Blockchain
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- =====================================================
+       MODAL 6: CỬA SỔ GIẢI THÍCH SNAPSHOT & QUYỀN BIỂU QUYẾT
+       ===================================================== -->
+  <div id="modalSnapshotExplainer" class="modal-backdrop" style="display: none;" onclick="if(event.target===this) closeSnapshotModal()">
+    <div class="modal-dialog" style="max-width: 580px;">
+      <div class="modal-header" style="background: linear-gradient(135deg, #f0f7ff 0%, #f8fafc 100%);">
+        <div>
+          <h3 style="margin: 0; font-size: 16.5px; color: #1e3a8a; display: flex; align-items: center; gap: 8px;">
+            <span>💡</span> Cơ Chế Chốt Snapshot &amp; Quyền Biểu Quyết
+          </h3>
+          <div style="font-size: 12px; color: var(--text-muted); margin-top: 3px;">
+            Minh bạch cách tính phiếu bầu dồn theo Luật Doanh nghiệp &amp; Smart Contract
+          </div>
+        </div>
+        <button type="button" class="modal-close-btn" onclick="closeSnapshotModal()">&times;</button>
+      </div>
+
+      <div class="modal-body" style="padding: 20px 22px;">
+        <!-- Card dữ liệu thực tế của ví cử tri -->
+        <div id="modalSnapVoterCard" style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 12px; padding: 14px 16px; margin-bottom: 18px;">
+          <!-- Nạp động qua hàm openSnapshotModal() -->
+        </div>
+
+        <!-- 3 Điểm nguyên tắc bảo mật -->
+        <div style="display: flex; flex-direction: column; gap: 12px;">
+          <div style="display: flex; gap: 12px; align-items: flex-start;">
+            <div style="width: 28px; height: 28px; border-radius: 8px; background: #dbeafe; color: #1d4ed8; display: flex; align-items: center; justify-content: center; font-size: 14px; flex-shrink: 0; font-weight: 700;">1</div>
+            <div>
+              <div style="font-weight: 700; font-size: 13px; color: #1e293b;">Chốt danh sách cổ đông tại block mở phiên</div>
+              <div style="font-size: 12px; color: #475569; line-height: 1.5; margin-top: 2px;">
+                Khi kỳ bầu cử bắt đầu, Smart Contract tự động chụp "ảnh tức thời" (Snapshot Block). Toàn bộ quyền biểu quyết được cố định vĩnh viễn theo số cổ phần ghi nhận tại chính block này thông qua <code>ERC20Votes</code>.
+              </div>
+            </div>
+          </div>
+
+          <div style="display: flex; gap: 12px; align-items: flex-start;">
+            <div style="width: 28px; height: 28px; border-radius: 8px; background: #fef3c7; color: #b45309; display: flex; align-items: center; justify-content: center; font-size: 14px; flex-shrink: 0; font-weight: 700;">2</div>
+            <div>
+              <div style="font-weight: 700; font-size: 13px; color: #1e293b;">Bảo mật &amp; Chống gian lận (Anti Double-Voting)</div>
+              <div style="font-size: 12px; color: #475569; line-height: 1.5; margin-top: 2px;">
+                Ngăn chặn hoàn toàn việc chuyển token sang ví khác sau khi đã bỏ phiếu để bầu lần hai, hoặc Admin mint khẩn cấp thêm cổ phần trong phiên để thao túng kết quả đại hội.
+              </div>
+            </div>
+          </div>
+
+          <div style="display: flex; gap: 12px; align-items: flex-start;">
+            <div style="width: 28px; height: 28px; border-radius: 8px; background: #dcfce7; color: #15803d; display: flex; align-items: center; justify-content: center; font-size: 14px; flex-shrink: 0; font-weight: 700;">3</div>
+            <div>
+              <div style="font-weight: 700; font-size: 13px; color: #1e293b;">Cổ phần nhận sau mở phiên có bị mất không?</div>
+              <div style="font-size: 12px; color: #475569; line-height: 1.5; margin-top: 2px;">
+                <strong>Hoàn toàn không.</strong> Token cổ phần vẫn thuộc quyền sở hữu của bạn trên mạng blockchain và sẽ có đầy đủ quyền biểu quyết ở tất cả các kỳ bầu cử tiếp theo (Kỳ #2, #3,...).
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Quy định pháp lý -->
+        <div style="margin-top: 16px; padding: 10px 14px; background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 10px; font-size: 12px; color: #166534; display: flex; align-items: center; gap: 10px;">
+          <span style="font-size: 16px;">⚖️</span>
+          <div>
+            <strong>Điều 148 Luật Doanh nghiệp (Cơ chế Bầu dồn):</strong><br>
+            <span style="font-family: monospace; font-size: 11.5px; color: #15803d;">Tổng số phiếu = Cổ phần tại Snapshot × Số thành viên HĐQT cần bầu</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="modal-footer" style="background: #f8fafc; padding: 12px 20px;">
+        <button type="button" class="btn btn-primary" onclick="closeSnapshotModal()" style="width: 100%; justify-content: center; font-weight: 600; padding: 10px;">
+          ✓ Đã Hiểu
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- =====================================================
+       MODAL 7: HỦY / DỪNG HẲN KỲ BẦU CỬ DO SỰ CỐ / GIAN LẬN
+       ===================================================== -->
+  <div id="modalCancelElection" class="modal-backdrop" style="display: none;" onclick="if(event.target===this) closeCancelElectionModal()">
+    <div class="modal-dialog" style="max-width: 540px;">
+      <div class="modal-header" style="background: linear-gradient(135deg, #fff1f2 0%, #ffe4e6 100%); border-bottom: 1px solid #fecdd3;">
+        <div>
+          <h3 style="margin: 0; font-size: 16.5px; color: #9f1239; display: flex; align-items: center; gap: 8px;">
+            <span>🛑</span> Quyết Định Hủy / Dừng Hẳn Cuộc Bầu Cử
+          </h3>
+          <div style="font-size: 12px; color: #be123c; margin-top: 3px;">
+            Hành động khẩn cấp: Đóng băng kết quả &amp; Phát thông báo đến toàn bộ ví cổ đông công ty
+          </div>
+        </div>
+        <button type="button" class="modal-close-btn" onclick="closeCancelElectionModal()">&times;</button>
+      </div>
+
+      <div class="modal-body" style="padding: 20px 22px;">
+        <div style="padding: 12px 14px; background: #fff5f5; border: 1px solid #fed7d7; border-radius: 8px; font-size: 12.5px; color: #9b2c2c; line-height: 1.5; margin-bottom: 16px;">
+          ⚠️ <strong>LƯU Ý QUAN TRỌNG:</strong> Việc hủy/dừng hẳn kỳ bầu cử sẽ khóa hoàn toàn chức năng bỏ phiếu của cử tri. Toàn bộ cổ đông sẽ nhận được thông báo giải trình nguyên nhân này trực tiếp trên giao diện của họ.
+        </div>
+
+        <div class="form-group" style="margin-bottom: 14px;">
+          <label class="form-label" style="font-weight: 700; color: #1e293b;">Các kỳ bầu cử được chọn để hủy / dừng:</label>
+          <div id="modalCancelSelectedList" style="padding: 8px 12px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 6px; font-size: 13px; font-weight: 600; color: #be123c; max-height: 100px; overflow-y: auto;">
+            -- Chưa chọn kỳ nào --
+          </div>
+        </div>
+
+        <div class="form-group" style="margin-bottom: 14px;">
+          <label class="form-label" style="font-weight: 700; color: #1e293b;">Lý do hủy / dừng hẳn kỳ bầu cử (*):</label>
+          <select id="modalCancelReasonPreset" class="form-select" onchange="onCancelReasonPresetChange(this.value)" style="margin-bottom: 8px;">
+            <option value="Phát hiện nghi vấn gian lận phiếu bầu hoặc thao túng biểu quyết on-chain.">⚠️ Nghi vấn gian lận phiếu bầu / thao túng kết quả</option>
+            <option value="Hồ sơ ứng cử viên vi phạm tiêu chuẩn đạo đức hoặc điều lệ công ty.">📄 Hồ sơ ứng viên vi phạm điều lệ / pháp luật</option>
+            <option value="Sự cố kỹ thuật đột xuất trên hệ thống hoặc mạng Sepolia Blockchain.">⚡ Sự cố kỹ thuật hệ thống / mạng blockchain</option>
+            <option value="Theo quyết định khẩn cấp của Hội đồng Quản trị / Ban Kiểm soát.">🏛️ Quyết định khẩn cấp của HĐQT / BKS</option>
+            <option value="custom">✏️ Nhập lý do chi tiết khác...</option>
+          </select>
+          <textarea id="modalCancelReasonText" class="form-textarea" rows="3" placeholder="Nhập chi tiết lý do hủy/dừng để giải trình với cổ đông..." style="font-size: 13px;"></textarea>
+        </div>
+
+        <div style="font-size: 12px; color: var(--text-muted);">
+          Ghi nhận bởi: <strong id="modalCancelAuthor">Admin</strong> • Thời gian: <span id="modalCancelTimestamp">Hôm nay</span>
+        </div>
+      </div>
+
+      <div class="modal-footer" style="background: #fff1f2; padding: 12px 20px; display: flex; gap: 10px;">
+        <button type="button" class="btn btn-outline" onclick="closeCancelElectionModal()" style="flex: 1;">
+          Hủy Bỏ
+        </button>
+        <button type="button" class="btn btn-danger" onclick="adminConfirmCancelElection()" style="flex: 1.5; font-weight: 700; background: #e11d48; border-color: #be123c;">
+          🛑 Xác Nhận Hủy &amp; Phát Thông Báo
         </button>
       </div>
     </div>

@@ -51,9 +51,30 @@ const PINATA_JWT = process.env.PINATA_JWT && process.env.PINATA_JWT !== "your_pi
 // Dedicated Gateway riêng của tài khoản Pinata
 const PINATA_GATEWAY = process.env.PINATA_GATEWAY || "https://purple-fashionable-rooster-653.mypinata.cloud/ipfs/";
 
-// Đường dẫn file lưu trữ danh bạ ví nội bộ công ty
+// Đường dẫn file lưu trữ danh bạ ví nội bộ công ty & thông báo hủy/dừng kỳ bầu cử
 const WALLETS_FILE = path.join(__dirname, "company-wallets.json");
+const ANNOUNCEMENTS_FILE = path.join(__dirname, "election-announcements.json");
 const DEFAULT_ADMIN_WALLET = "0xeD9D3BE4A094B9cb82f864f793F4F96098323F66";
+
+// Quản lý thông báo hủy / dừng kỳ bầu cử
+function getAnnouncements() {
+  try {
+    if (!fs.existsSync(ANNOUNCEMENTS_FILE)) {
+      fs.writeFileSync(ANNOUNCEMENTS_FILE, "[]", "utf8");
+      return [];
+    }
+    const raw = fs.readFileSync(ANNOUNCEMENTS_FILE, "utf8");
+    let list = JSON.parse(raw);
+    return Array.isArray(list) ? list : [];
+  } catch (err) {
+    console.error("[Announcements DB] Lỗi đọc election-announcements.json:", err.message);
+    return [];
+  }
+}
+
+function saveAnnouncements(list) {
+  fs.writeFileSync(ANNOUNCEMENTS_FILE, JSON.stringify(list, null, 2), "utf8");
+}
 
 // Quản lý dữ liệu danh bạ ví nội bộ công ty
 function getCompanyWallets() {
@@ -229,6 +250,61 @@ const server = http.createServer(async (req, res) => {
   // ---------------------------------------------------------
   // 3. REST API: Danh bạ ví nội bộ công ty (Company Wallets)
   // ---------------------------------------------------------
+
+  // GET /api/announcements
+  if (req.method === "GET" && reqUrl === "/api/announcements") {
+    try {
+      const list = getAnnouncements();
+      return sendJson(200, list);
+    } catch (err) {
+      return sendJson(500, { error: "Lỗi đọc danh sách thông báo: " + err.message });
+    }
+  }
+
+  // POST /api/announcements (Hủy hoặc dừng kỳ bầu cử có lý do)
+  if (req.method === "POST" && reqUrl === "/api/announcements") {
+    try {
+      const rawBody = await getRequestBody(req);
+      const payload = JSON.parse(rawBody.toString("utf-8") || "{}");
+      const { electionId, title, actionType, reason, author, signature } = payload;
+
+      if (!electionId) {
+        return sendJson(400, { error: "Thiếu electionId!" });
+      }
+
+      const list = getAnnouncements();
+      const newAnnouncement = {
+        id: Date.now(),
+        electionId: Number(electionId),
+        title: title || `Kỳ #${electionId}`,
+        actionType: actionType || "CANCEL", // CANCEL / FORCE_STOP
+        reason: reason || "Phát hiện dấu hiệu gian lận hoặc vi phạm quy chế bầu cử.",
+        author: author || "Admin",
+        signature: signature || null,
+        createdAt: new Date().toISOString()
+      };
+
+      list.unshift(newAnnouncement);
+      saveAnnouncements(list.slice(0, 100)); // Lưu tối đa 100 thông báo gần nhất
+      console.log(`[Announcements] Đã ghi nhận quyết định hủy/dừng kỳ #${electionId}: ${newAnnouncement.reason}`);
+      return sendJson(201, { success: true, announcement: newAnnouncement });
+    } catch (err) {
+      return sendJson(500, { error: "Lỗi ghi nhận thông báo hủy/dừng: " + err.message });
+    }
+  }
+
+  // DELETE /api/announcements/:id (Khôi phục lại kỳ nếu cần)
+  if (req.method === "DELETE" && reqUrl.startsWith("/api/announcements/")) {
+    try {
+      const targetEid = Number(decodeURIComponent(reqUrl.replace("/api/announcements/", "")).trim());
+      let list = getAnnouncements();
+      list = list.filter(a => a.electionId !== targetEid && a.id !== targetEid);
+      saveAnnouncements(list);
+      return sendJson(200, { success: true, message: "Đã hủy quyết định dừng kỳ bầu cử" });
+    } catch (err) {
+      return sendJson(500, { error: "Lỗi hủy thông báo: " + err.message });
+    }
+  }
 
   // GET /api/company-wallets
   if (req.method === "GET" && reqUrl === "/api/company-wallets") {
