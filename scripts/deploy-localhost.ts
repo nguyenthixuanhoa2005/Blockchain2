@@ -88,7 +88,37 @@ async function main() {
     rpcUrl: "http://127.0.0.1:8545",
     tokenAddress: tokenAddr,
     electionAddress: electionAddr,
+    adminAddress: "0xeD9D3BE4A094B9cb82f864f793F4F96098323F66",
+    superAdmin: "0xeD9D3BE4A094B9cb82f864f793F4F96098323F66",
+    sepolia: {
+      chainId: 11155111,
+      chainIdHex: "0xaa36a7",
+      chainName: "Sepolia Test Network",
+      rpcUrl: "https://ethereum-sepolia-rpc.publicnode.com",
+      rpcUrls: [
+        "https://ethereum-sepolia-rpc.publicnode.com",
+        "https://rpc.sepolia.org"
+      ],
+      explorerUrl: "https://sepolia.etherscan.io",
+      blockExplorerUrls: ["https://sepolia.etherscan.io/"],
+      nativeCurrency: {
+        name: "Sepolia ETH",
+        symbol: "ETH",
+        decimals: 18
+      },
+      tokenAddress: tokenAddr,
+      electionAddress: electionAddr,
+      adminAddress: "0xeD9D3BE4A094B9cb82f864f793F4F96098323F66"
+    },
+    network: {
+      name: "Sepolia Testnet",
+      chainId: 11155111,
+      chainIdHex: "0xaa36a7",
+      explorerUrl: "https://sepolia.etherscan.io",
+      rpcUrl: "https://ethereum-sepolia-rpc.publicnode.com"
+    },
     accounts: [
+      { name: "Chủ tịch HĐQT / Quản trị viên tối cao", address: "0xeD9D3BE4A094B9cb82f864f793F4F96098323F66", role: "admin", isSuperAdmin: true },
       { name: "Quản trị viên (Admin)", address: admin.address, privateKey: adminKey, role: "admin" },
       { name: "Cổ đông Alice (60 cổ phần - 50%)", address: alice.address, privateKey: aliceKey, role: "voter" },
       { name: "Cổ đông Bob (25 cổ phần - 20.8%)", address: bob.address, privateKey: bobKey, role: "voter" },

@@ -1,11 +1,52 @@
-// File cấu hình tự động kết nối Smart Contract cho Frontend dApp
+// File cấu hình kết nối Smart Contract và Mạng Blockchain cho Frontend dApp
 window.APP_CONFIG = {
   "rpcUrl": "http://127.0.0.1:8545",
-  "tokenAddress": "0x5FbDB2315678afecb367f032d93F642f64180aa3",
-  "electionAddress": "0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512",
+  "tokenAddress": "0xa4352AD4E013245AB8B2C33bDb8D0F7E29e309C9",
+  "electionAddress": "0xCb78223247400217fdAeAC819983Ec35892fEc9C",
+  "adminAddress": "0xeD9D3BE4A094B9cb82f864f793F4F96098323F66",
+  "superAdmin": "0xeD9D3BE4A094B9cb82f864f793F4F96098323F66",
+
+  // Cấu hình mạng Sepolia Testnet chuẩn cho Web3 / MetaMask
+  "sepolia": {
+    "chainId": 11155111,
+    "chainIdHex": "0xaa36a7",
+    "chainName": "Sepolia Test Network",
+    "rpcUrl": "https://ethereum-sepolia-rpc.publicnode.com",
+    "rpcUrls": [
+      "https://ethereum-sepolia-rpc.publicnode.com",
+      "https://rpc.sepolia.org",
+      "https://sepolia.gateway.tenderly.co"
+    ],
+    "explorerUrl": "https://sepolia.etherscan.io",
+    "blockExplorerUrls": ["https://sepolia.etherscan.io/"],
+    "nativeCurrency": {
+      "name": "Sepolia ETH",
+      "symbol": "ETH",
+      "decimals": 18
+    },
+    "tokenAddress": "0x5FbDB2315678afecb367f032d93F642f64180aa3",
+    "electionAddress": "0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512",
+    "adminAddress": "0xeD9D3BE4A094B9cb82f864f793F4F96098323F66"
+  },
+
+  // Metadata thông tin mạng
+  "network": {
+    "name": "Sepolia Testnet",
+    "chainId": 11155111,
+    "chainIdHex": "0xaa36a7",
+    "explorerUrl": "https://sepolia.etherscan.io",
+    "rpcUrl": "https://ethereum-sepolia-rpc.publicnode.com"
+  },
+
   "accounts": [
     {
-      "name": "Quản trị viên (Admin)",
+      "name": "Chủ tịch HĐQT / Quản trị viên tối cao",
+      "address": "0xeD9D3BE4A094B9cb82f864f793F4F96098323F66",
+      "role": "admin",
+      "isSuperAdmin": true
+    },
+    {
+      "name": "Quản trị viên Local (Admin)",
       "address": "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266",
       "privateKey": "0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80",
       "role": "admin"

@@ -1,0 +1,19 @@
+{
+  "network": "sepolia",
+  "chainId": 11155111,
+  "chainIdHex": "0xaa36a7",
+  "rpcUrl": "https://eth-sepolia.g.alchemy.com/v2/alch_zoiPwMM2z0dYXQ4yMNJC2",
+  "deployedAt": "2026-11-17T09:45:14.931Z",
+  "deployer": "0xeD9D3BE4A094B9cb82f864f793F4F96098323F66",
+  "superAdmin": "0xeD9D3BE4A094B9cb82f864f793F4F96098323F66",
+  "contracts": {
+    "shareToken": {
+      "address": "0xa4352AD4E013245AB8B2C33bDb8D0F7E29e309C9",
+      "explorerUrl": "https://sepolia.etherscan.io/address/0xa4352AD4E013245AB8B2C33bDb8D0F7E29e309C9"
+    },
+    "boardElection": {
+      "address": "0xCb78223247400217fdAeAC819983Ec35892fEc9C",
+      "explorerUrl": "https://sepolia.etherscan.io/address/0xCb78223247400217fdAeAC819983Ec35892fEc9C"
+    }
+  }
+}

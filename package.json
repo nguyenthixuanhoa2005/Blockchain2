@@ -8,6 +8,7 @@
     "test": "hardhat test",
     "chain": "hardhat node",
     "deploy:local": "node scripts/deploy-local.js",
+    "deploy:sepolia": "node scripts/deploy-sepolia.js",
     "serve": "node frontend/server.js",
     "start": "node frontend/server.js"
   },
