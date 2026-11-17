@@ -125,7 +125,7 @@
             <div class="stat-desc">1 Token = 1 Cổ phần (Decimals = 0)</div>
           </div>
           <div class="stat-box stat-box-primary">
-            <div class="stat-label">Phiếu bầu tối đa (Bầu dồn)</div>
+            <div class="stat-label" id="maxVotesBoxTitle">Phiếu bầu tối đa (Bầu dồn)</div>
             <div class="stat-value" id="currentMaxVotes">0 Phiếu</div>
             <div class="stat-desc" id="formulaDesc">= Số cổ phần × Số ghế HĐQT</div>
           </div>
@@ -305,24 +305,7 @@
             </div>
           </div>
 
-          <!-- KHỐI QUẢN TRỊ NÂNG CAO: Cấp cổ phần -->
-          <div class="card" style="margin-bottom: 20px;">
-            <div class="card-title">🪙 Cấp Phát Cổ Phần Cho Cổ Đông (Mint ShareToken)</div>
-            <p style="font-size:13px; color:var(--text-muted); margin-bottom:14px;">
-              Admin cấp phát Token cổ phần để thiết lập trọng số biểu quyết cho cổ đông: <code>Số phiếu tối đa = Cổ phần × Số ghế HĐQT</code>.
-            </p>
-            <div class="grid-2">
-              <div class="form-group">
-                <label class="form-label">Địa chỉ ví cổ đông:</label>
-                <input type="text" id="mintToAddress" class="form-input" placeholder="0x..." style="font-family:monospace;">
-              </div>
-              <div class="form-group">
-                <label class="form-label">Số cổ phần cấp phát (1 Token = 1 CP):</label>
-                <input type="number" id="mintAmount" class="form-input" placeholder="VD: 100" min="1">
-              </div>
-            </div>
-            <button class="btn btn-primary" onclick="adminMintTokens()" style="font-weight:700;">🪙 Cấp Phát Token Cổ Phần</button>
-          </div>
+
         </section>
 
         <!-- Tab 1.2: Quản Lý Danh Sách Ví Nội Bộ Công Ty -->
@@ -343,7 +326,7 @@
               <div class="stat-box">
                 <div class="stat-label">Cổ đông có quyền biểu quyết</div>
                 <div class="stat-value" id="statCompanyWalletsVoter">0</div>
-                <div class="stat-desc">Được cấp cổ phần ShareToken</div>
+                <div class="stat-desc">Đã cấp cổ phần (&gt; 0 CP)</div>
               </div>
               <div class="stat-box stat-box-primary">
                 <div class="stat-label">Tổng cổ phần nội bộ ghi nhận</div>
@@ -369,11 +352,10 @@
             <div class="wallets-toolbar">
               <div class="wallets-filter-group">
                 <input type="text" id="walletSearchInput" class="form-input wallets-search-input" placeholder="🔍 Tìm theo địa chỉ (0x...), tên nhân sự, chức danh..." oninput="filterCompanyWallets()">
-                <select id="walletRoleFilter" class="form-select" style="width:170px;" onchange="filterCompanyWallets()">
+                <select id="walletRoleFilter" class="form-select" style="width:180px;" onchange="filterCompanyWallets()">
                   <option value="">-- Tất cả vai trò --</option>
                   <option value="admin">Quản trị viên (Admin)</option>
-                  <option value="voter">Cổ đông (Shareholder)</option>
-                  <option value="auditor">Kiểm toán / BKS</option>
+                  <option value="voter">Cổ đông biểu quyết</option>
                 </select>
               </div>
 
@@ -543,6 +525,10 @@
                 <strong id="voterBlockedTitle">Không thể bỏ phiếu</strong>
                 <div id="voterBlockedDesc">Vui lòng chọn cuộc bầu cử đang diễn ra.</div>
               </div>
+            </div>
+
+            <!-- Thông báo đối soát Snapshot on-chain khi có sự chênh lệch với số dư hiện tại -->
+            <div id="voterSnapshotNotice" style="display:none; background:#eff6ff; border:1px solid #bfdbfe; border-radius:8px; padding:10px 14px; margin-bottom:14px; font-size:12.5px; color:#1e40af; line-height:1.5;">
             </div>
 
             <p style="font-size:14px;color:var(--text-muted);margin-bottom:14px;" id="voterVoteDesc">
@@ -784,27 +770,15 @@
 
         <div class="form-group">
           <label class="form-label">Vai trò trong hệ thống:</label>
-          <select id="walletFormRole" class="form-select" onchange="handleWalletRoleChange(this.value)">
-            <option value="voter">Cổ đông biểu quyết (Voter / Shareholder)</option>
+          <select id="walletFormRole" class="form-select">
+            <option value="voter">Cổ đông biểu quyết (Voter)</option>
             <option value="admin">Quản trị viên (Admin)</option>
-            <option value="auditor">Kiểm toán viên / Ban Kiểm soát</option>
           </select>
         </div>
 
         <div class="form-group">
           <label class="form-label">Ghi chú:</label>
           <textarea id="walletFormNotes" class="form-input" rows="2" placeholder="Ghi chú về nguồn gốc, nhiệm kỳ hoặc phòng ban..."></textarea>
-        </div>
-
-        <!-- Tùy chọn tác vụ Smart Contract On-chain -->
-        <div id="walletOnChainOptions" style="background:#eff6ff; border:1px solid #bfdbfe; border-radius:8px; padding:12px; margin-top:8px;">
-          <div style="font-weight:700; font-size:12.5px; color:#1e40af; margin-bottom:6px;">
-            ⚡ Tác vụ On-Chain tự động (Smart Contract Sepolia):
-          </div>
-          <label id="optGrantRoleLabel" style="display:flex; align-items:center; gap:8px; font-size:12px; color:#1e3a8a; margin-bottom:0; cursor:pointer;">
-            <input type="checkbox" id="walletOptGrantRole">
-            <span>Cấp quyền Quản trị viên (<code>grantRole</code>) trên Smart Contract ngay lập tức</span>
-          </label>
         </div>
       </div>
       <div class="modal-footer">
@@ -883,19 +857,19 @@
           </div>
         </div>
 
-        <div style="background:#fffbeb; border:1px solid #fde68a; border-radius:8px; padding:12px; margin-bottom:16px;">
-          <div style="font-size:12px; color:#92400e;">Trạng thái quyền On-chain hiện tại:</div>
-          <div id="roleManageStatusDisplay" style="font-weight:700; font-size:14px; color:#b45309; margin-top:4px;">
+        <div id="roleManageStatusCard" style="background:#fffbeb; border:1px solid #fde68a; border-radius:8px; padding:12px; margin-bottom:16px;">
+          <div style="font-size:12px; color:#64748b; font-weight:600;">Trạng thái vai trò hiện tại:</div>
+          <div id="roleManageStatusDisplay" style="font-size:13.5px; color:#b45309; margin-top:4px;">
             ⏳ Đang kiểm tra từ Smart Contract...
           </div>
         </div>
 
         <div style="display:flex; flex-direction:column; gap:10px;">
           <button type="button" id="btnRoleGrant" class="btn btn-primary" onclick="executeRoleAction(true)" style="width:100%;">
-            👑 Cấp Quyền Quản Trị Viên (grantRole)
+            👑 Nâng Lên Quản Trị Viên (Admin - grantRole)
           </button>
-          <button type="button" id="btnRoleRevoke" class="btn btn-danger" onclick="executeRoleAction(false)" style="width:100%;">
-            🚫 Thu Hồi Quyền Quản Trị Viên (revokeRole)
+          <button type="button" id="btnRoleRevoke" class="btn btn-outline" onclick="executeRoleAction(false)" style="width:100%;">
+            🗳️ Chuyển Về Cổ Đông Biểu Quyết (Voter - revokeRole)
           </button>
         </div>
       </div>

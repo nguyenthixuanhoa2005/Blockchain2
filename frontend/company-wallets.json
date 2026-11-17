@@ -4,7 +4,7 @@
     "name": "Chủ tịch HĐQT / Quản trị viên tối cao",
     "title": "Chủ tịch Hội đồng Quản trị",
     "role": "admin",
-    "shares": 67,
+    "shares": 0,
     "notes": "Quản trị viên tối cao hệ thống (Super Admin)",
     "createdAt": "2026-01-01T00:00:00.000Z",
     "updatedAt": "2026-11-17T15:32:52.251Z"
@@ -18,5 +18,15 @@
     "notes": "Cổ đông đã nhận 200 CP trên Blockchain",
     "createdAt": "2026-11-17T12:36:07.454Z",
     "updatedAt": "2026-11-17T15:08:27.075Z"
+  },
+  {
+    "address": "0xEC724825a8d91B1C7Fbc39720eaF56D51c28f7Ea",
+    "name": "Bob",
+    "title": "Thành viên công ty",
+    "role": "voter",
+    "shares": 0,
+    "notes": "",
+    "createdAt": "2026-11-17T15:55:47.023Z",
+    "updatedAt": "2026-11-17T15:55:47.023Z"
   }
 ]

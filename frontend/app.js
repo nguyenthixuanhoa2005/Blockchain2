@@ -444,19 +444,14 @@ async function initContractsAndRole() {
       );
     }
 
-    // Xác định vai trò nội bộ:
+    // Xác định vai trò nội bộ (chỉ gồm Admin và Cổ đông biểu quyết):
     // 1. Admin: isSuperAdmin, contract admin hoặc role 'admin' trong danh bạ
-    // 2. Voter: balNum > 0 hoặc role 'voter' trong danh bạ hoặc ví mới
-    // 3. Auditor: role 'auditor' (Ban kiểm soát / Kiểm toán viên)
+    // 2. Voter: Cổ đông biểu quyết
     let resolvedRole = "voter";
     if (isAdmin || (companyEntry && companyEntry.role === "admin")) {
       resolvedRole = "admin";
-    } else if (companyEntry && companyEntry.role === "auditor") {
-      resolvedRole = "auditor";
-    } else if (balNum > 0 || (companyEntry && companyEntry.role === "voter")) {
-      resolvedRole = "voter";
     } else {
-      resolvedRole = "voter"; // Mặc định là Cổ đông / Nhân sự nội bộ
+      resolvedRole = "voter"; // Mặc định là Cổ đông biểu quyết
     }
 
     if (companyEntry && companyEntry.name) {
@@ -496,9 +491,7 @@ async function initContractsAndRole() {
 
 function getRoleNameVi(role) {
   if (role === "admin") return "Quản Trị Viên (Admin)";
-  if (role === "voter") return "Cổ Đông (Shareholder)";
-  if (role === "auditor") return "Ban Kiểm Soát / Kiểm Toán";
-  return "Nhân sự nội bộ công ty";
+  return "Cổ Đông Biểu Quyết (Voter)";
 }
 
 // ============================================================
@@ -1113,31 +1106,77 @@ async function updateAccountCard() {
     setText("currentShares", "0 CP (Khách)");
     setText("currentMaxVotes", "0 Phiếu");
     setText("formulaDesc", "Khách không có quyền biểu quyết");
+    setText("maxVotesBoxTitle", "Phiếu bầu tối đa (Khách)");
+    return;
+  }
+
+  // Quản trị viên (Admin) chỉ điều hành, không có quyền bỏ phiếu
+  if (currentAccountInfo.resolvedRole === "admin") {
+    setText("currentShares", "0 CP (Admin)");
+    setText("currentMaxVotes", "0 Phiếu");
+    setText("formulaDesc", "Admin chỉ quản trị hệ thống, không nhận phiếu bầu");
+    setText("maxVotesBoxTitle", "Phiếu bầu tối đa (Admin)");
     return;
   }
 
   try {
     const balance = await tokenContract.balanceOf(currentAccountInfo.address);
     const balNum = Number(balance);
+    currentAccountInfo.balance = balNum;
     setText("currentShares", `${balNum} CP`);
 
-    const eid = voterCurrentElectionId || currentElectionId;
-    if (eid) {
-      const election = allElections.find(e => e.id === eid);
+    // Xác định kỳ bầu cử đang xét: ưu tiên kỳ cử tri đang chọn, nếu chưa chọn thì lấy kỳ đang mở đầu tiên
+    let targetEid = voterCurrentElectionId;
+    if (!targetEid) {
+      const activeEl = allElections.find(e => e.status === STATUS_CONTRACT.VOTING && !isPaused);
+      if (activeEl) targetEid = activeEl.id;
+    }
+
+    if (targetEid) {
+      const election = allElections.find(e => e.id === Number(targetEid));
       if (election && election.status >= STATUS_CONTRACT.VOTING) {
         try {
-          const maxVotes = await electionContract.votingPowerOf(eid, currentAccountInfo.address);
-          setText("currentMaxVotes", `${maxVotes.toString()} Phiếu`);
-          setText("formulaDesc", `= ${balNum} CP × ${election.seats} ghế HĐQT`);
+          const maxVotes = await electionContract.votingPowerOf(targetEid, currentAccountInfo.address);
+          const maxVotesNum = Number(maxVotes);
+          const snapShares = (election.seats > 0) ? Math.floor(maxVotesNum / election.seats) : 0;
+
+          setText("currentMaxVotes", `${maxVotesNum.toLocaleString()} Phiếu`);
+          setText("maxVotesBoxTitle", `Phiếu bầu tối đa (Kỳ #${election.id}: ${election.seats} ghế)`);
+
+          if (snapShares !== balNum) {
+            setText("formulaDesc", `= ${snapShares} CP (snapshot) × ${election.seats} ghế (Ví hiện có ${balNum} CP)`);
+          } else {
+            setText("formulaDesc", `= ${snapShares} CP × ${election.seats} ghế HĐQT`);
+          }
         } catch {
-          setText("currentMaxVotes", `${balNum * (election?.seats || 3)} Phiếu (ước tính)`);
+          const est = balNum * (election.seats || 3);
+          setText("currentMaxVotes", `${est.toLocaleString()} Phiếu (ước tính)`);
+          setText("maxVotesBoxTitle", `Phiếu bầu tối đa (Kỳ #${election.id}: ${election.seats} ghế)`);
+          setText("formulaDesc", `= ${balNum} CP × ${election.seats || 3} ghế HĐQT`);
         }
+      } else if (election) {
+        // Kỳ chưa mở (sắp diễn ra)
+        const est = balNum * (election.seats || 3);
+        setText("currentMaxVotes", `${est.toLocaleString()} Phiếu (dự kiến)`);
+        setText("maxVotesBoxTitle", `Phiếu bầu tối đa (Kỳ #${election.id}: ${election.seats} ghế)`);
+        setText("formulaDesc", `= ${balNum} CP × ${election.seats} ghế khi mở phiên`);
       } else {
-        setText("currentMaxVotes", "Chưa chốt snapshot");
-        setText("formulaDesc", "= Số cổ phần × Số ghế HĐQT");
+        setText("currentMaxVotes", "Chưa chọn kỳ bầu cử");
+        setText("maxVotesBoxTitle", "Phiếu bầu tối đa (Bầu dồn)");
+        setText("formulaDesc", "= Số cổ phần × Số ghế từng kỳ");
       }
     } else {
-      setText("currentMaxVotes", "Chưa mở phiên");
+      // Khi có nhiều hơn 1 kỳ đang mở hoặc chưa có kỳ nào
+      const activeElections = allElections.filter(e => e.status === STATUS_CONTRACT.VOTING);
+      if (activeElections.length > 1) {
+        setText("currentMaxVotes", "Tùy từng kỳ bầu cử");
+        setText("maxVotesBoxTitle", "Phiếu bầu tối đa (Nhiều kỳ đang mở)");
+        setText("formulaDesc", `${activeElections.length} kỳ đang mở (Số phiếu = ${balNum} CP × Số ghế mỗi kỳ)`);
+      } else {
+        setText("currentMaxVotes", "Chưa mở phiên");
+        setText("maxVotesBoxTitle", "Phiếu bầu tối đa (Bầu dồn)");
+        setText("formulaDesc", `= ${balNum} CP × Số ghế khi mở phiên`);
+      }
     }
   } catch (e) {
     console.warn("Không đọc được balance/voting power:", e);
@@ -1461,6 +1500,29 @@ async function loadCandidatesAndVoting(election) {
   }
 
   setText("totalAllowedVotes", allowedVotes);
+
+  // Hiển thị thông báo minh bạch Snapshot nếu số cổ phần chốt khác số dư hiện tại của ví
+  const snapNotice = document.getElementById("voterSnapshotNotice");
+  if (snapNotice) {
+    if (allowedVotes > 0 && election.seats > 0) {
+      const snapShares = Math.floor(allowedVotes / election.seats);
+      const curBal = Number(currentAccountInfo?.balance || 0);
+      if (snapShares !== curBal) {
+        snapNotice.style.display = "block";
+        snapNotice.innerHTML = `
+          📌 <strong>Cơ chế Chốt Snapshot On-Chain (${escapeHtml(election.title)}):</strong><br>
+          Quyền biểu quyết của kỳ này được chốt tại block mở phiên với <strong>${snapShares} CP</strong> 
+          (= <strong>${snapShares} CP × ${election.seats} ghế = ${allowedVotes.toLocaleString()} phiếu</strong>).<br>
+          Số dư ví hiện tại của bạn là <strong>${curBal} CP</strong>. 
+          Phần <strong>${Math.abs(curBal - snapShares)} CP</strong> cấp thêm sau khi mở phiên sẽ có hiệu lực đầy đủ ở các kỳ bầu cử tiếp theo.
+        `;
+      } else {
+        snapNotice.style.display = "none";
+      }
+    } else {
+      snapNotice.style.display = "none";
+    }
+  }
 
   if (!tbody) return;
   if (candidates.length === 0) {
@@ -2469,9 +2531,18 @@ async function adminCreateElection() {
 async function adminMintTokens() {
   if (!assertAdmin()) return;
   try {
-    const to     = document.getElementById("mintToAddress").value.trim();
-    const amount = document.getElementById("mintAmount").value.trim();
+    const toEl = document.getElementById("mintToAddress");
+    const amountEl = document.getElementById("mintAmount");
+    if (!toEl || !amountEl) return;
+    const to     = toEl.value.trim();
+    const amount = amountEl.value.trim();
     if (!to || !amount) { showToast("Vui lòng nhập địa chỉ ví và số lượng cổ phần!", "warning"); return; }
+
+    const targetWallet = companyWallets.find(w => w.address.toLowerCase() === to.toLowerCase());
+    if (targetWallet && targetWallet.role === "admin") {
+      showToast("Không thể cấp phát cổ phần cho Quản trị viên (Admin)! Admin chỉ thực hiện quản trị hệ thống.", "danger");
+      return;
+    }
 
     showToast("Đang cấp phát cổ phần (mint token)...", "primary");
     const tx = await tokenContract.mint(to, BigInt(amount));
@@ -2479,8 +2550,8 @@ async function adminMintTokens() {
 
     showToast(`✅ Đã cấp phát ${amount} cổ phần cho ${to.substring(0, 10)}...`, "success");
     addLog(`Admin mint ${amount} CP cho ví ${to} (tx: ${tx.hash})`);
-    document.getElementById("mintToAddress").value = "";
-    document.getElementById("mintAmount").value = "";
+    toEl.value = "";
+    amountEl.value = "";
 
     // Cập nhật ngay số dư on-chain trong danh bạ ví và giao diện mà không cần reload trang
     try {
@@ -3054,7 +3125,7 @@ const DEFAULT_COMPANY_WALLETS = [
     name: "Chủ tịch HĐQT / Quản trị viên tối cao",
     title: "Chủ tịch Hội đồng Quản trị",
     role: "admin",
-    shares: 100,
+    shares: 0,
     notes: "Quản trị viên tối cao hệ thống (Super Admin)",
     createdAt: "2026-01-01T00:00:00.000Z",
     updatedAt: "2026-01-01T00:00:00.000Z"
@@ -3062,10 +3133,10 @@ const DEFAULT_COMPANY_WALLETS = [
   {
     address: "0x70997970C51812dc3A010C7d01b50e0d17dc79C8",
     name: "Trần Thị Lan",
-    title: "Trưởng Ban Kiểm soát",
-    role: "auditor",
+    title: "Cổ đông Thành viên",
+    role: "voter",
     shares: 50,
-    notes: "Kiểm toán viên độc lập / Ban Kiểm soát",
+    notes: "Cổ đông tham gia biểu quyết HĐQT",
     createdAt: "2026-01-01T00:00:00.000Z",
     updatedAt: "2026-01-01T00:00:00.000Z"
   },
@@ -3151,12 +3222,8 @@ function filterCompanyWallets() {
 function getRoleBadgeHtml(role) {
   if (role === "admin") {
     return `<span class="badge badge-role-admin">Quản trị viên (Admin)</span>`;
-  } else if (role === "voter" || role === "shareholder") {
-    return `<span class="badge badge-role-voter">Cổ đông biểu quyết</span>`;
-  } else if (role === "auditor") {
-    return `<span class="badge badge-role-auditor">Kiểm toán / BKS</span>`;
   }
-  return `<span class="badge badge-role-guest">Khách tham quan</span>`;
+  return `<span class="badge badge-role-voter">Cổ đông biểu quyết</span>`;
 }
 
 function copyWalletAddress(addr) {
@@ -3196,15 +3263,21 @@ async function syncCompanyWalletsOnChainBalances() {
 }
 
 function renderCompanyWalletsTable() {
-  // 1. Cập nhật số liệu thống kê
+  // 1. Cập nhật số liệu thống kê (Admin chỉ quản trị; Cổ đông có quyền biểu quyết chỉ tính những ví có cổ phần > 0)
   const total = companyWallets.length;
   const adminCount = companyWallets.filter(w => w.role === "admin").length;
-  const voterCount = companyWallets.filter(w => w.role === "voter" || w.role === "shareholder").length;
-  const totalShares = companyWallets.reduce((sum, w) => sum + (Number(w.shares) || 0), 0);
+  const voterWithSharesCount = companyWallets.filter(w => {
+    if (w.role === "admin") return false;
+    const actualShares = (w.onChainBalance !== undefined) ? w.onChainBalance : (Number(w.shares) || 0);
+    return actualShares > 0;
+  }).length;
+  const totalShares = companyWallets
+    .filter(w => w.role !== "admin")
+    .reduce((sum, w) => sum + (w.onChainBalance !== undefined ? w.onChainBalance : (Number(w.shares) || 0)), 0);
 
   setText("statCompanyWalletsTotal", total);
   setText("statCompanyWalletsAdmin", adminCount);
-  setText("statCompanyWalletsVoter", voterCount);
+  setText("statCompanyWalletsVoter", voterWithSharesCount);
   setText("statCompanyWalletsShares", `${totalShares.toLocaleString()} CP`);
 
   const list = companyWalletsFiltered;
@@ -3217,8 +3290,10 @@ function renderCompanyWalletsTable() {
     } else {
       adminTbody.innerHTML = list.map((w, idx) => {
         const isSuper = (w.address && w.address.toLowerCase() === SUPER_ADMIN_ADDRESS.toLowerCase());
+        const isAdmin = (w.role === "admin");
         const shortAddr = `${w.address.substring(0, 8)}...${w.address.substring(36)}`;
         const etherscanUrl = `${SEPOLIA_EXPLORER_URL}/address/${w.address}`;
+        const actualShares = (w.onChainBalance !== undefined) ? w.onChainBalance : (Number(w.shares) || 0);
 
         return `
           <tr>
@@ -3237,21 +3312,37 @@ function renderCompanyWalletsTable() {
             </td>
             <td>${getRoleBadgeHtml(w.role)}</td>
             <td>
-              <div style="display:flex; flex-direction:column; gap:2px;">
-                <div style="display:flex; align-items:center; gap:6px;">
-                  <strong style="color:#1d4ed8; font-size:14px;">${w.onChainBalance !== undefined ? w.onChainBalance : (Number(w.shares) || 0)} CP</strong>
-                  <button type="button" class="btn-icon-link" onclick="checkWalletOnChainBalance('${w.address}')" title="Kiểm tra số dư Smart Contract trực tiếp" style="margin-left:2px;">🔍</button>
+              ${isAdmin ? `
+                <div style="font-size:12.5px; color:var(--text-muted); font-style:italic;">
+                  -- (Admin không nhận CP)
                 </div>
-                ${w.onChainBalance !== undefined ? `
+              ` : (actualShares > 0 ? `
+                <div style="display:flex; flex-direction:column; gap:2px;">
+                  <div style="display:flex; align-items:center; gap:6px;">
+                    <strong style="color:#1d4ed8; font-size:14px;">${actualShares.toLocaleString()} CP</strong>
+                    <button type="button" class="btn-icon-link" onclick="checkWalletOnChainBalance('${w.address}')" title="Kiểm tra số dư Smart Contract trực tiếp">🔍</button>
+                  </div>
                   <div style="font-size:11px; color:#15803d; font-weight:600;">
-                    ✓ On-Chain: ${w.onChainBalance}
+                    ✓ On-Chain: ${actualShares.toLocaleString()}
                   </div>
-                ` : `
+                  <div style="font-size:10.5px; color:#16a34a; font-weight:600;">
+                    ✓ Đủ quyền biểu quyết
+                  </div>
+                </div>
+              ` : `
+                <div style="display:flex; flex-direction:column; gap:3px;">
+                  <div style="display:flex; align-items:center; gap:6px;">
+                    <strong style="color:#dc2626; font-size:14px;">0 CP</strong>
+                    <button type="button" class="btn-icon-link" onclick="checkWalletOnChainBalance('${w.address}')" title="Kiểm tra số dư Smart Contract trực tiếp">🔍</button>
+                  </div>
+                  <div style="font-size:11px; color:#b91c1c; font-weight:600; background:#fef2f2; border:1px solid #fee2e2; border-radius:4px; padding:2px 6px; width:fit-content;">
+                    ⚠️ Chưa đủ quyền biểu quyết (0 CP)
+                  </div>
                   <div style="font-size:11px; color:var(--text-muted);">
-                    Sổ sách: ${Number(w.shares) || 0} CP
+                    Cần bấm <strong>🪙 Mint</strong> để cấp cổ phần
                   </div>
-                `}
-              </div>
+                </div>
+              `)}
             </td>
             <td style="font-size:12.5px; color:#475569;">${escapeHtml(w.notes || "--")}</td>
             <td>
@@ -3259,9 +3350,11 @@ function renderCompanyWalletsTable() {
                 <button type="button" class="btn btn-outline btn-sm" onclick="openEditWalletModal('${w.address}')" title="Chỉnh sửa thông tin">
                   ✏️ Sửa
                 </button>
-                <button type="button" class="btn btn-success btn-sm" onclick="openQuickMintModal('${w.address}')" title="Cấp thêm cổ phần On-chain">
-                  🪙 Mint
-                </button>
+                ${isAdmin ? '' : `
+                  <button type="button" class="btn btn-success btn-sm" onclick="openQuickMintModal('${w.address}')" title="Cấp thêm cổ phần On-chain">
+                    🪙 Mint
+                  </button>
+                `}
                 <button type="button" class="btn btn-primary btn-sm" onclick="openManageRoleModal('${w.address}')" title="Phân quyền Admin trên Smart Contract">
                   👑 Phân quyền
                 </button>
@@ -3282,8 +3375,11 @@ function renderCompanyWalletsTable() {
   const voterTbody = document.getElementById("voterCompanyWalletsTableBody");
   if (voterTbody) {
     voterTbody.innerHTML = companyWallets.map((w, idx) => {
+      const isAdmin = (w.role === "admin");
       const shortAddr = `${w.address.substring(0, 8)}...${w.address.substring(36)}`;
       const etherscanUrl = `${SEPOLIA_EXPLORER_URL}/address/${w.address}`;
+      const actualShares = (w.onChainBalance !== undefined) ? w.onChainBalance : (Number(w.shares) || 0);
+
       return `
         <tr>
           <td>${idx + 1}</td>
@@ -3300,8 +3396,15 @@ function renderCompanyWalletsTable() {
           </td>
           <td>${getRoleBadgeHtml(w.role)}</td>
           <td>
-            <strong style="color:#1d4ed8;">${w.onChainBalance !== undefined ? w.onChainBalance : (Number(w.shares) || 0)} CP</strong>
-            ${w.onChainBalance !== undefined ? `<div style="font-size:11px; color:#15803d; font-weight:600;">✓ On-Chain</div>` : ''}
+            ${isAdmin ? `
+              <span style="font-size:12px; color:var(--text-muted); font-style:italic;">Admin (Không nhận CP)</span>
+            ` : (actualShares > 0 ? `
+              <strong style="color:#1d4ed8;">${actualShares.toLocaleString()} CP</strong>
+              <div style="font-size:11px; color:#15803d; font-weight:600;">✓ Đủ quyền biểu quyết</div>
+            ` : `
+              <strong style="color:#dc2626;">0 CP</strong>
+              <div style="font-size:11px; color:#b91c1c; font-weight:600;">⚠️ Chưa đủ quyền biểu quyết</div>
+            `)}
           </td>
           <td style="font-size:12.5px; color:#475569;">${escapeHtml(w.notes || "--")}</td>
         </tr>
@@ -3358,8 +3461,6 @@ function openAddWalletModal() {
   document.getElementById("walletFormTitle").value = "";
   document.getElementById("walletFormRole").value = "voter";
   document.getElementById("walletFormNotes").value = "";
-  document.getElementById("walletOptGrantRole").checked = false;
-  handleWalletRoleChange("voter");
   document.getElementById("modalAddEditWallet").style.display = "flex";
 }
 
@@ -3378,20 +3479,11 @@ function openEditWalletModal(address) {
   document.getElementById("walletFormTitle").value = w.title || "";
   document.getElementById("walletFormRole").value = w.role || "voter";
   document.getElementById("walletFormNotes").value = w.notes || "";
-  document.getElementById("walletOptGrantRole").checked = false;
-  handleWalletRoleChange(w.role || "voter");
   document.getElementById("modalAddEditWallet").style.display = "flex";
 }
 
 function closeAddEditWalletModal() {
   document.getElementById("modalAddEditWallet").style.display = "none";
-}
-
-function handleWalletRoleChange(role) {
-  const optGrant = document.getElementById("optGrantRoleLabel");
-  if (optGrant) {
-    optGrant.style.display = (role === "admin") ? "flex" : "none";
-  }
 }
 
 async function submitCompanyWalletForm() {
@@ -3401,7 +3493,6 @@ async function submitCompanyWalletForm() {
   const title = document.getElementById("walletFormTitle").value.trim();
   const role = document.getElementById("walletFormRole").value;
   const notes = document.getElementById("walletFormNotes").value.trim();
-  const optGrant = document.getElementById("walletOptGrantRole").checked;
 
   if (!rawAddr || !ethers.isAddress(rawAddr)) {
     showToast("Địa chỉ ví Ethereum không hợp lệ!", "danger");
@@ -3471,22 +3562,6 @@ async function submitCompanyWalletForm() {
     localStorage.setItem("company_wallets_cache", JSON.stringify(companyWallets));
     filterCompanyWallets();
 
-    // 3. Tác vụ On-Chain tự động nếu người dùng kích hoạt
-    if (optGrant && role === "admin" && electionContract) {
-      showLoadingOverlay("Đang gửi giao dịch phân quyền Admin on-chain (grantRole)...");
-      try {
-        const ADMIN_ROLE = ethers.id("ELECTION_ADMIN_ROLE");
-        const tx = await electionContract.grantRole(ADMIN_ROLE, formattedAddr);
-        addLog(`Đang cấp quyền Admin cho ${formattedAddr} (Tx: ${tx.hash.substring(0, 10)}...)`);
-        await tx.wait();
-        addLog(`Đã cấp quyền ELECTION_ADMIN_ROLE thành công cho ${formattedAddr}`);
-        showToast("Đã cấp quyền Admin trên Smart Contract thành công!", "success");
-      } catch (roleErr) {
-        console.error("Lỗi cấp quyền on-chain:", roleErr);
-        showToast("Lưu thông tin thành công, nhưng lỗi cấp quyền On-chain: " + parseErrorMessage(roleErr), "warning");
-      }
-    }
-
     closeAddEditWalletModal();
     showToast(isEdit ? "Cập nhật thông tin ví thành công!" : "Thêm ví vào danh bạ công ty thành công!", "success");
     addLog(`${isEdit ? "Cập nhật" : "Thêm mới"} ví công ty: ${formattedAddr} (${name})`);
@@ -3536,10 +3611,19 @@ async function deleteCompanyWallet(address) {
 
 // Modal 2: Quick Mint
 async function openQuickMintModal(prefillAddress = "") {
+  if (prefillAddress) {
+    const targetW = companyWallets.find(w => w.address.toLowerCase() === prefillAddress.toLowerCase());
+    if (targetW && targetW.role === "admin") {
+      showToast("Quản trị viên (Admin) không nhận cổ phần biểu quyết!", "warning");
+      return;
+    }
+  }
+
   const selectEl = document.getElementById("quickMintWalletSelect");
   if (selectEl) {
+    const voterWallets = companyWallets.filter(w => w.role !== "admin");
     selectEl.innerHTML = `<option value="">-- Chọn ví cổ đông từ danh bạ --</option>` +
-      companyWallets.map(w => `<option value="${w.address}">${escapeHtml(w.name)} (${w.address.substring(0, 6)}... - ${w.shares} CP)</option>`).join("");
+      voterWallets.map(w => `<option value="${w.address}">${escapeHtml(w.name)} (${w.address.substring(0, 6)}... - ${w.onChainBalance !== undefined ? w.onChainBalance : (w.shares || 0)} CP)</option>`).join("");
   }
 
   const addrInput = document.getElementById("quickMintAddress");
@@ -3596,6 +3680,11 @@ async function executeQuickMint() {
 
   if (!addr || !ethers.isAddress(addr)) {
     showToast("Địa chỉ ví nhận không hợp lệ!", "danger");
+    return;
+  }
+  const targetWallet = companyWallets.find(w => w.address.toLowerCase() === addr.toLowerCase());
+  if (targetWallet && targetWallet.role === "admin") {
+    showToast("Không thể cấp phát cổ phần cho Quản trị viên (Admin)! Admin chỉ thực hiện quản trị hệ thống.", "danger");
     return;
   }
   if (!amount || amount <= 0) {
@@ -3657,6 +3746,7 @@ async function executeQuickMint() {
 
 // Modal 3: Manage Role
 let currentRoleTargetAddress = "";
+let currentRoleTargetIsAdmin = false;
 
 async function openManageRoleModal(address) {
   currentRoleTargetAddress = address;
@@ -3666,8 +3756,20 @@ async function openManageRoleModal(address) {
 
   document.getElementById("roleManageAddress").value = address;
   document.getElementById("roleManagePersonInfo").textContent = `${name} — ${title}`;
+
+  const statusCard = document.getElementById("roleManageStatusCard");
   const statusEl = document.getElementById("roleManageStatusDisplay");
+  const btnGrant = document.getElementById("btnRoleGrant");
+  const btnRevoke = document.getElementById("btnRoleRevoke");
+
+  if (statusCard) {
+    statusCard.style.background = "#fffbeb";
+    statusCard.style.borderColor = "#fde68a";
+  }
   statusEl.textContent = "⏳ Đang kiểm tra quyền hạn từ Smart Contract...";
+
+  if (btnGrant) { btnGrant.disabled = true; btnGrant.style.opacity = "0.7"; }
+  if (btnRevoke) { btnRevoke.disabled = true; btnRevoke.style.opacity = "0.7"; }
 
   document.getElementById("modalManageRole").style.display = "flex";
 
@@ -3679,12 +3781,64 @@ async function openManageRoleModal(address) {
   try {
     const ADMIN_ROLE = ethers.id("ELECTION_ADMIN_ROLE");
     const hasAdmin = await electionContract.hasRole(ADMIN_ROLE, address);
+    currentRoleTargetIsAdmin = hasAdmin;
+
     if (hasAdmin) {
-      statusEl.style.color = "#15803d";
-      statusEl.innerHTML = "✅ <strong>ĐÃ CÓ QUYỀN:</strong> Ví này hiện đang nắm giữ <code>ELECTION_ADMIN_ROLE</code> trên Smart Contract.";
+      if (statusCard) {
+        statusCard.style.background = "#fffbeb";
+        statusCard.style.borderColor = "#fde68a";
+      }
+      statusEl.innerHTML = `
+        <div style="font-weight:700; color:#b45309; font-size:14px; margin-bottom:4px;">
+          👑 VAI TRÒ HIỆN TẠI: QUẢN TRỊ VIÊN (ADMIN)
+        </div>
+        <div style="font-size:12px; color:#92400e; line-height:1.5;">
+          Ví này đang nắm giữ quyền <code>ELECTION_ADMIN_ROLE</code> trên Smart Contract. Theo quy chế quản trị độc lập, Quản trị viên chỉ làm nhiệm vụ tổ chức điều phối và <strong>không được nhận/bầu cổ phần</strong> để tránh xung đột lợi ích.
+        </div>
+      `;
+
+      if (btnGrant) {
+        btnGrant.disabled = true;
+        btnGrant.style.opacity = "0.5";
+        btnGrant.style.cursor = "not-allowed";
+        btnGrant.className = "btn btn-outline";
+        btnGrant.innerHTML = "✓ Đang Là Quản Trị Viên (Hiện tại)";
+      }
+      if (btnRevoke) {
+        btnRevoke.disabled = false;
+        btnRevoke.style.opacity = "1";
+        btnRevoke.style.cursor = "pointer";
+        btnRevoke.className = "btn btn-primary";
+        btnRevoke.innerHTML = "🗳️ Chuyển Về Cổ Đông Biểu Quyết (revokeRole)";
+      }
     } else {
-      statusEl.style.color = "#b45309";
-      statusEl.innerHTML = "❌ <strong>CHƯA CÓ QUYỀN:</strong> Ví này chưa được cấp quyền Quản trị viên trên Smart Contract.";
+      if (statusCard) {
+        statusCard.style.background = "#f0fdf4";
+        statusCard.style.borderColor = "#bbf7d0";
+      }
+      statusEl.innerHTML = `
+        <div style="font-weight:700; color:#15803d; font-size:14px; margin-bottom:4px;">
+          🗳️ VAI TRÒ HIỆN TẠI: CỔ ĐÔNG BIỂU QUYẾT (VOTER)
+        </div>
+        <div style="font-size:12px; color:#166534; line-height:1.5;">
+          Ví này hiện là Cổ đông biểu quyết nội bộ công ty (không nắm quyền Admin Smart Contract). Cổ đông tham gia bỏ phiếu bầu dồn HĐQT độc lập, minh bạch theo tỷ lệ cổ phần sở hữu.
+        </div>
+      `;
+
+      if (btnGrant) {
+        btnGrant.disabled = false;
+        btnGrant.style.opacity = "1";
+        btnGrant.style.cursor = "pointer";
+        btnGrant.className = "btn btn-primary";
+        btnGrant.innerHTML = "👑 Nâng Lên Quản Trị Viên (Admin - grantRole)";
+      }
+      if (btnRevoke) {
+        btnRevoke.disabled = true;
+        btnRevoke.style.opacity = "0.5";
+        btnRevoke.style.cursor = "not-allowed";
+        btnRevoke.className = "btn btn-outline";
+        btnRevoke.innerHTML = "✓ Đang Là Cổ Đông Biểu Quyết (Không cần đổi)";
+      }
     }
   } catch (err) {
     statusEl.textContent = "Không thể kiểm tra: " + parseErrorMessage(err);
@@ -3706,6 +3860,50 @@ async function executeRoleAction(grant = true) {
     return;
   }
 
+  const w = companyWallets.find(x => x.address.toLowerCase() === addr.toLowerCase());
+  const name = w ? w.name : addr;
+
+  // Kiểm tra nếu ví đã có vai trò này rồi thì không cần gọi Smart Contract
+  if (grant && currentRoleTargetIsAdmin) {
+    showToast(`Ví "${name}" hiện tại đã là Quản trị viên rồi, không cần gửi giao dịch!`, "info");
+    return;
+  }
+  if (!grant && !currentRoleTargetIsAdmin) {
+    showToast(`Ví "${name}" hiện tại đã là Cổ đông biểu quyết rồi, không cần thao tác Smart Contract!`, "info");
+    return;
+  }
+
+  // Không cho phép thu hồi quyền của Genesis Super Admin
+  if (!grant && addr.toLowerCase() === SUPER_ADMIN_ADDRESS.toLowerCase()) {
+    showToast("Không thể thu hồi quyền Quản trị viên của Genesis Super Admin tối cao!", "danger");
+    return;
+  }
+
+  // Hộp thoại xác nhận phòng ngừa thao túng & mất quyền biểu quyết
+  if (grant) {
+    const confirmGrant = confirm(
+      `⚠️ CẢNH BÁO NGUY CƠ THAO TÚNG & THU HỒI QUYỀN BIỂU QUYẾT:\n\n` +
+      `Bạn đang chuẩn bị nâng cấp ví sau lên QUẢN TRỊ VIÊN (Admin):\n` +
+      `👉 Nhân sự: ${name}\n` +
+      `👉 Địa chỉ: ${addr}\n\n` +
+      `LƯU Ý QUY CHẾ BẦU CỬ QUAN TRỌNG:\n` +
+      `1. Quản trị viên có toàn quyền cấu hình, khởi tạo, tạm hoãn hoặc dừng các cuộc bầu cử.\n` +
+      `2. Nhằm đảm bảo tính khách quan và phòng chống thao túng phiếu bầu, Quản trị viên KHÔNG ĐƯỢC sở hữu cổ phần hay tham gia bỏ phiếu.\n` +
+      `3. Toàn bộ cổ phần của ví này sẽ bị vô hiệu hóa quyền bầu cử trong danh bạ.\n\n` +
+      `Bạn có chắc chắn muốn nâng cấp ví này lên Quản trị viên không?`
+    );
+    if (!confirmGrant) return;
+  } else {
+    const confirmRevoke = confirm(
+      `XÁC NHẬN CHUYỂN VỀ CỔ ĐÔNG BIỂU QUYẾT:\n\n` +
+      `Bạn có chắc chắn muốn thu hồi quyền Quản trị viên (revokeRole) của ví:\n` +
+      `👉 Nhân sự: ${name}\n` +
+      `👉 Địa chỉ: ${addr}\n\n` +
+      `Sau khi thu hồi, ví này sẽ trở lại vai trò Cổ đông biểu quyết thông thường và có thể nhận cấp phát cổ phần để bỏ phiếu bầu cử HĐQT.`
+    );
+    if (!confirmRevoke) return;
+  }
+
   const ADMIN_ROLE = ethers.id("ELECTION_ADMIN_ROLE");
   const actionText = grant ? "cấp quyền Quản trị viên (grantRole)" : "thu hồi quyền Quản trị viên (revokeRole)";
   showLoadingOverlay(`Đang gửi giao dịch ${actionText} cho ví ${addr.substring(0, 8)}...`);
@@ -3716,15 +3914,25 @@ async function executeRoleAction(grant = true) {
       : await electionContract.revokeRole(ADMIN_ROLE, addr);
 
     addLog(`Đang thực hiện ${actionText} (Tx: ${tx.hash.substring(0, 10)}...)`);
-    await tx.wait();
+    await tx.wait(1);
     addLog(`Đã hoàn tất ${actionText} cho ${addr}`);
-    showToast(`Đã ${grant ? "cấp" : "thu hồi"} quyền ELECTION_ADMIN_ROLE thành công!`, "success");
+    showToast(`Đã ${grant ? "cấp quyền Quản trị viên" : "chuyển về Cổ đông biểu quyết"} thành công!`, "success");
 
     // Cập nhật lại vai trò trong companyWallets
     const targetIdx = companyWallets.findIndex(w => w.address.toLowerCase() === addr.toLowerCase());
     if (targetIdx >= 0) {
       companyWallets[targetIdx].role = grant ? "admin" : "voter";
+      if (grant) {
+        companyWallets[targetIdx].shares = 0;
+      }
       localStorage.setItem("company_wallets_cache", JSON.stringify(companyWallets));
+      try {
+        fetch(`/api/company-wallets/${ethers.getAddress(addr)}`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(companyWallets[targetIdx])
+        }).catch(() => {});
+      } catch {}
       filterCompanyWallets();
     }
 
