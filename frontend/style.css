@@ -233,12 +233,26 @@ body {
 .wallet-box {
   background: rgba(255, 255, 255, 0.12);
   backdrop-filter: blur(8px);
-  padding: 8px 14px;
+  padding: 6px 12px;
   border-radius: var(--radius);
   border: 1px solid rgba(255, 255, 255, 0.2);
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 10px;
+}
+
+.header-wallet-chip {
+  font-size: 11.5px;
+  font-family: monospace;
+  font-weight: 600;
+  color: #bfdbfe;
+  background: rgba(0, 0, 0, 0.2);
+  padding: 3px 8px;
+  border-radius: 5px;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  letter-spacing: 0.3px;
+  display: inline-flex;
+  align-items: center;
 }
 
 /* ===== ROLE PILL ===== */
@@ -256,6 +270,10 @@ body {
 .role-pill.admin  { background: #fef3c7; color: #92400e; border: 1.5px solid #fcd34d; }
 .role-pill.voter  { background: #d1fae5; color: #065f46; border: 1.5px solid #6ee7b7; }
 .role-pill.guest  { background: #f1f5f9; color: #475569; border: 1.5px solid #cbd5e1; }
+.role-pill.candidate { background: #ede9fe; color: #6b21a8; border: 1.5px solid #c084fc; }
+.role-pill.voter-candidate { background: linear-gradient(135deg, #dcfce7, #f3e8ff); color: #581c87; border: 1.5px solid #a855f7; font-weight: 700; }
+.badge-role-candidate { background: #ede9fe; color: #6b21a8; border: 1px solid #d8b4fe; font-weight: 600; padding: 3px 8px; border-radius: 6px; display: inline-block; }
+.badge-role-voter-candidate { background: linear-gradient(135deg, #ecfdf5, #f3e8ff); color: #581c87; border: 1px solid #c084fc; font-weight: 700; padding: 3px 8px; border-radius: 6px; display: inline-block; }
 
 /* ===== LOADING OVERLAY ===== */
 #roleLoadingOverlay {
@@ -351,6 +369,76 @@ body {
   margin-bottom: 16px;
   display: flex; align-items: center; justify-content: space-between; gap: 8px;
   flex-wrap: wrap;
+}
+
+/* ===== GLOBAL STATS OVERVIEW BAR (CLEAN SAAS FINTECH) ===== */
+#globalStatsCard {
+  background: #ffffff;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 14px 16px;
+  margin-bottom: 16px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+}
+
+#globalStatsCard .grid-4 {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+  gap: 12px;
+}
+
+#globalStatsCard .stat-box {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  padding: 12px 14px;
+  transition: all 0.15s ease;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+}
+
+#globalStatsCard .stat-box:hover {
+  background: #ffffff;
+  border-color: #cbd5e1;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.03);
+}
+
+#globalStatsCard .stat-box.stat-box-primary {
+  background: #edf5f2;
+  border-color: #cfe1da;
+}
+#globalStatsCard .stat-box.stat-box-primary .stat-value {
+  color: var(--primary, #176b61);
+}
+
+#globalStatsCard .stat-label {
+  font-size: 11.5px;
+  font-weight: 600;
+  color: #64748b;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+}
+
+#globalStatsCard .stat-value {
+  font-size: 18px;
+  font-weight: 800;
+  color: #0f172a;
+  margin-top: 4px;
+  letter-spacing: -0.3px;
+}
+
+#globalStatsCard .stat-desc {
+  font-size: 11px;
+  color: #94a3b8;
+  margin-top: 3px;
+  line-height: 1.3;
+}
+
+#snapshotDiffNote {
+  border-radius: 6px !important;
+  font-size: 11.5px !important;
+  line-height: 1.4 !important;
 }
 
 /* ===== GRIDS ===== */
@@ -1235,6 +1323,53 @@ body.admin-sidebar-resizing .admin-sidebar-resizer::after {
   width: 3px;
 }
 
+/* ─── MAIN CONTENT & TOPBAR BREADCRUMB ───────────────── */
+.admin-main-content {
+  flex: 1;
+  min-width: 0;
+}
+
+.admin-main-topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 16px;
+  background: #ffffff;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  margin-bottom: 16px;
+  box-shadow: var(--shadow);
+  gap: 12px;
+}
+
+.admin-topbar-breadcrumb-wrap {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+}
+
+.admin-breadcrumb-root {
+  color: var(--text-muted);
+  font-weight: 500;
+}
+
+.admin-breadcrumb-sep {
+  color: #cbd5e1;
+  font-size: 12px;
+}
+
+.admin-breadcrumb-current {
+  font-weight: 700;
+  color: #0f172a;
+}
+
+.admin-topbar-meta {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
 /* ─── COLLAPSED STATE (ICON-ONLY CLEAN MODE) ──────────── */
 .admin-sidebar.collapsed {
   width: 64px !important;
@@ -1276,47 +1411,183 @@ body.admin-sidebar-resizing .admin-sidebar-resizer::after {
   border-radius: 50%;
 }
 
-/* ─── RESPONSIVE ──────────────────────────────────────── */
-@media (max-width: 900px) {
+/* ─── RESPONSIVE MÀN ADMIN (TABLET & MOBILE) ──────────── */
+@media (max-width: 992px) {
   .admin-layout-container {
     flex-direction: column;
     align-items: stretch;
+    gap: 12px;
   }
+
+  .admin-sidebar-resizer {
+    display: none !important;
+  }
+
+  /* Chuyển sidebar thành thanh Tab Bar ngang cuộn mượt */
   .admin-sidebar {
+    position: static !important;
     width: 100% !important;
     max-width: 100% !important;
-    min-width: unset !important;
+    min-width: 0 !important;
+    height: auto !important;
     max-height: none !important;
-    overflow-y: visible !important;
-    position: relative !important;
-    top: unset !important;
-    margin-bottom: 12px;
+    padding: 8px 10px !important;
     border-radius: 10px;
-    padding: 14px 12px;
+    box-shadow: var(--shadow);
+    background: #ffffff;
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    overflow: visible;
   }
-  .admin-sidebar-resizer { display: none !important; }
-  .admin-main-content { padding-left: 0; }
-  .admin-mobile-toggle-btn { display: inline-flex; }
+
+  .admin-sidebar-header,
+  .admin-sidebar-status,
+  .admin-sidebar-toggle-btn {
+    display: none !important;
+  }
+
   .admin-sidebar-nav {
     flex-direction: row;
+    align-items: center;
+    width: 100%;
+    gap: 6px;
     overflow-x: auto;
-    gap: 4px;
-    padding-bottom: 2px;
+    padding: 2px 0;
     scrollbar-width: none;
-    margin-bottom: 10px;
+    -webkit-overflow-scrolling: touch;
   }
-  .admin-sidebar-nav::-webkit-scrollbar { display: none; }
-  .admin-sidebar-nav .admin-nav-btn { flex: 0 0 auto; width: auto; }
-  .admin-sidebar-quick-actions {
-    flex-direction: row;
-    overflow-x: auto;
-    scrollbar-width: none;
+  .admin-sidebar-nav::-webkit-scrollbar {
+    display: none;
+  }
+
+  .admin-sidebar-nav .admin-nav-btn {
+    flex: 0 0 auto;
+    width: auto;
+    padding: 8px 12px;
+    border-radius: 7px !important;
+    border-left: none !important;
+    font-size: 12.5px;
+    gap: 8px;
+    background: #f8fafc;
+  }
+
+  .admin-sidebar-nav .admin-nav-btn:hover {
+    background: #f1f5f9;
+  }
+
+  .admin-sidebar-nav .admin-nav-btn.active {
+    background: var(--primary, #176b61) !important;
+    color: #ffffff !important;
+    box-shadow: 0 2px 6px rgba(23, 107, 97, 0.25);
+  }
+  .admin-sidebar-nav .admin-nav-btn.active .nav-svg {
+    color: #ffffff !important;
+  }
+
+  .admin-main-content {
+    width: 100%;
+    min-width: 0;
+  }
+}
+
+@media (max-width: 640px) {
+  .admin-main-topbar {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 6px;
+    padding: 8px 12px;
+  }
+  .admin-topbar-meta {
+    width: 100%;
+    justify-content: space-between;
+  }
+
+  .admin-sidebar-nav .admin-nav-btn {
+    padding: 7px 10px;
+    font-size: 12px;
+    gap: 6px;
+  }
+  .admin-sidebar-nav .admin-nav-btn .nav-svg {
+    width: 15px;
+    height: 15px;
+  }
+
+  /* Co giãn các ô thống kê */
+  #globalStatsCard #globalStatsGrid {
+    grid-template-columns: repeat(auto-fit, minmax(135px, 1fr)) !important;
+    gap: 8px !important;
+  }
+  #globalStatsCard .stat-box {
+    padding: 10px 12px;
+  }
+  #globalStatsCard .stat-label {
+    font-size: 10.5px;
+  }
+  #globalStatsCard .stat-value {
+    font-size: 15px;
+  }
+  #globalStatsCard .stat-desc {
+    font-size: 10px;
+  }
+
+  /* ─── TỐI ƯU RESPONSIVE MÀN HÌNH CỔ ĐÔNG (VOTER SCREEN) ─── */
+  #voterVotingTab .grid-3 {
+    grid-template-columns: 1fr !important;
+    gap: 8px !important;
+  }
+
+  .vote-calc-box {
+    padding: 10px 14px;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 6px;
+  }
+  .vote-calc-box > div:first-child {
+    width: 100%;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
     gap: 4px;
   }
-  .admin-sidebar-quick-actions::-webkit-scrollbar { display: none; }
-  .admin-sidebar-quick-actions .admin-quick-btn { flex: 0 0 auto; width: auto; }
-  .admin-sidebar-profile { margin-bottom: 12px; }
-  .admin-sidebar-footer { margin-top: 12px; }
+
+  /* Bảng phân bổ phiếu bầu ứng viên */
+  #candidateVotingBody td {
+    padding: 8px 10px;
+    font-size: 12.5px;
+  }
+  #candidateVotingBody input[type="number"] {
+    width: 100% !important;
+    max-width: 110px;
+    padding: 6px 8px;
+    font-size: 13px;
+  }
+
+  /* Cụm nút hành động bỏ phiếu */
+  #voterVotingFormCard > div:last-child {
+    flex-direction: column !important;
+    width: 100%;
+    gap: 8px !important;
+  }
+  #voterVotingFormCard > div:last-child .btn {
+    width: 100% !important;
+  }
+
+  /* Tab Chuyển nhượng trên mobile */
+  #voterTransferTab .card {
+    padding: 14px;
+  }
+  #voterTransferTab .card > div:nth-child(3) {
+    flex-direction: column;
+    align-items: flex-start !important;
+    gap: 8px;
+    padding: 10px 14px;
+  }
+  #voterTransferTab .card > div:nth-child(3) > div:last-child {
+    text-align: left !important;
+  }
 }
 
 /* ===== REFINED APPLICATION THEME ===== */
@@ -1446,10 +1717,15 @@ body {
 .header-title p { color: #c2d6d1; }
 
 .wallet-box {
-  padding: 7px 10px;
-  border-radius: 7px;
-  background: rgb(255 255 255 / 0.08);
-  border-color: rgb(255 255 255 / 0.16);
+  padding: 6px 12px;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: nowrap;
 }
 
 .container { max-width: 1440px; margin-top: 18px; }
@@ -1584,12 +1860,6 @@ tr:hover td { background: #f7faf8; }
 .vote-calc-box { border-radius: 7px; }
 .guest-notice { border-radius: 7px; }
 
-@media (max-width: 900px) {
-  .admin-sidebar { padding: 12px; }
-  .admin-sidebar-nav { gap: 5px; }
-  .admin-sidebar-nav .admin-nav-btn { padding: 8px 10px; }
-  .admin-sidebar-quick-actions { gap: 6px; }
-}
 @media (max-width: 600px) {
   .header { padding: 11px 12px; }
   .header-container { align-items: flex-start; }

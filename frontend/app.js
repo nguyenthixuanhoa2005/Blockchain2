@@ -181,8 +181,9 @@ window.addEventListener("DOMContentLoaded", async () => {
   // Nạp danh bạ ví công ty sẵn sàng
   fetchCompanyWallets();
 
-  // Khởi tạo Sidebar bảng điều khiển quản trị viên (resizable & collapsible)
+  // Khởi tạo Sidebars bảng điều khiển (Admin & Voter)
   initAdminSidebar();
+  initVoterSidebar();
 
   // Mặc định hiển thị Màn hình Đăng Nhập
   showLoginScreen();
@@ -547,17 +548,23 @@ function renderRoleScreen(role, balance) {
   const shareTokenBox = document.getElementById("shareTokenStatBox");
   const statsCard = document.getElementById("globalStatsCard");
 
+  // Di chuyển thẻ thông tin ví & cổ phần (globalStatsCard) vào trong Main Content của từng màn hình tương ứng
+  // Đảm bảo Sidebar luôn đứng sát mép trái từ trên đỉnh xuống, không bị card đẩy xuống dưới
+  const attachStatsCardToMain = (mainId) => {
+    if (!statsCard) return;
+    const targetMain = document.getElementById(mainId);
+    if (!targetMain) return;
+    const topbar = targetMain.querySelector(".admin-main-topbar");
+    if (topbar) {
+      topbar.insertAdjacentElement("afterend", statsCard);
+    } else {
+      targetMain.prepend(statsCard);
+    }
+  };
+
   if (role === "admin") {
     document.getElementById("screenAdmin").classList.add("active");
-    if (statsCard) {
-      const adminMain = document.getElementById("adminMainContent");
-      const topbar = adminMain ? adminMain.querySelector(".admin-main-topbar") : null;
-      if (topbar && topbar.nextSibling) {
-        adminMain.insertBefore(statsCard, topbar.nextSibling);
-      } else if (adminMain) {
-        adminMain.prepend(statsCard);
-      }
-    }
+    attachStatsCardToMain("adminMainContent");
     if (maxVotesBox) maxVotesBox.style.display = "none";
     if (shareTokenBox) shareTokenBox.style.display = "none";
     if (currentAccountInfo.isSuperAdmin) {
@@ -571,15 +578,7 @@ function renderRoleScreen(role, balance) {
     }
   } else if (role === "voter") {
     document.getElementById("screenVoter").classList.add("active");
-    if (statsCard) {
-      const voterScreen = document.getElementById("screenVoter");
-      const hero = voterScreen ? voterScreen.querySelector(".screen-hero") : null;
-      if (hero && hero.nextSibling) {
-        voterScreen.insertBefore(statsCard, hero.nextSibling);
-      } else if (voterScreen) {
-        voterScreen.prepend(statsCard);
-      }
-    }
+    attachStatsCardToMain("voterMainContent");
     if (maxVotesBox) maxVotesBox.style.display = "";
     if (shareTokenBox) shareTokenBox.style.display = "";
     pill.className = "role-pill voter";
@@ -588,15 +587,7 @@ function renderRoleScreen(role, balance) {
   } else {
     // Ban kiểm soát / Kiểm toán viên (Auditor)
     document.getElementById("screenGuest").classList.add("active");
-    if (statsCard) {
-      const guestScreen = document.getElementById("screenGuest");
-      const hero = guestScreen ? guestScreen.querySelector(".screen-hero") : null;
-      if (hero && hero.nextSibling) {
-        guestScreen.insertBefore(statsCard, hero.nextSibling);
-      } else if (guestScreen) {
-        guestScreen.prepend(statsCard);
-      }
-    }
+    if (statsCard) statsCard.style.display = "none";
     if (maxVotesBox) maxVotesBox.style.display = "none";
     if (shareTokenBox) shareTokenBox.style.display = "";
     pill.className = "role-pill auditor";
@@ -4439,6 +4430,27 @@ function switchTab(tabId, btn) {
     if (tabId === "adminLogsTab") breadcrumbEl.innerHTML = "Nhật ký blockchain";
   }
 
+  const voterBreadcrumbEl = document.getElementById("voterActiveTabBreadcrumb");
+  if (voterBreadcrumbEl) {
+    if (tabId === "voterVotingTab") voterBreadcrumbEl.innerHTML = "Bỏ phiếu bầu dồn";
+    if (tabId === "voterTransferTab") voterBreadcrumbEl.innerHTML = "Chuyển nhượng cổ phần";
+    if (tabId === "voterResultsTab") voterBreadcrumbEl.innerHTML = "Kỳ bầu cử &amp; Kết quả";
+    if (tabId === "voterHistoryTab") voterBreadcrumbEl.innerHTML = "Lịch sử bỏ phiếu";
+  }
+
+  const guestBreadcrumbEl = document.getElementById("guestActiveTabBreadcrumb");
+  if (guestBreadcrumbEl) {
+    if (tabId === "guestResultsTab") guestBreadcrumbEl.innerHTML = "Cuộc bầu cử &amp; Kết quả";
+  }
+
+  // Quản lý hiển thị Thẻ Thông Tin Tổng Quan (globalStatsCard):
+  // Chỉ hiển thị ở tab điều hành chính (adminPanelTab / voterVotingTab), ẩn ở các màn chuyên biệt (Chuyển nhượng, Lịch sử, Kết quả, Ví...)
+  const statsCard = document.getElementById("globalStatsCard");
+  if (statsCard) {
+    const isMainOverviewTab = (tabId === "adminPanelTab" || tabId === "voterVotingTab");
+    statsCard.style.display = isMainOverviewTab ? "" : "none";
+  }
+
   if (tabId === "adminPanelTab") {
     renderAdminUnifiedElectionList();
     renderUpcomingChecklist();
@@ -4565,6 +4577,135 @@ function toggleAdminSidebar() {
     if (toggleBtn) toggleBtn.title = "Thu gọn thanh điều hướng";
     localStorage.setItem("admin_sidebar_collapsed", "0");
   }
+}
+
+// ============================================================
+// VOTER & GUEST SIDEBAR: TOGGLE & RESIZE
+// ============================================================
+function toggleVoterSidebar() {
+  const sidebar = document.getElementById("voterSidebar");
+  const toggleIcon = document.getElementById("voterSidebarToggleIcon");
+  const toggleBtn = document.getElementById("voterSidebarToggleBtn");
+  if (!sidebar) return;
+
+  const isCollapsed = sidebar.classList.toggle("collapsed");
+  const svgLeft  = `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>`;
+  const svgRight = `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></svg>`;
+
+  if (isCollapsed) {
+    sidebar.style.width = "64px";
+    if (toggleIcon) toggleIcon.innerHTML = svgRight;
+    if (toggleBtn) toggleBtn.title = "Mở rộng thanh điều hướng";
+    localStorage.setItem("voter_sidebar_collapsed", "1");
+  } else {
+    const savedWidth = localStorage.getItem("voter_sidebar_width") || "240";
+    sidebar.style.width = `${savedWidth}px`;
+    if (toggleIcon) toggleIcon.innerHTML = svgLeft;
+    if (toggleBtn) toggleBtn.title = "Thu gọn thanh điều hướng";
+    localStorage.setItem("voter_sidebar_collapsed", "0");
+  }
+}
+
+function toggleGuestSidebar() {
+  const sidebar = document.getElementById("guestSidebar");
+  const toggleIcon = document.getElementById("guestSidebarToggleIcon");
+  const toggleBtn = document.getElementById("guestSidebarToggleBtn");
+  if (!sidebar) return;
+
+  const isCollapsed = sidebar.classList.toggle("collapsed");
+  const svgLeft  = `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>`;
+  const svgRight = `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></svg>`;
+
+  if (isCollapsed) {
+    sidebar.style.width = "64px";
+    if (toggleIcon) toggleIcon.innerHTML = svgRight;
+    if (toggleBtn) toggleBtn.title = "Mở rộng thanh điều hướng";
+  } else {
+    sidebar.style.width = "240px";
+    if (toggleIcon) toggleIcon.innerHTML = svgLeft;
+    if (toggleBtn) toggleBtn.title = "Thu gọn thanh điều hướng";
+  }
+}
+
+function initVoterSidebar() {
+  const sidebar = document.getElementById("voterSidebar");
+  const resizer = document.getElementById("voterSidebarResizer");
+  const toggleBtn = document.getElementById("voterSidebarToggleBtn");
+  const toggleIcon = document.getElementById("voterSidebarToggleIcon");
+  if (!sidebar) return;
+
+  const svgLeft  = `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>`;
+  const svgRight = `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></svg>`;
+
+  const savedWidth = localStorage.getItem("voter_sidebar_width");
+  const isCollapsed = localStorage.getItem("voter_sidebar_collapsed") === "1";
+
+  if (isCollapsed) {
+    sidebar.classList.add("collapsed");
+    sidebar.style.width = "64px";
+    if (toggleIcon) toggleIcon.innerHTML = svgRight;
+    if (toggleBtn) toggleBtn.title = "Mở rộng thanh điều hướng";
+  } else if (savedWidth && Number(savedWidth) >= 180 && Number(savedWidth) <= 320) {
+    sidebar.style.width = `${savedWidth}px`;
+    if (toggleIcon) toggleIcon.innerHTML = svgLeft;
+  }
+
+  const clockEl = document.getElementById("voterLiveClock");
+  if (clockEl) {
+    const updateClock = () => { clockEl.textContent = new Date().toLocaleTimeString("vi-VN"); };
+    updateClock();
+    setInterval(updateClock, 1000);
+  }
+
+  const guestClockEl = document.getElementById("guestLiveClock");
+  if (guestClockEl) {
+    const updateClock = () => { guestClockEl.textContent = new Date().toLocaleTimeString("vi-VN"); };
+    updateClock();
+    setInterval(updateClock, 1000);
+  }
+
+  if (!resizer) return;
+  let isResizing = false;
+  let startX = 0;
+  let startWidth = 240;
+
+  resizer.addEventListener("mousedown", (e) => {
+    isResizing = true;
+    startX = e.clientX;
+    startWidth = sidebar.getBoundingClientRect().width;
+    document.body.classList.add("admin-sidebar-resizing");
+    e.preventDefault();
+  });
+
+  window.addEventListener("mousemove", (e) => {
+    if (!isResizing) return;
+    const diff = e.clientX - startX;
+    let newWidth = startWidth + diff;
+
+    if (newWidth < 140) {
+      sidebar.classList.add("collapsed");
+      sidebar.style.width = "64px";
+      if (toggleIcon) toggleIcon.innerHTML = svgRight;
+      if (toggleBtn) toggleBtn.title = "Mở rộng thanh điều hướng";
+      localStorage.setItem("voter_sidebar_collapsed", "1");
+    } else {
+      sidebar.classList.remove("collapsed");
+      if (newWidth < 200) newWidth = 200;
+      if (newWidth > 320) newWidth = 320;
+      sidebar.style.width = `${newWidth}px`;
+      if (toggleIcon) toggleIcon.innerHTML = svgLeft;
+      if (toggleBtn) toggleBtn.title = "Thu gọn thanh điều hướng";
+      localStorage.setItem("voter_sidebar_collapsed", "0");
+      localStorage.setItem("voter_sidebar_width", newWidth);
+    }
+  });
+
+  window.addEventListener("mouseup", () => {
+    if (isResizing) {
+      isResizing = false;
+      document.body.classList.remove("admin-sidebar-resizing");
+    }
+  });
 }
 
 // ============================================================

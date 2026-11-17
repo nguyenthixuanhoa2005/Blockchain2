@@ -340,6 +340,7 @@ const server = http.createServer(async (req, res) => {
         name: (name || "Chưa đặt tên").trim(),
         title: (title || "Nhân sự").trim(),
         role: (role || "voter").trim(),
+        isCandidate: Boolean(payload.isCandidate || role === "candidate" || role === "voter_candidate"),
         shares: Number(shares) || 0,
         notes: (notes || "").trim(),
         createdAt: new Date().toISOString(),
@@ -376,6 +377,7 @@ const server = http.createServer(async (req, res) => {
       if (payload.name !== undefined) wallets[index].name = String(payload.name).trim();
       if (payload.title !== undefined) wallets[index].title = String(payload.title).trim();
       if (payload.role !== undefined) wallets[index].role = String(payload.role).trim();
+      if (payload.isCandidate !== undefined) wallets[index].isCandidate = Boolean(payload.isCandidate);
       if (payload.shares !== undefined) wallets[index].shares = Number(payload.shares) || 0;
       if (payload.notes !== undefined) wallets[index].notes = String(payload.notes).trim();
       wallets[index].updatedAt = new Date().toISOString();

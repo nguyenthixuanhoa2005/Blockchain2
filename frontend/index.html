@@ -73,22 +73,15 @@
           <p>Bỏ phiếu bầu dồn (Cumulative Voting) • Smart Contract Ethereum</p>
         </div>
         <div class="wallet-box">
-          <div style="display: flex; flex-direction: column; align-items: flex-end; gap: 4px;">
-            <div style="display: flex; align-items: center; gap: 8px;">
-              <span id="headerNetworkBadge" class="network-status-badge sepolia" onclick="switchToSepolia()" title="Bấm để kiểm tra hoặc chuyển sang mạng Sepolia">
-                <span id="headerNetworkDot" style="width:8px; height:8px; border-radius:50%; background:#10b981; display:inline-block;"></span>
-                <span id="headerNetworkText">Sepolia Testnet</span>
-              </span>
-              <div id="rolePill" class="role-pill guest">Khách</div>
-            </div>
-            <div id="headerWalletAddress" style="font-size: 11px; font-family: monospace; color: #bfdbfe;">0x...</div>
-          </div>
-          <!-- Cụm nút Thao tác Ví: Đăng Xuất -->
-          <div style="display: flex; gap: 6px; align-items: center;">
-            <button class="btn btn-danger btn-sm" onclick="logout()" title="Thoát ví và quay về màn hình đăng nhập">
-              <span>Đăng xuất</span>
-            </button>
-          </div>
+          <span id="headerNetworkBadge" class="network-status-badge sepolia" onclick="switchToSepolia()" title="Bấm để kiểm tra hoặc chuyển sang mạng Sepolia">
+            <span id="headerNetworkDot" style="width:8px; height:8px; border-radius:50%; background:#10b981; display:inline-block;"></span>
+            <span id="headerNetworkText">Sepolia Testnet</span>
+          </span>
+          <div id="rolePill" class="role-pill guest">Khách</div>
+          <div id="headerWalletAddress" class="header-wallet-chip">0x...</div>
+          <button class="btn btn-danger btn-sm" onclick="logout()" title="Thoát ví và quay về màn hình đăng nhập">
+            <span>Đăng xuất</span>
+          </button>
         </div>
       </div>
     </header>
@@ -185,19 +178,16 @@
 
           <!-- PHẦN NỘI DUNG CHÍNH (MAIN ADMIN CONTENT) -->
           <main class="admin-main-content" id="adminMainContent">
-            <!-- Top bar phụ của nội dung Admin -->
+            <!-- Top bar phụ của nội dung Admin (Breadcrumb & Live Clock) -->
             <div class="admin-main-topbar">
-              <div style="display:flex; align-items:center; gap:10px;">
-                <button type="button" class="btn btn-outline btn-sm admin-mobile-toggle-btn" onclick="toggleAdminSidebar()" title="Đóng/Mở Sidebar">
-                  ☰ Menu
-                </button>
-                <div id="adminActiveTabBreadcrumb" style="font-weight:700; font-size:14px; color:#1e293b;">
-                  Quản trị cuộc bầu cử
-                </div>
+              <div class="admin-topbar-breadcrumb-wrap">
+                <span class="admin-breadcrumb-root">Hệ thống</span>
+                <span class="admin-breadcrumb-sep">/</span>
+                <span id="adminActiveTabBreadcrumb" class="admin-breadcrumb-current">Quản trị cuộc bầu cử</span>
               </div>
-              <div style="font-size:12px; color:var(--text-muted); display:flex; align-items:center; gap:8px;">
+              <div class="admin-topbar-meta">
                 <span class="badge badge-primary" style="font-size:11px;">Mạng Sepolia</span>
-                <span id="adminLiveClock" style="font-family:monospace; font-weight:600;"></span>
+                <span id="adminLiveClock" style="font-family:monospace; font-weight:600; font-size:12px;"></span>
               </div>
             </div>
 
@@ -456,10 +446,12 @@
             <div class="wallets-toolbar">
               <div class="wallets-filter-group">
                 <input type="text" id="walletSearchInput" class="form-input wallets-search-input" placeholder="Tìm địa chỉ ví, họ tên hoặc chức danh" oninput="filterCompanyWallets()">
-                <select id="walletRoleFilter" class="form-select" style="width:180px;" onchange="filterCompanyWallets()">
+                <select id="walletRoleFilter" class="form-select" style="width:210px;" onchange="filterCompanyWallets()">
                   <option value="">-- Tất cả vai trò --</option>
                   <option value="admin">Quản trị viên (Admin)</option>
                   <option value="voter">Cổ đông biểu quyết</option>
+                  <option value="voter_candidate">Cổ đông &amp; Ứng viên (2 vai trò)</option>
+                  <option value="candidate">Ứng viên HĐQT</option>
                 </select>
               </div>
 
@@ -582,29 +574,119 @@
            PHÂN QUYỀN MÀN HÌNH 2: CỔ ĐÔNG (VOTER SCREEN)
            ===================================================== -->
       <div id="screenVoter" class="role-screen">
-        <div class="screen-hero hero-voter">
-          <div class="hero-icon">01</div>
-          <div>
-            <h2>Khu vực cổ đông</h2>
-            <p>Bỏ phiếu, chuyển nhượng cổ phần và xem kết quả.</p>
-          </div>
-        </div>
+        <div class="admin-layout-container" id="voterLayoutContainer">
 
-        <div class="tabs">
-          <button class="tab-btn active" onclick="switchTab('voterVotingTab', this)">Bỏ phiếu</button>
-          <button class="tab-btn" onclick="switchTab('voterTransferTab', this)">Chuyển nhượng</button>
-          <button class="tab-btn" onclick="switchTab('voterResultsTab', this)">Cuộc bầu cử &amp; kết quả</button>
-          <button class="tab-btn" onclick="switchTab('voterHistoryTab', this)">Lịch sử bỏ phiếu</button>
-        </div>
+          <!-- SIDEBAR CỔ ĐÔNG (VOTER SIDEBAR) -->
+          <aside id="voterSidebar" class="admin-sidebar voter-sidebar">
+            <!-- Brand / Workspace Header -->
+            <div class="admin-sidebar-header">
+              <div class="admin-sidebar-brand">
+                <span class="admin-sidebar-title">Cổng Cổ Đông</span>
+              </div>
+              <button type="button" class="admin-sidebar-toggle-btn" id="voterSidebarToggleBtn" onclick="toggleVoterSidebar()" title="Thu gọn / Mở rộng">
+                <span id="voterSidebarToggleIcon" class="toggle-icon-wrap">
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M15 18l-6-6 6-6"/>
+                  </svg>
+                </span>
+              </button>
+            </div>
 
-        <!-- Banner cảnh báo thông báo hủy / dừng kỳ bầu cử khẩn cấp cho cử tri -->
-        <div id="voterElectionAlertBanner" style="display:none; margin-bottom:16px;"></div>
+            <!-- Điều hướng chính của Cổ đông -->
+            <nav class="admin-sidebar-nav tabs" id="voterSidebarTabs">
+              <button type="button" class="tab-btn admin-nav-btn active" onclick="switchTab('voterVotingTab', this)" title="Bỏ phiếu bầu dồn">
+                <svg class="nav-svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M9 11l3 3L22 4"/>
+                  <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/>
+                </svg>
+                <span class="nav-label">Bỏ phiếu bầu dồn</span>
+              </button>
 
-        <!-- Banner thông báo chúc mừng trúng cử thành viên HĐQT cho cổ đông -->
-        <div id="voterElectedNoticeBanner" style="display:none; margin-bottom:16px;"></div>
+              <button type="button" class="tab-btn admin-nav-btn" onclick="switchTab('voterTransferTab', this)" title="Chuyển nhượng cổ phần">
+                <svg class="nav-svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                  <line x1="22" y1="2" x2="11" y2="13"/>
+                  <polygon points="22 2 15 22 11 13 2 9 22 2"/>
+                </svg>
+                <span class="nav-label">Chuyển nhượng</span>
+              </button>
 
-        <!-- Tab 2.1: Bỏ phiếu -->
-        <section id="voterVotingTab" class="tab-content active">
+              <button type="button" class="tab-btn admin-nav-btn" onclick="switchTab('voterResultsTab', this)" title="Cuộc bầu cử &amp; Kết quả">
+                <svg class="nav-svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                  <line x1="18" y1="20" x2="18" y2="10"/>
+                  <line x1="12" y1="20" x2="12" y2="4"/>
+                  <line x1="6" y1="20" x2="6" y2="14"/>
+                </svg>
+                <span class="nav-label">Kỳ bầu cử &amp; Kết quả</span>
+              </button>
+
+              <button type="button" class="tab-btn admin-nav-btn" onclick="switchTab('voterHistoryTab', this)" title="Lịch sử bỏ phiếu">
+                <svg class="nav-svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                  <circle cx="12" cy="12" r="10"/>
+                  <polyline points="12 6 12 12 14 14"/>
+                </svg>
+                <span class="nav-label">Lịch sử bỏ phiếu</span>
+              </button>
+            </nav>
+
+            <!-- Bottom System Indicator -->
+            <div class="admin-sidebar-status">
+              <span class="status-indicator-dot"></span>
+              <span class="status-indicator-text">Sepolia Network Active</span>
+            </div>
+          </aside>
+
+          <!-- THANH KÉO RESIZER -->
+          <div id="voterSidebarResizer" class="admin-sidebar-resizer" title="Kéo chuột sang trái/phải để thu nhỏ hoặc kéo rộng Sidebar"></div>
+
+          <!-- PHẦN NỘI DUNG CHÍNH CỔ ĐÔNG (VOTER MAIN CONTENT) -->
+          <main class="admin-main-content" id="voterMainContent">
+            <!-- Top bar phụ của nội dung Cổ đông -->
+            <div class="admin-main-topbar">
+              <div class="admin-topbar-breadcrumb-wrap">
+                <span class="admin-breadcrumb-root">Cổ đông</span>
+                <span class="admin-breadcrumb-sep">/</span>
+                <span id="voterActiveTabBreadcrumb" class="admin-breadcrumb-current">Bỏ phiếu bầu dồn</span>
+              </div>
+              <div class="admin-topbar-meta">
+                <span class="badge badge-primary" style="font-size:11px;">Mạng Sepolia</span>
+                <span id="voterLiveClock" style="font-family:monospace; font-weight:600; font-size:12px;"></span>
+              </div>
+            </div>
+
+            <!-- Banner cảnh báo thông báo hủy / dừng kỳ bầu cử khẩn cấp cho cử tri -->
+            <div id="voterElectionAlertBanner" style="display:none; margin-bottom:16px;"></div>
+
+            <!-- Banner thông báo chúc mừng trúng cử thành viên HĐQT cho cổ đông -->
+            <div id="voterElectedNoticeBanner" style="display:none; margin-bottom:16px;"></div>
+
+            <!-- Khung thông tin ỨNG VIÊN HĐQT (Hiển thị khi tài khoản có vai trò Ứng viên hoặc Cổ đông & Ứng viên) -->
+            <div id="voterCandidateSection" style="display:none; margin-bottom:18px;">
+              <div class="card" style="border-left: 5px solid #8b5cf6; background: linear-gradient(135deg, #fcfaff 0%, #f6effe 100%); border-radius:12px; box-shadow:0 4px 16px rgba(139,92,246,0.08);">
+                <div style="display:flex; justify-content:space-between; align-items:flex-start; flex-wrap:wrap; gap:12px;">
+                  <div>
+                    <div style="display:flex; align-items:center; gap:8px; margin-bottom:6px;">
+                      <span class="badge" style="background:#8b5cf6; color:white; font-weight:700; font-size:11px;">🎯 VAI TRÒ: ỨNG CỬ VIÊN HĐQT</span>
+                      <span class="badge badge-success" style="font-size:11px;">✓ Đã được Admin phê duyệt</span>
+                    </div>
+                    <h3 style="font-size:16px; font-weight:800; color:#581c87; margin:0;">
+                      Bạn đang là Ứng cử viên chính thức tham gia tranh cử Hội Đồng Quản Trị
+                    </h3>
+                    <p style="font-size:12.5px; color:#6b21a8; margin:4px 0 0 0;">
+                      Tài khoản của bạn có <strong>2 vai trò</strong>: vừa thực hiện quyền <strong>Cổ đông biểu quyết</strong> (bỏ phiếu dồn), vừa được Ban Quản Trị phê duyệt làm <strong>Ứng cử viên</strong> nhận phiếu bầu từ các cổ đông khác trong công ty.
+                    </p>
+                  </div>
+                  <div id="candidateLiveStatsSummary" style="display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
+                    <!-- Badge thống kê số phiếu nhận được -->
+                  </div>
+                </div>
+                <div id="candidateParticipatingElections" style="margin-top:14px; border-top:1px solid rgba(139,92,246,0.15); padding-top:12px;">
+                  <!-- Dynamic candidate status per election -->
+                </div>
+              </div>
+            </div>
+
+            <!-- Tab 2.1: Bỏ phiếu -->
+            <section id="voterVotingTab" class="tab-content active">
           <div class="card">
             <div class="card-title">
               Chọn cuộc bầu cử
@@ -795,39 +877,84 @@
             </div>
           </div>
         </section>
-      </div>
+
+          </main> <!-- /#voterMainContent -->
+        </div> <!-- /#voterLayoutContainer -->
+      </div> <!-- /#screenVoter -->
 
       <!-- =====================================================
            PHÂN QUYỀN MÀN HÌNH 3: BAN KIỂM SOÁT / KIỂM TOÁN NỘI BỘ (AUDITOR SCREEN)
            ===================================================== -->
       <div id="screenGuest" class="role-screen">
-        <div class="screen-hero hero-guest">
-          <div class="hero-icon">02</div>
-          <div>
-            <h2>Khu vực giám sát</h2>
-            <p>Theo dõi tiến trình bầu cử, kết quả kiểm phiếu và giao dịch on-chain.</p>
-          </div>
-        </div>
+        <div class="admin-layout-container" id="guestLayoutContainer">
 
-        <div class="guest-notice" style="background: #eff6ff; border-left: 4px solid #3b82f6; color: #1e40af;">
-          <strong>Giám sát:</strong> Tra cứu hồ sơ ứng viên, theo dõi phiếu bầu và xác minh giao dịch on-chain.
-        </div>
-
-        <div class="tabs">
-          <button class="tab-btn active" onclick="switchTab('guestResultsTab', this)">Cuộc bầu cử &amp; kết quả</button>
-        </div>
-
-        <section id="guestResultsTab" class="tab-content active">
-          <div class="card">
-            <div class="card-title">
-              Danh sách cuộc bầu cử &amp; kết quả
+          <!-- SIDEBAR GIÁM SÁT (AUDITOR SIDEBAR) -->
+          <aside id="guestSidebar" class="admin-sidebar guest-sidebar">
+            <div class="admin-sidebar-header">
+              <div class="admin-sidebar-brand">
+                <span class="admin-sidebar-title">Ban Giám Sát</span>
+              </div>
+              <button type="button" class="admin-sidebar-toggle-btn" id="guestSidebarToggleBtn" onclick="toggleGuestSidebar()" title="Thu gọn / Mở rộng">
+                <span id="guestSidebarToggleIcon" class="toggle-icon-wrap">
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M15 18l-6-6 6-6"/>
+                  </svg>
+                </span>
+              </button>
             </div>
-            <div id="guestAllElections" class="election-list">
-              <div style="text-align:center;padding:20px;color:var(--text-muted);">Đang tải...</div>
+
+            <nav class="admin-sidebar-nav tabs" id="guestSidebarTabs">
+              <button type="button" class="tab-btn admin-nav-btn active" onclick="switchTab('guestResultsTab', this)" title="Cuộc bầu cử &amp; Kết quả">
+                <svg class="nav-svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                  <line x1="18" y1="20" x2="18" y2="10"/>
+                  <line x1="12" y1="20" x2="12" y2="4"/>
+                  <line x1="6" y1="20" x2="6" y2="14"/>
+                </svg>
+                <span class="nav-label">Kết quả &amp; Giám sát</span>
+              </button>
+            </nav>
+
+            <div class="admin-sidebar-status">
+              <span class="status-indicator-dot"></span>
+              <span class="status-indicator-text">Sepolia Network Active</span>
             </div>
-          </div>
-        </section>
-      </div>
+          </aside>
+
+          <!-- THANH KÉO RESIZER -->
+          <div id="guestSidebarResizer" class="admin-sidebar-resizer" title="Kéo chuột sang trái/phải để thu nhỏ hoặc kéo rộng Sidebar"></div>
+
+          <!-- NỘI DUNG CHÍNH GIÁM SÁT -->
+          <main class="admin-main-content" id="guestMainContent">
+            <!-- Topbar phụ của Giám sát -->
+            <div class="admin-main-topbar">
+              <div class="admin-topbar-breadcrumb-wrap">
+                <span class="admin-breadcrumb-root">Giám sát</span>
+                <span class="admin-breadcrumb-sep">/</span>
+                <span id="guestActiveTabBreadcrumb" class="admin-breadcrumb-current">Cuộc bầu cử &amp; Kết quả</span>
+              </div>
+              <div class="admin-topbar-meta">
+                <span class="badge badge-primary" style="font-size:11px;">Mạng Sepolia</span>
+                <span id="guestLiveClock" style="font-family:monospace; font-weight:600; font-size:12px;"></span>
+              </div>
+            </div>
+
+            <div class="guest-notice" style="background: #eff6ff; border-left: 4px solid #3b82f6; color: #1e40af; margin-bottom:16px;">
+              <strong>Giám sát:</strong> Tra cứu hồ sơ ứng viên, theo dõi phiếu bầu và xác minh giao dịch on-chain.
+            </div>
+
+            <section id="guestResultsTab" class="tab-content active">
+              <div class="card">
+                <div class="card-title">
+                  Danh sách cuộc bầu cử &amp; kết quả
+                </div>
+                <div id="guestAllElections" class="election-list">
+                  <div style="text-align:center;padding:20px;color:var(--text-muted);">Đang tải...</div>
+                </div>
+              </div>
+            </section>
+          </main> <!-- /#guestMainContent -->
+        </div> <!-- /#guestLayoutContainer -->
+      </div> <!-- /#screenGuest -->
 
     </main>
   </div>
@@ -867,10 +994,22 @@
 
         <div class="form-group">
           <label class="form-label">Vai trò trong hệ thống:</label>
-          <select id="walletFormRole" class="form-select">
+          <select id="walletFormRole" class="form-select" onchange="onWalletRoleSelectChange()">
             <option value="voter">Cổ đông biểu quyết (Voter)</option>
+            <option value="voter_candidate">Cổ đông &amp; Ứng viên HĐQT (2 vai trò)</option>
+            <option value="candidate">Ứng viên HĐQT (Candidate)</option>
             <option value="admin">Quản trị viên (Admin)</option>
           </select>
+        </div>
+
+        <div class="form-group" style="background:#f8fafc; border:1px solid #e2e8f0; border-radius:8px; padding:10px 14px;">
+          <label style="display:flex; align-items:center; gap:10px; cursor:pointer; font-weight:600; font-size:13px; color:#1e293b; margin:0;">
+            <input type="checkbox" id="walletFormIsCandidate" style="width:18px; height:18px; cursor:pointer;" onchange="onWalletCandidateCheckboxChange()">
+            <span>👑 Được Admin phê duyệt tham gia ứng cử HĐQT (Ứng Viên)</span>
+          </label>
+          <div style="font-size:11.5px; color:var(--text-muted); margin-top:4px; padding-left:28px;">
+            Khi tích chọn: Ví này được ghi nhận là Ứng viên chính thức. Nếu có cổ phần sẽ có 2 vai trò vừa là Cổ đông biểu quyết, vừa là Ứng cử viên nhận phiếu bầu.
+          </div>
         </div>
 
         <div class="form-group">
@@ -1098,12 +1237,12 @@
         <input type="hidden" id="candidateTargetElectionId" value="">
 
         <!-- Chọn nhanh từ danh bạ cổ đông công ty -->
-        <div class="form-group" style="background:#f0fdf4; border:1px solid #bbf7d0; border-radius:8px; padding:12px; margin-bottom:14px;">
-          <label class="form-label" style="font-weight:700; color:#166534; margin-bottom:6px;">
-            Chọn từ danh bạ cổ đông nội bộ
+        <div class="form-group" style="background:#f5f3ff; border:1px solid #ddd6fe; border-radius:8px; padding:12px; margin-bottom:14px;">
+          <label class="form-label" style="font-weight:700; color:#5b21b6; margin-bottom:6px;">
+            👑 Chọn nhanh từ danh sách Ứng viên đã được Admin phê duyệt:
           </label>
           <select id="quickCandidateSelect" class="form-select" onchange="applyQuickCandidate(this.value)">
-            <option value="">-- Chọn cổ đông ứng cử viên nhanh --</option>
+            <option value="">-- Chọn ứng viên đã được Admin phê duyệt --</option>
           </select>
         </div>
 
