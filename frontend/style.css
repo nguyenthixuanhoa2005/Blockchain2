@@ -371,74 +371,308 @@ body {
   flex-wrap: wrap;
 }
 
-/* ===== GLOBAL STATS OVERVIEW BAR (CLEAN SAAS FINTECH) ===== */
-#globalStatsCard {
+/* ===== OVERVIEW STATS PANEL (FINTECH WEB3 METRICS BAR) ===== */
+.overview-stats-panel {
   background: #ffffff;
-  border: 1px solid var(--border);
-  border-radius: 10px;
-  padding: 14px 16px;
-  margin-bottom: 16px;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
-}
-
-#globalStatsCard .grid-4 {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+  border: 1px solid var(--border, #e2e8f0);
+  border-radius: 12px;
+  padding: 16px;
+  margin-bottom: 18px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.03), 0 6px 16px rgba(15, 23, 42, 0.02);
+  display: flex;
+  flex-direction: column;
   gap: 12px;
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+  overflow: hidden;
 }
 
-#globalStatsCard .stat-box {
-  background: #f8fafc;
-  border: 1px solid #e2e8f0;
-  border-radius: 8px;
-  padding: 12px 14px;
-  transition: all 0.15s ease;
+.overview-stats-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+}
+
+.overview-stat-cell {
+  background: #fafcfb;
+  border: 1px solid #edf2f0;
+  border-radius: 9px;
+  padding: 14px 16px;
   display: flex;
   flex-direction: column;
   justify-content: space-between;
+  gap: 8px;
+  min-height: 94px;
+  min-width: 0;
+  max-width: 100%;
+  box-sizing: border-box;
+  overflow: hidden;
+  transition: all 0.15s ease;
+  position: relative;
 }
 
-#globalStatsCard .stat-box:hover {
+.overview-stat-cell:hover {
   background: #ffffff;
   border-color: #cbd5e1;
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.03);
+  box-shadow: 0 3px 8px rgba(0, 0, 0, 0.04);
 }
 
-#globalStatsCard .stat-box.stat-box-primary {
-  background: #edf5f2;
-  border-color: #cfe1da;
+.overview-stat-cell.stat-cell-highlight {
+  background: #f2f8f6;
+  border-color: rgba(23, 107, 97, 0.22);
 }
-#globalStatsCard .stat-box.stat-box-primary .stat-value {
+
+.stat-cell-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  min-width: 0;
+  width: 100%;
+}
+
+.stat-cell-title {
+  font-size: 11px;
+  font-weight: 700;
+  color: #64748b;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
+}
+
+.stat-cell-icon {
+  color: #94a3b8;
+  flex-shrink: 0;
+  opacity: 0.8;
+}
+.stat-cell-highlight .stat-cell-icon {
   color: var(--primary, #176b61);
 }
 
-#globalStatsCard .stat-label {
-  font-size: 11.5px;
-  font-weight: 600;
-  color: #64748b;
-  text-transform: uppercase;
-  letter-spacing: 0.3px;
+.stat-cell-main {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  min-width: 0;
+  width: 100%;
+  overflow: hidden;
 }
 
-#globalStatsCard .stat-value {
-  font-size: 18px;
+.stat-number-val {
+  font-size: 20px;
   font-weight: 800;
   color: #0f172a;
-  margin-top: 4px;
-  letter-spacing: -0.3px;
+  letter-spacing: -0.4px;
+  line-height: 1.2;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
 }
 
-#globalStatsCard .stat-desc {
+.stat-val-primary {
+  color: var(--primary, #176b61) !important;
+}
+
+.stat-address-chip {
+  font-family: monospace;
+  font-size: 11.5px;
+  font-weight: 600;
+  color: #334155;
+  background: #f1f5f9;
+  padding: 4px 8px;
+  border-radius: 6px;
+  border: 1px solid #e2e8f0;
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  display: block;
+}
+
+.stat-cell-sub {
   font-size: 11px;
   color: #94a3b8;
-  margin-top: 3px;
-  line-height: 1.3;
+  line-height: 1.35;
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  display: block;
 }
 
-#snapshotDiffNote {
-  border-radius: 6px !important;
-  font-size: 11.5px !important;
-  line-height: 1.4 !important;
+.btn-snapshot-info {
+  background: transparent;
+  border: none;
+  font-size: 11px;
+  cursor: pointer;
+  padding: 0;
+  line-height: 1;
+  opacity: 0.75;
+  transition: opacity 0.15s, transform 0.15s;
+  flex-shrink: 0;
+}
+.btn-snapshot-info:hover {
+  opacity: 1;
+  transform: scale(1.15);
+}
+
+.snapshot-alert-strip {
+  background: #fffbeb;
+  border: 1px solid #fde68a;
+  border-radius: 7px;
+  padding: 8px 12px;
+  font-size: 11.5px;
+  color: #92400e;
+  line-height: 1.45;
+  word-break: break-word;
+  overflow-wrap: break-word;
+}
+
+/* RESPONSIVE CHO OVERVIEW STATS PANEL */
+@media (max-width: 1080px) {
+  .overview-stats-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 640px) {
+  .overview-stats-panel {
+    padding: 12px;
+    gap: 8px;
+    margin-bottom: 14px;
+  }
+  .overview-stats-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+  }
+  .overview-stat-cell {
+    padding: 10px 12px;
+    min-height: 80px;
+    gap: 4px;
+  }
+  .stat-cell-title {
+    font-size: 10px;
+  }
+  .stat-number-val {
+    font-size: 16px;
+  }
+  .stat-cell-sub {
+    font-size: 10px;
+  }
+}
+
+@media (max-width: 420px) {
+  .overview-stats-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* ===== VOTER QUICK ACTIONS PANEL (TILES) ===== */
+.voter-quick-actions-card {
+  border-radius: 12px;
+  padding: 18px 20px;
+  margin-bottom: 20px;
+}
+
+.voter-quick-actions-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+  margin-top: 4px;
+}
+
+.voter-action-tile {
+  background: #f8fafc;
+  border: 1.5px solid #e2e8f0;
+  border-radius: 10px;
+  padding: 14px 16px;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  cursor: pointer;
+  transition: all 0.18s cubic-bezier(0.16, 1, 0.3, 1);
+  position: relative;
+  text-decoration: none;
+}
+
+.voter-action-tile:hover {
+  background: #ffffff;
+  border-color: var(--primary, #176b61);
+  box-shadow: 0 4px 14px rgba(23, 107, 97, 0.08);
+  transform: translateY(-2px);
+}
+
+.action-tile-icon {
+  width: 44px;
+  height: 44px;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  transition: transform 0.18s ease;
+}
+
+.voter-action-tile:hover .action-tile-icon {
+  transform: scale(1.08);
+}
+
+.action-tile-content {
+  flex: 1;
+  min-width: 0;
+}
+
+.action-tile-title {
+  font-size: 14px;
+  font-weight: 700;
+  color: #0f172a;
+  margin-bottom: 3px;
+}
+
+.action-tile-desc {
+  font-size: 11.5px;
+  color: #64748b;
+  line-height: 1.35;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.action-tile-arrow {
+  font-size: 16px;
+  font-weight: 700;
+  color: #94a3b8;
+  transition: all 0.15s ease;
+  margin-left: auto;
+  flex-shrink: 0;
+}
+
+.voter-action-tile:hover .action-tile-arrow {
+  color: var(--primary, #176b61);
+  transform: translateX(4px);
+}
+
+@media (max-width: 768px) {
+  .voter-quick-actions-grid {
+    grid-template-columns: 1fr;
+    gap: 10px;
+  }
+  .voter-action-tile {
+    padding: 12px 14px;
+  }
 }
 
 /* ===== GRIDS ===== */
@@ -1112,6 +1346,9 @@ tr:hover td { background: #f8fafc; }
   align-items: flex-start;
   gap: 20px;
   position: relative;
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
 }
 
 /* ─── SIDEBAR CONTAINER ────────────────────────────────── */
@@ -1133,8 +1370,10 @@ tr:hover td { background: #f8fafc; }
   flex-direction: column;
 
   /* Sticky Viewport bám dọc màn hình khi cuộn */
+  position: -webkit-sticky;
   position: sticky;
   top: 76px;
+  align-self: flex-start;
   height: calc(100vh - 96px);
   max-height: calc(100vh - 96px);
   overflow-y: auto;
@@ -1327,6 +1566,8 @@ body.admin-sidebar-resizing .admin-sidebar-resizer::after {
 .admin-main-content {
   flex: 1;
   min-width: 0;
+  max-width: 100%;
+  box-sizing: border-box;
 }
 
 .admin-main-topbar {
@@ -1512,24 +1753,6 @@ body.admin-sidebar-resizing .admin-sidebar-resizer::after {
   .admin-sidebar-nav .admin-nav-btn .nav-svg {
     width: 15px;
     height: 15px;
-  }
-
-  /* Co giãn các ô thống kê */
-  #globalStatsCard #globalStatsGrid {
-    grid-template-columns: repeat(auto-fit, minmax(135px, 1fr)) !important;
-    gap: 8px !important;
-  }
-  #globalStatsCard .stat-box {
-    padding: 10px 12px;
-  }
-  #globalStatsCard .stat-label {
-    font-size: 10.5px;
-  }
-  #globalStatsCard .stat-value {
-    font-size: 15px;
-  }
-  #globalStatsCard .stat-desc {
-    font-size: 10px;
   }
 
   /* ─── TỐI ƯU RESPONSIVE MÀN HÌNH CỔ ĐÔNG (VOTER SCREEN) ─── */

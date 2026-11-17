@@ -191,35 +191,73 @@
               </div>
             </div>
 
-            <!-- Thẻ thông tin ví & cổ phần đang đăng nhập (Nằm bên phải, đẩy Sidebar lên trên) -->
-            <div class="card" id="globalStatsCard" style="margin-bottom: 18px;">
-              <div class="grid-4" id="globalStatsGrid">
-                <div class="stat-box">
-                  <div class="stat-label">Địa chỉ ví đang kết nối</div>
-                  <div class="stat-value" id="currentAddress" style="font-size:12px;word-break:break-all;font-family:monospace;">0x...</div>
-                  <div class="stat-desc" id="currentRole">Vai trò: Đang xác thực...</div>
-                </div>
-                <div class="stat-box" id="shareTokenStatBox">
-                  <div class="stat-label">Số cổ phần sở hữu (ShareToken)</div>
-                  <div class="stat-value" id="currentShares">0 CP</div>
-                  <div class="stat-desc">1 Token = 1 Cổ phần (Decimals = 0)</div>
-                </div>
-                <div class="stat-box stat-box-primary" id="maxVotesStatBox">
-                  <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:4px;">
-                    <div class="stat-label" id="maxVotesBoxTitle" style="margin-bottom:0;">Phiếu bầu tối đa (Bầu dồn)</div>
-                    <button type="button" class="btn-icon-link" onclick="openSnapshotModal()" title="Xem giải thích cơ chế Snapshot quyền biểu quyết" style="font-size:12px; color:#1d4ed8; font-weight:600; cursor:pointer; padding:2px 8px; background:rgba(37,99,235,0.08); border:1px solid rgba(37,99,235,0.2); border-radius:6px; transition:all 0.2s;">ℹ️ Giải thích</button>
+            <!-- Thẻ thông tin ví & cổ phần đang đăng nhập (Overview Metrics Panel) -->
+            <div class="overview-stats-panel" id="globalStatsCard">
+              <div class="overview-stats-grid" id="globalStatsGrid">
+
+                <!-- Ô 1: Địa chỉ ví -->
+                <div class="overview-stat-cell">
+                  <div class="stat-cell-header">
+                    <span class="stat-cell-title">Ví Đang Kết Nối</span>
+                    <svg class="stat-cell-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                      <rect x="2" y="7" width="20" height="14" rx="2" ry="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/>
+                    </svg>
                   </div>
-                  <div class="stat-value" id="currentMaxVotes">0 Phiếu</div>
-                  <div class="stat-desc" id="formulaDesc">= Số cổ phần × Số ghế HĐQT</div>
-                  <div id="snapshotDiffNote" style="display:none; font-size:11px; color:#92400e; background:#fffbeb; border:1px solid #fde68a; border-radius:4px; padding:5px 8px; margin-top:8px; line-height:1.4; text-align:left;">
+                  <div class="stat-cell-main">
+                    <div class="stat-address-chip" id="currentAddress" title="Địa chỉ ví Sepolia">0x...</div>
                   </div>
+                  <div class="stat-cell-sub" id="currentRole">Vai trò: Đang xác thực...</div>
                 </div>
-                <div class="stat-box">
-                  <div class="stat-label">Tổng cuộc bầu cử</div>
-                  <div class="stat-value" id="totalElections">0</div>
-                  <div class="stat-desc" id="activeElectionCount">Đang tải...</div>
+
+                <!-- Ô 2: Số cổ phần -->
+                <div class="overview-stat-cell" id="shareTokenStatBox">
+                  <div class="stat-cell-header">
+                    <span class="stat-cell-title">Cổ Phần Sở Hữu</span>
+                    <svg class="stat-cell-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                      <circle cx="12" cy="12" r="10"/><path d="M16 8h-6a2 2 0 1 0 0 4h4a2 2 0 1 1 0 4H8"/><path d="M12 18V6"/>
+                    </svg>
+                  </div>
+                  <div class="stat-cell-main">
+                    <span class="stat-number-val" id="currentShares">0 CP</span>
+                  </div>
+                  <div class="stat-cell-sub">1 Token = 1 CP (ShareToken)</div>
                 </div>
+
+                <!-- Ô 3: Phiếu bầu tối đa (Bầu dồn) -->
+                <div class="overview-stat-cell stat-cell-highlight" id="maxVotesStatBox">
+                  <div class="stat-cell-header">
+                    <div style="display:flex; align-items:center; gap:6px;">
+                      <span class="stat-cell-title" id="maxVotesBoxTitle">Phiếu Bầu Tối Đa</span>
+                      <button type="button" class="btn-snapshot-info" onclick="openSnapshotModal()" title="Xem giải thích cơ chế Snapshot quyền biểu quyết">ℹ️</button>
+                    </div>
+                    <svg class="stat-cell-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                      <path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/>
+                    </svg>
+                  </div>
+                  <div class="stat-cell-main">
+                    <span class="stat-number-val stat-val-primary" id="currentMaxVotes">0 Phiếu</span>
+                  </div>
+                  <div class="stat-cell-sub" id="formulaDesc">= Số cổ phần × Số ghế HĐQT</div>
+                </div>
+
+                <!-- Ô 4: Tổng cuộc bầu cử -->
+                <div class="overview-stat-cell">
+                  <div class="stat-cell-header">
+                    <span class="stat-cell-title">Tổng Kỳ Bầu Cử</span>
+                    <svg class="stat-cell-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                      <rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/>
+                    </svg>
+                  </div>
+                  <div class="stat-cell-main">
+                    <span class="stat-number-val" id="totalElections">0</span>
+                  </div>
+                  <div class="stat-cell-sub" id="activeElectionCount">Đang tải...</div>
+                </div>
+
               </div>
+
+              <!-- Dải thông báo chênh lệch Snapshot on-chain nằm tinh gọn dưới đáy Panel -->
+              <div id="snapshotDiffNote" class="snapshot-alert-strip" style="display:none;"></div>
             </div>
 
             <!-- Banner cảnh báo thông báo hủy / dừng kỳ bầu cử khẩn cấp cho Quản trị viên (Admin) -->
@@ -232,7 +270,7 @@
             <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:16px;">
               <div>
                 <h3 style="font-size:18px; font-weight:800; color:#0f172a; margin-bottom:4px; display:flex; align-items:center; gap:8px;">
-                  <span>01</span> Quản lý cuộc bầu cử
+                  Quản lý cuộc bầu cử
                 </h3>
                 <p style="font-size:13px; color:var(--text-muted); margin:0;">
                   Theo dõi danh sách kỳ bầu cử, chốt ứng viên hợp lệ, kiểm tra điều kiện pre-flight và mở/đóng phiên trực tiếp trên Blockchain.
@@ -407,7 +445,7 @@
         <section id="adminWalletsTab" class="tab-content">
           <!-- Thống kê ví nội bộ -->
           <div class="card" style="margin-bottom: 18px;">
-            <div class="grid-4">
+            <div class="grid-4" style="grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));">
               <div class="stat-box">
                 <div class="stat-label">Tổng số ví nội bộ</div>
                 <div class="stat-value" id="statCompanyWalletsTotal">0</div>
@@ -417,6 +455,11 @@
                 <div class="stat-label">Quản trị viên (Admin)</div>
                 <div class="stat-value" id="statCompanyWalletsAdmin">0</div>
                 <div class="stat-desc">Có quyền điều hành Smart Contract</div>
+              </div>
+              <div class="stat-box" style="border-left: 3px solid #8b5cf6;">
+                <div class="stat-label">Ứng viên HĐQT đã duyệt</div>
+                <div class="stat-value" id="statCompanyWalletsCandidate" style="color:#7c3aed;">0</div>
+                <div class="stat-desc">Được phép tham gia ứng cử</div>
               </div>
               <div class="stat-box">
                 <div class="stat-label">Cổ đông có quyền biểu quyết</div>
@@ -594,7 +637,17 @@
 
             <!-- Điều hướng chính của Cổ đông -->
             <nav class="admin-sidebar-nav tabs" id="voterSidebarTabs">
-              <button type="button" class="tab-btn admin-nav-btn active" onclick="switchTab('voterVotingTab', this)" title="Bỏ phiếu bầu dồn">
+              <button type="button" class="tab-btn admin-nav-btn active" onclick="switchTab('voterOverviewTab', this)" title="Tổng quan tài khoản & quản lý chung">
+                <svg class="nav-svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                  <rect x="3" y="3" width="7" height="7" rx="1"/>
+                  <rect x="14" y="3" width="7" height="7" rx="1"/>
+                  <rect x="14" y="14" width="7" height="7" rx="1"/>
+                  <rect x="3" y="14" width="7" height="7" rx="1"/>
+                </svg>
+                <span class="nav-label">Quản lý chung</span>
+              </button>
+
+              <button type="button" class="tab-btn admin-nav-btn" onclick="switchTab('voterVotingTab', this)" title="Bỏ phiếu bầu dồn">
                 <svg class="nav-svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
                   <path d="M9 11l3 3L22 4"/>
                   <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/>
@@ -659,34 +712,103 @@
             <!-- Banner thông báo chúc mừng trúng cử thành viên HĐQT cho cổ đông -->
             <div id="voterElectedNoticeBanner" style="display:none; margin-bottom:16px;"></div>
 
-            <!-- Khung thông tin ỨNG VIÊN HĐQT (Hiển thị khi tài khoản có vai trò Ứng viên hoặc Cổ đông & Ứng viên) -->
-            <div id="voterCandidateSection" style="display:none; margin-bottom:18px;">
-              <div class="card" style="border-left: 5px solid #8b5cf6; background: linear-gradient(135deg, #fcfaff 0%, #f6effe 100%); border-radius:12px; box-shadow:0 4px 16px rgba(139,92,246,0.08);">
-                <div style="display:flex; justify-content:space-between; align-items:flex-start; flex-wrap:wrap; gap:12px;">
-                  <div>
-                    <div style="display:flex; align-items:center; gap:8px; margin-bottom:6px;">
-                      <span class="badge" style="background:#8b5cf6; color:white; font-weight:700; font-size:11px;">🎯 VAI TRÒ: ỨNG CỬ VIÊN HĐQT</span>
-                      <span class="badge badge-success" style="font-size:11px;">✓ Đã được Admin phê duyệt</span>
+            <!-- =========================================================
+                 TAB 2.0: QUẢN LÝ CHUNG (TỔNG QUAN CỔ ĐÔNG & ỨNG VIÊN HĐQT)
+                 ========================================================= -->
+            <section id="voterOverviewTab" class="tab-content active">
+              <!-- Điểm neo thẻ thông số tổng quan (globalStatsCard sẽ được attach vào đây) -->
+              <div id="voterOverviewStatsAnchor"></div>
+
+              <!-- Khung thông tin ỨNG VIÊN HĐQT (Hiển thị khi tài khoản có vai trò Ứng viên hoặc Cổ đông & Ứng viên) -->
+              <div id="voterCandidateSection" style="display:none; margin-bottom:18px;">
+                <div class="card" style="border-left: 5px solid #8b5cf6; background: linear-gradient(135deg, #fcfaff 0%, #f6effe 100%); border-radius:12px; box-shadow:0 4px 16px rgba(139,92,246,0.08);">
+                  <div style="display:flex; justify-content:space-between; align-items:flex-start; flex-wrap:wrap; gap:12px;">
+                    <div>
+                      <div style="display:flex; align-items:center; gap:8px; margin-bottom:6px;">
+                        <span class="badge" style="background:#8b5cf6; color:white; font-weight:700; font-size:11px;">🎯 VAI TRÒ: ỨNG CỬ VIÊN HĐQT</span>
+                        <span class="badge badge-success" style="font-size:11px;">✓ Đã được Admin phê duyệt</span>
+                      </div>
+                      <h3 style="font-size:16px; font-weight:800; color:#581c87; margin:0;">
+                        Bạn đang là Ứng cử viên chính thức tham gia tranh cử Hội Đồng Quản Trị
+                      </h3>
+                      <p style="font-size:12.5px; color:#6b21a8; margin:4px 0 0 0;">
+                        Tài khoản của bạn có <strong>2 vai trò</strong>: vừa thực hiện quyền <strong>Cổ đông biểu quyết</strong> (bỏ phiếu dồn), vừa được Ban Quản Trị phê duyệt làm <strong>Ứng cử viên</strong> nhận phiếu bầu từ các cổ đông khác trong công ty.
+                      </p>
                     </div>
-                    <h3 style="font-size:16px; font-weight:800; color:#581c87; margin:0;">
-                      Bạn đang là Ứng cử viên chính thức tham gia tranh cử Hội Đồng Quản Trị
-                    </h3>
-                    <p style="font-size:12.5px; color:#6b21a8; margin:4px 0 0 0;">
-                      Tài khoản của bạn có <strong>2 vai trò</strong>: vừa thực hiện quyền <strong>Cổ đông biểu quyết</strong> (bỏ phiếu dồn), vừa được Ban Quản Trị phê duyệt làm <strong>Ứng cử viên</strong> nhận phiếu bầu từ các cổ đông khác trong công ty.
-                    </p>
+                    <div id="candidateLiveStatsSummary" style="display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
+                      <!-- Badge thống kê số phiếu nhận được -->
+                    </div>
                   </div>
-                  <div id="candidateLiveStatsSummary" style="display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
-                    <!-- Badge thống kê số phiếu nhận được -->
+                  <div id="candidateParticipatingElections" style="margin-top:14px; border-top:1px solid rgba(139,92,246,0.15); padding-top:12px;">
+                    <!-- Dynamic candidate status per election -->
                   </div>
-                </div>
-                <div id="candidateParticipatingElections" style="margin-top:14px; border-top:1px solid rgba(139,92,246,0.15); padding-top:12px;">
-                  <!-- Dynamic candidate status per election -->
                 </div>
               </div>
-            </div>
+
+              <!-- Thẻ Thao Tác Nhanh (Quick Actions Panel) -->
+              <div class="card voter-quick-actions-card">
+                <div class="card-title">
+                  <span>Thao Tác Nhanh Cổ Đông</span>
+                  <span class="badge badge-secondary" style="font-size:11px;">Lối tắt chức năng</span>
+                </div>
+                <div class="voter-quick-actions-grid">
+                  <div class="voter-action-tile" onclick="switchTab('voterVotingTab', document.querySelector('#voterSidebarTabs button[onclick*=\'voterVotingTab\']'))">
+                    <div class="action-tile-icon" style="background:#edf7f5; color:#176b61;">
+                      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/>
+                      </svg>
+                    </div>
+                    <div class="action-tile-content">
+                      <div class="action-tile-title">Bỏ Phiếu Bầu Dồn</div>
+                      <div class="action-tile-desc">Biểu quyết bầu dồn cho ứng cử viên HĐQT các kỳ đang diễn ra</div>
+                    </div>
+                    <span class="action-tile-arrow">→</span>
+                  </div>
+
+                  <div class="voter-action-tile" onclick="switchTab('voterTransferTab', document.querySelector('#voterSidebarTabs button[onclick*=\'voterTransferTab\']'))">
+                    <div class="action-tile-icon" style="background:#eff6ff; color:#2563eb;">
+                      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/>
+                      </svg>
+                    </div>
+                    <div class="action-tile-content">
+                      <div class="action-tile-title">Chuyển Nhượng Cổ Phần</div>
+                      <div class="action-tile-desc">Chuyển nhượng Token biểu quyết cho các thành viên trong nội bộ công ty</div>
+                    </div>
+                    <span class="action-tile-arrow">→</span>
+                  </div>
+
+                  <div class="voter-action-tile" onclick="switchTab('voterResultsTab', document.querySelector('#voterSidebarTabs button[onclick*=\'voterResultsTab\']'))">
+                    <div class="action-tile-icon" style="background:#fefce8; color:#ca8a04;">
+                      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/>
+                      </svg>
+                    </div>
+                    <div class="action-tile-content">
+                      <div class="action-tile-title">Kết Quả &amp; Thứ Hạng</div>
+                      <div class="action-tile-desc">Theo dõi tiến trình kiểm phiếu trực tiếp và danh sách đắc cử HĐQT</div>
+                    </div>
+                    <span class="action-tile-arrow">→</span>
+                  </div>
+
+                  <div class="voter-action-tile" onclick="switchTab('voterHistoryTab', document.querySelector('#voterSidebarTabs button[onclick*=\'voterHistoryTab\']'))">
+                    <div class="action-tile-icon" style="background:#f5f3ff; color:#7c3aed;">
+                      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 14 14"/>
+                      </svg>
+                    </div>
+                    <div class="action-tile-content">
+                      <div class="action-tile-title">Lịch Sử &amp; Biên Nhận</div>
+                      <div class="action-tile-desc">Đối chiếu biên nhận phiếu bầu và mã băm giao dịch xác thực on-chain</div>
+                    </div>
+                    <span class="action-tile-arrow">→</span>
+                  </div>
+                </div>
+              </div>
+            </section>
 
             <!-- Tab 2.1: Bỏ phiếu -->
-            <section id="voterVotingTab" class="tab-content active">
+            <section id="voterVotingTab" class="tab-content">
           <div class="card">
             <div class="card-title">
               Chọn cuộc bầu cử

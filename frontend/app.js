@@ -481,10 +481,21 @@ async function initContractsAndRole() {
 
     // 4. XÁC ĐỊNH VAI TRÒ NỘI BỘ:
     // - Super Admin HOẶC role 'admin' trong danh bạ công ty => Admin
-    // - Bất kỳ thành viên nào có role 'voter' trong danh bạ => Cổ đông biểu quyết (Voter)
+    // - Nếu được Admin duyệt cho ứng cử (isCandidate || role === 'voter_candidate' || role === 'candidate'):
+    //   + Nếu có cổ phần (> 0) hoặc role voter_candidate => Cổ đông & Ứng viên (2 vai trò)
+    //   + Nếu chưa có cổ phần (0 CP) => Ứng viên HĐQT
+    // - Cổ đông biểu quyết thông thường => Voter
+    const isCandidateFlag = Boolean(companyEntry?.isCandidate || companyEntry?.role === "candidate" || companyEntry?.role === "voter_candidate");
+
     let resolvedRole = "voter";
     if (isSuperAdmin || (companyEntry && companyEntry.role === "admin")) {
       resolvedRole = "admin";
+    } else if (isCandidateFlag) {
+      if (balNum > 0 || companyEntry?.role === "voter_candidate" || companyEntry?.role === "voter") {
+        resolvedRole = "voter_candidate"; // 2 VAI TRÒ: VỪA LÀ CỔ ĐÔNG, VỪA LÀ ỨNG VIÊN
+      } else {
+        resolvedRole = "candidate"; // ỨNG VIÊN HĐQT
+      }
     } else {
       resolvedRole = "voter";
     }
@@ -511,7 +522,7 @@ async function initContractsAndRole() {
     await updateAccountCard();
     fetchCompanyWallets();
 
-    if (resolvedRole === "voter") {
+    if (resolvedRole === "voter" || resolvedRole === "voter_candidate" || resolvedRole === "candidate") {
       loadVoteHistory();
     }
 
@@ -527,6 +538,8 @@ async function initContractsAndRole() {
 
 function getRoleNameVi(role) {
   if (role === "admin") return "Quản Trị Viên (Admin)";
+  if (role === "voter_candidate") return "Cổ Đông & Ứng Viên HĐQT (2 vai trò)";
+  if (role === "candidate") return "Ứng Viên HĐQT (Candidate)";
   return "Cổ Đông Biểu Quyết (Voter)";
 }
 
@@ -552,6 +565,13 @@ function renderRoleScreen(role, balance) {
   // Đảm bảo Sidebar luôn đứng sát mép trái từ trên đỉnh xuống, không bị card đẩy xuống dưới
   const attachStatsCardToMain = (mainId) => {
     if (!statsCard) return;
+    if (mainId === "voterMainContent") {
+      const anchor = document.getElementById("voterOverviewStatsAnchor");
+      if (anchor) {
+        anchor.appendChild(statsCard);
+        return;
+      }
+    }
     const targetMain = document.getElementById(mainId);
     if (!targetMain) return;
     const topbar = targetMain.querySelector(".admin-main-topbar");
@@ -570,12 +590,45 @@ function renderRoleScreen(role, balance) {
     if (currentAccountInfo.isSuperAdmin) {
       pill.className = "role-pill super-admin";
       pill.textContent = "Quản trị tối cao";
-      setText("currentRole", "Vai trò: Quản Trị Viên Tối Cao — Toàn quyền kiểm soát và điều hành hệ thống bầu cử công ty");
+      setText("currentRole", "Vai trò: Quản Trị Viên Tối Cao");
+      const rEl = document.getElementById("currentRole");
+      if (rEl) rEl.title = "Toàn quyền kiểm soát và điều hành hệ thống bầu cử công ty";
     } else {
       pill.className = "role-pill admin";
       pill.textContent = "Quản trị viên";
-      setText("currentRole", "Vai trò: Quản Trị Viên — Toàn quyền tạo kỳ, cấp phiếu, quản lý ứng viên, mở/đóng phiên");
+      setText("currentRole", "Vai trò: Quản Trị Viên");
+      const rEl = document.getElementById("currentRole");
+      if (rEl) rEl.title = "Toàn quyền tạo kỳ, cấp phiếu, quản lý ứng viên, mở/đóng phiên";
     }
+    renderCandidateDashboardSection();
+  } else if (role === "voter_candidate") {
+    // 2 VAI TRÒ: VỪA LÀ CỔ ĐÔNG, VỪA LÀ ỨNG VIÊN
+    document.getElementById("screenVoter").classList.add("active");
+    attachStatsCardToMain("voterMainContent");
+    if (maxVotesBox) maxVotesBox.style.display = "";
+    if (shareTokenBox) shareTokenBox.style.display = "";
+    pill.className = "role-pill voter-candidate";
+    pill.textContent = `🎯 Cổ đông & Ứng viên — ${balance} CP`;
+    setText("currentRole", `Vai trò: Cổ Đông & Ứng Viên (${balance} CP)`);
+    const rEl = document.getElementById("currentRole");
+    if (rEl) rEl.title = `Cổ Đông & Ứng Viên HĐQT (${balance} cổ phần): vừa bỏ phiếu biểu quyết, vừa được Admin duyệt tham gia ứng cử`;
+    renderCandidateDashboardSection();
+    const firstTabBtn = document.querySelector("#voterSidebarTabs button[onclick*='voterOverviewTab']");
+    if (firstTabBtn) switchTab('voterOverviewTab', firstTabBtn);
+  } else if (role === "candidate") {
+    // ỨNG VIÊN HĐQT (CHƯA CÓ CỔ PHẦN BIỂU QUYẾT)
+    document.getElementById("screenVoter").classList.add("active");
+    attachStatsCardToMain("voterMainContent");
+    if (maxVotesBox) maxVotesBox.style.display = "none";
+    if (shareTokenBox) shareTokenBox.style.display = "";
+    pill.className = "role-pill candidate";
+    pill.textContent = `🎯 Ứng viên HĐQT`;
+    setText("currentRole", `Vai trò: Ứng Viên HĐQT`);
+    const rEl = document.getElementById("currentRole");
+    if (rEl) rEl.title = `Ứng Viên HĐQT — Được Ban Quản Trị phê duyệt tham gia ứng cử (Chưa nắm giữ cổ phần có quyền biểu quyết)`;
+    renderCandidateDashboardSection();
+    const firstTabBtn = document.querySelector("#voterSidebarTabs button[onclick*='voterOverviewTab']");
+    if (firstTabBtn) switchTab('voterOverviewTab', firstTabBtn);
   } else if (role === "voter") {
     document.getElementById("screenVoter").classList.add("active");
     attachStatsCardToMain("voterMainContent");
@@ -583,7 +636,12 @@ function renderRoleScreen(role, balance) {
     if (shareTokenBox) shareTokenBox.style.display = "";
     pill.className = "role-pill voter";
     pill.textContent = `Cổ đông — ${balance} CP`;
-    setText("currentRole", `Vai trò: Cổ Đông (${balance} cổ phần) — Được cấp phiếu bầu và có quyền bỏ phiếu biểu quyết`);
+    setText("currentRole", `Vai trò: Cổ Đông Biểu Quyết (${balance} CP)`);
+    const rEl = document.getElementById("currentRole");
+    if (rEl) rEl.title = `Cổ Đông (${balance} cổ phần) — Được cấp phiếu bầu và có quyền bỏ phiếu biểu quyết`;
+    renderCandidateDashboardSection();
+    const firstTabBtn = document.querySelector("#voterSidebarTabs button[onclick*='voterOverviewTab']");
+    if (firstTabBtn) switchTab('voterOverviewTab', firstTabBtn);
   } else {
     // Ban kiểm soát / Kiểm toán viên (Auditor)
     document.getElementById("screenGuest").classList.add("active");
@@ -592,7 +650,10 @@ function renderRoleScreen(role, balance) {
     if (shareTokenBox) shareTokenBox.style.display = "";
     pill.className = "role-pill auditor";
     pill.textContent = "Ban kiểm soát";
-    setText("currentRole", "Vai trò: Ban Kiểm Soát — Giám sát độc lập tính minh bạch của các cuộc bầu cử và danh bạ ví công ty");
+    setText("currentRole", "Vai trò: Ban Kiểm Soát");
+    const rEl = document.getElementById("currentRole");
+    if (rEl) rEl.title = "Ban Kiểm Soát — Giám sát độc lập tính minh bạch của các cuộc bầu cử và danh bạ ví công ty";
+    renderCandidateDashboardSection();
   }
 }
 
@@ -772,6 +833,7 @@ async function loadAllElections() {
     renderVoterAlertBanner();
     renderAdminAlertBanner();
     await checkAndRenderElectedShareholderNotice();
+    renderCandidateDashboardSection();
 
     // Auto-select cho Admin
     if (currentAccountInfo?.resolvedRole === "admin") {
@@ -785,7 +847,8 @@ async function loadAllElections() {
     }
 
   // Tự động chọn cuộc bầu cử cho Cổ đông: ưu tiên cuộc đang diễn ra, nếu không thì lấy cuộc mới nhất
-  if (currentAccountInfo?.resolvedRole === "voter") {
+  const isVoterLike = currentAccountInfo?.resolvedRole === "voter" || currentAccountInfo?.resolvedRole === "voter_candidate" || currentAccountInfo?.resolvedRole === "candidate";
+  if (isVoterLike) {
     const activeEl = allElections.find(e => {
       const ph = getElectionPhase(e, isPaused);
       return ph.label === "Đang diễn ra" && !isPaused;
@@ -2179,12 +2242,143 @@ async function getElectedBoardVictories() {
   return wins;
 }
 
+// Hiển thị khung thông tin và thống kê dành cho Ứng Cử Viên HĐQT (hoặc Cổ đông & Ứng viên)
+async function renderCandidateDashboardSection() {
+  const section = document.getElementById("voterCandidateSection");
+  if (!section) return;
+
+  const role = currentAccountInfo?.resolvedRole;
+  const isCandidateRole = (role === "voter_candidate" || role === "candidate");
+  
+  const companyEntry = companyWallets.find(
+    (w) => w.address && w.address.toLowerCase() === currentAccountInfo?.address?.toLowerCase()
+  );
+  const isCandidate = isCandidateRole || Boolean(companyEntry?.isCandidate || companyEntry?.role === "candidate" || companyEntry?.role === "voter_candidate");
+
+  if (!isCandidate) {
+    section.style.display = "none";
+    return;
+  }
+
+  section.style.display = "block";
+
+  const userAddr = currentAccountInfo?.address;
+  const userName = currentAccountInfo?.name || companyEntry?.name || "";
+
+  let totalVotesReceived = 0;
+  let participatingCount = 0;
+  let electedCount = 0;
+  const participatingElections = [];
+
+  for (const election of allElections) {
+    if (!election.candidateCount || election.candidateCount === 0) continue;
+    
+    let foundCand = null;
+    if (election.candidates && Array.isArray(election.candidates)) {
+      foundCand = election.candidates.find(c => isCandidateMatchingUser(c.name, userAddr, userName));
+    }
+
+    if (!foundCand && electionContract) {
+      try {
+        for (let i = 0; i < election.candidateCount; i++) {
+          const c = await electionContract.getCandidate(election.id, i);
+          if (isCandidateMatchingUser(c[0], userAddr, userName)) {
+            foundCand = { id: i, name: c[0], profileCid: c[1], votes: Number(c[2]) };
+            break;
+          }
+        }
+      } catch (err) {}
+    }
+
+    if (foundCand) {
+      participatingCount++;
+      totalVotesReceived += Number(foundCand.votes || 0);
+      const phase = getElectionPhase(election, isPaused);
+      
+      let isElected = false;
+      if (Number(election.status) === STATUS_CONTRACT.CLOSED) {
+        try {
+          const res = await electionContract.getWinners(election.id);
+          const winners = res[0].map(Number);
+          if (winners.includes(Number(foundCand.id))) {
+            isElected = true;
+            electedCount++;
+          }
+        } catch (e) {}
+      }
+
+      participatingElections.push({
+        election,
+        phase,
+        candidate: foundCand,
+        isElected
+      });
+    }
+  }
+
+  const statsSummaryEl = document.getElementById("candidateLiveStatsSummary");
+  if (statsSummaryEl) {
+    statsSummaryEl.innerHTML = `
+      <div style="background:#fff; border:1px solid #ddd6fe; border-radius:8px; padding:6px 14px; text-align:center; box-shadow:0 1px 4px rgba(139,92,246,0.06);">
+        <div style="font-size:11px; color:#6b21a8; font-weight:700;">TỔNG PHIẾU NHẬN ĐƯỢC</div>
+        <div style="font-size:20px; font-weight:800; color:#7c3aed;">${totalVotesReceived.toLocaleString()}</div>
+      </div>
+      <div style="background:#fff; border:1px solid #ddd6fe; border-radius:8px; padding:6px 14px; text-align:center; box-shadow:0 1px 4px rgba(139,92,246,0.06);">
+        <div style="font-size:11px; color:#6b21a8; font-weight:700;">KỲ ĐANG THAM GIA</div>
+        <div style="font-size:20px; font-weight:800; color:#2563eb;">${participatingCount}</div>
+      </div>
+      <div style="background:#fff; border:1px solid #ddd6fe; border-radius:8px; padding:6px 14px; text-align:center; box-shadow:0 1px 4px rgba(139,92,246,0.06);">
+        <div style="font-size:11px; color:#6b21a8; font-weight:700;">SỐ KỲ ĐẮC CỬ HĐQT</div>
+        <div style="font-size:20px; font-weight:800; color:#16a34a;">${electedCount}</div>
+      </div>
+    `;
+  }
+
+  const listEl = document.getElementById("candidateParticipatingElections");
+  if (listEl) {
+    if (participatingElections.length === 0) {
+      listEl.innerHTML = `
+        <div style="font-size:13px; color:#6b21a8; background:#fff; border:1px dashed #d8b4fe; border-radius:8px; padding:12px 16px;">
+          💡 <strong>Thông báo quyền ứng cử:</strong> Bạn đã được Ban Quản Trị cấp quyền Ứng viên HĐQT hợp lệ. Khi Admin tạo kỳ bầu cử và thêm bạn vào danh sách ứng viên, thông tin số phiếu trực tiếp sẽ hiển thị tại đây.
+        </div>
+      `;
+    } else {
+      listEl.innerHTML = `
+        <div style="font-size:13px; font-weight:700; color:#581c87; margin-bottom:8px;">
+          📋 Danh sách kỳ bầu cử bạn đang tham gia ứng cử HĐQT:
+        </div>
+        <div style="display:flex; flex-direction:column; gap:8px;">
+          ${participatingElections.map(item => `
+            <div style="display:flex; justify-content:space-between; align-items:center; background:#fff; border:1px solid #e9d5ff; border-radius:8px; padding:10px 14px; flex-wrap:wrap; gap:8px;">
+              <div>
+                <strong style="color:#4c1d95; font-size:13.5px;">Kỳ #${item.election.id}: ${escapeHtml(item.election.title)}</strong>
+                <div style="font-size:12px; color:#64748b; margin-top:2px;">
+                  Hồ sơ ứng viên: <strong>${escapeHtml(item.candidate.name)}</strong> • Số ghế cần bầu: ${item.election.seats} ghế
+                </div>
+              </div>
+              <div style="display:flex; align-items:center; gap:10px;">
+                <span class="badge ${item.phase.className}" style="font-size:11.5px;">${item.phase.label}</span>
+                <span style="font-size:13.5px; font-weight:800; color:#7c3aed; background:#f5f3ff; border:1px solid #ddd6fe; border-radius:6px; padding:3px 10px;">
+                  🗳️ ${Number(item.candidate.votes).toLocaleString()} phiếu
+                </span>
+                ${item.isElected ? '<span class="badge badge-success" style="font-size:11.5px; font-weight:700;">🏆 ĐÃ TRÚNG CỬ HĐQT</span>' : ''}
+              </div>
+            </div>
+          `).join("")}
+        </div>
+      `;
+    }
+  }
+}
+
 // Hiển thị banner thông báo chúc mừng trúng cử thành viên HĐQT cho cổ đông
 async function checkAndRenderElectedShareholderNotice() {
   const banner = document.getElementById("voterElectedNoticeBanner");
   if (!banner) return;
 
-  if (!currentAccountInfo || currentAccountInfo.resolvedRole !== "voter") {
+  const role = currentAccountInfo?.resolvedRole;
+  const isVoterOrCandidate = (role === "voter" || role === "voter_candidate" || role === "candidate");
+  if (!currentAccountInfo || !isVoterOrCandidate) {
     banner.style.display = "none";
     banner.innerHTML = "";
     return;
@@ -3214,25 +3408,37 @@ function closeAddCandidateModal() {
 function populateQuickCandidateDropdown() {
   const sel = document.getElementById("quickCandidateSelect");
   if (!sel) return;
-  sel.innerHTML = '<option value="">-- Chọn cổ đông ứng cử viên nhanh --</option>';
+  sel.innerHTML = '<option value="">-- Chọn ứng viên đã được Admin phê duyệt --</option>';
 
-  const voters = companyWallets.filter(w => w.role === "voter" || w.role === "shareholder" || (w.shares && w.shares > 0));
-  if (voters.length === 0) {
-    // Fallback nếu chưa tải xong danh bạ
-    sel.innerHTML += `
-      <option value="Cổ đông Alice (60 CP)|0x70997970C51812dc3A010C7d01b50e0d17dc79C8">Alice (Cổ đông lớn - 60 CP)</option>
-      <option value="Cổ đông Bob (25 CP)|0x3C44CdDdB6a900fa2b585dd299e03d12FA4293BC">Bob (Cổ đông nhỏ - 25 CP)</option>
-      <option value="Cổ đông Carol (35 CP)|0x90F79bf6EB2c4f870365E785982E1f101E93b906">Carol (Cổ đông nhỏ - 35 CP)</option>
-    `;
-    return;
+  const approvedCandidates = companyWallets.filter(w => (w.isCandidate || w.role === "candidate" || w.role === "voter_candidate") && w.role !== "admin");
+  const otherVoters = companyWallets.filter(w => !approvedCandidates.includes(w) && w.role !== "admin");
+
+  if (approvedCandidates.length > 0) {
+    const group = document.createElement("optgroup");
+    group.label = "⭐ ĐÃ ĐƯỢC ADMIN DUYỆT ỨNG CỬ";
+    approvedCandidates.forEach(v => {
+      const opt = document.createElement("option");
+      const shares = (v.onChainBalance !== undefined) ? v.onChainBalance : (Number(v.shares) || 0);
+      const roleDesc = (shares > 0) ? `Cổ đông & Ứng viên (${shares} CP)` : "Ứng viên HĐQT";
+      opt.value = `${v.name} (${roleDesc})|${v.address}`;
+      opt.textContent = `🎯 ${v.name} — ${roleDesc} (${v.title || 'Nhân sự'})`;
+      group.appendChild(opt);
+    });
+    sel.appendChild(group);
   }
 
-  voters.forEach(v => {
-    const opt = document.createElement("option");
-    opt.value = `${v.name} (${v.shares || 0} CP)|${v.address}`;
-    opt.textContent = `${v.name} (${v.shares || 0} CP) — ${v.title || 'Cổ đông'}`;
-    sel.appendChild(opt);
-  });
+  if (otherVoters.length > 0) {
+    const group = document.createElement("optgroup");
+    group.label = "Cổ đông khác trong công ty";
+    otherVoters.forEach(v => {
+      const opt = document.createElement("option");
+      const shares = (v.onChainBalance !== undefined) ? v.onChainBalance : (Number(v.shares) || 0);
+      opt.value = `${v.name} (${shares} CP)|${v.address}`;
+      opt.textContent = `${v.name} (${shares} CP) — ${v.title || 'Cổ đông'}`;
+      group.appendChild(opt);
+    });
+    sel.appendChild(group);
+  }
 }
 
 // Mở phiên nhanh từ Card
@@ -4432,6 +4638,7 @@ function switchTab(tabId, btn) {
 
   const voterBreadcrumbEl = document.getElementById("voterActiveTabBreadcrumb");
   if (voterBreadcrumbEl) {
+    if (tabId === "voterOverviewTab") voterBreadcrumbEl.innerHTML = "Quản lý chung &amp; Tài khoản";
     if (tabId === "voterVotingTab") voterBreadcrumbEl.innerHTML = "Bỏ phiếu bầu dồn";
     if (tabId === "voterTransferTab") voterBreadcrumbEl.innerHTML = "Chuyển nhượng cổ phần";
     if (tabId === "voterResultsTab") voterBreadcrumbEl.innerHTML = "Kỳ bầu cử &amp; Kết quả";
@@ -4444,11 +4651,15 @@ function switchTab(tabId, btn) {
   }
 
   // Quản lý hiển thị Thẻ Thông Tin Tổng Quan (globalStatsCard):
-  // Chỉ hiển thị ở tab điều hành chính (adminPanelTab / voterVotingTab), ẩn ở các màn chuyên biệt (Chuyển nhượng, Lịch sử, Kết quả, Ví...)
+  // Chỉ hiển thị ở tab điều hành chính (adminPanelTab / voterOverviewTab), ẩn ở các màn chuyên biệt (Chuyển nhượng, Lịch sử, Kết quả, Ví...)
   const statsCard = document.getElementById("globalStatsCard");
   if (statsCard) {
-    const isMainOverviewTab = (tabId === "adminPanelTab" || tabId === "voterVotingTab");
+    const isMainOverviewTab = (tabId === "adminPanelTab" || tabId === "voterOverviewTab");
     statsCard.style.display = isMainOverviewTab ? "" : "none";
+  }
+
+  if (tabId === "voterOverviewTab") {
+    renderCandidateDashboardSection();
   }
 
   if (tabId === "adminPanelTab") {
@@ -4877,7 +5088,18 @@ function filterCompanyWallets() {
       (w.title && w.title.toLowerCase().includes(query)) ||
       (w.notes && w.notes.toLowerCase().includes(query));
 
-    const matchRole = !roleFilter || w.role === roleFilter;
+    let matchRole = true;
+    if (roleFilter === "admin") {
+      matchRole = (w.role === "admin");
+    } else if (roleFilter === "voter_candidate") {
+      matchRole = (w.role === "voter_candidate") || (Boolean(w.isCandidate) && w.role !== "admin" && (w.onChainBalance > 0 || Number(w.shares) > 0 || w.role === "voter"));
+    } else if (roleFilter === "candidate") {
+      matchRole = (w.role === "candidate") || Boolean(w.isCandidate);
+    } else if (roleFilter === "voter") {
+      matchRole = (w.role === "voter" && !w.isCandidate);
+    } else if (roleFilter) {
+      matchRole = (w.role === roleFilter);
+    }
     return matchQuery && matchRole;
   });
 
@@ -4885,9 +5107,22 @@ function filterCompanyWallets() {
   syncCompanyWalletsOnChainBalances();
 }
 
-function getRoleBadgeHtml(role) {
+function getRoleBadgeHtml(role, isCandidate) {
   if (role === "admin") {
     return `<span class="badge badge-role-admin">Quản trị viên (Admin)</span>`;
+  }
+  const isCand = Boolean(isCandidate || role === "candidate" || role === "voter_candidate");
+  if (role === "voter_candidate" || (isCand && role === "voter")) {
+    return `<div style="display:flex; flex-direction:column; gap:3px;">
+      <span class="badge badge-role-voter-candidate">🎯 Cổ đông &amp; Ứng viên</span>
+      <span style="font-size:10px; color:#6b21a8; font-weight:700;">(2 vai trò: Biểu quyết &amp; Ứng cử)</span>
+    </div>`;
+  }
+  if (role === "candidate" || isCand) {
+    return `<div style="display:flex; flex-direction:column; gap:3px;">
+      <span class="badge badge-role-candidate">🎯 Ứng viên HĐQT</span>
+      <span style="font-size:10px; color:#7c3aed; font-weight:600;">(Được Admin duyệt)</span>
+    </div>`;
   }
   return `<span class="badge badge-role-voter">Cổ đông biểu quyết</span>`;
 }
@@ -4932,6 +5167,7 @@ function renderCompanyWalletsTable() {
   // 1. Cập nhật số liệu thống kê (Admin chỉ quản trị; Cổ đông có quyền biểu quyết chỉ tính những ví có cổ phần > 0)
   const total = companyWallets.length;
   const adminCount = companyWallets.filter(w => w.role === "admin").length;
+  const candidateCount = companyWallets.filter(w => (w.isCandidate || w.role === "candidate" || w.role === "voter_candidate") && w.role !== "admin").length;
   const voterWithSharesCount = companyWallets.filter(w => {
     if (w.role === "admin") return false;
     const actualShares = (w.onChainBalance !== undefined) ? w.onChainBalance : (Number(w.shares) || 0);
@@ -4943,6 +5179,7 @@ function renderCompanyWalletsTable() {
 
   setText("statCompanyWalletsTotal", total);
   setText("statCompanyWalletsAdmin", adminCount);
+  setText("statCompanyWalletsCandidate", candidateCount);
   setText("statCompanyWalletsVoter", voterWithSharesCount);
   setText("statCompanyWalletsShares", `${totalShares.toLocaleString()} CP`);
 
@@ -4976,7 +5213,7 @@ function renderCompanyWalletsTable() {
               <div class="wallet-person-name">${escapeHtml(w.name || "Chưa đặt tên")}</div>
               <div class="wallet-person-title">${escapeHtml(w.title || "Nhân sự")}</div>
             </td>
-            <td>${getRoleBadgeHtml(w.role)}</td>
+            <td>${getRoleBadgeHtml(w.role, w.isCandidate)}</td>
             <td>
               ${isAdmin ? `
                 <div style="font-size:12.5px; color:var(--text-muted); font-style:italic;">
@@ -5016,6 +5253,15 @@ function renderCompanyWalletsTable() {
                 <button type="button" class="btn btn-outline btn-sm" onclick="openEditWalletModal('${w.address}')" title="Chỉnh sửa thông tin">
                   ✏️ Sửa
                 </button>
+                ${isAdmin ? '' : (w.isCandidate || w.role === "candidate" || w.role === "voter_candidate" ? `
+                  <button type="button" class="btn btn-outline btn-sm" onclick="toggleWalletCandidateStatus('${w.address}', false)" style="color:#d97706; border-color:#fcd34d; background:#fffbeb; font-weight:600;" title="Hủy tư cách ứng cử viên">
+                    Hủy Ứng Cử
+                  </button>
+                ` : `
+                  <button type="button" class="btn btn-outline btn-sm" onclick="toggleWalletCandidateStatus('${w.address}', true)" style="color:#7c3aed; border-color:#c4b5fd; background:#f5f3ff; font-weight:700;" title="Duyệt cho cổ đông này tham gia ứng cử HĐQT">
+                    👑 Cho Ứng Cử
+                  </button>
+                `)}
                 ${isAdmin ? '' : `
                   <button type="button" class="btn btn-success btn-sm" onclick="openQuickMintModal('${w.address}')" title="Cấp thêm cổ phần On-chain">
                     Mint
@@ -5079,6 +5325,8 @@ function openAddWalletModal() {
   document.getElementById("walletFormName").value = "";
   document.getElementById("walletFormTitle").value = "";
   document.getElementById("walletFormRole").value = "voter";
+  const candCheck = document.getElementById("walletFormIsCandidate");
+  if (candCheck) candCheck.checked = false;
   document.getElementById("walletFormNotes").value = "";
   document.getElementById("modalAddEditWallet").style.display = "flex";
 }
@@ -5097,6 +5345,10 @@ function openEditWalletModal(address) {
   document.getElementById("walletFormName").value = w.name || "";
   document.getElementById("walletFormTitle").value = w.title || "";
   document.getElementById("walletFormRole").value = w.role || "voter";
+  const candCheck = document.getElementById("walletFormIsCandidate");
+  if (candCheck) {
+    candCheck.checked = Boolean(w.isCandidate || w.role === "candidate" || w.role === "voter_candidate");
+  }
   document.getElementById("walletFormNotes").value = w.notes || "";
   document.getElementById("modalAddEditWallet").style.display = "flex";
 }
@@ -5105,12 +5357,110 @@ function closeAddEditWalletModal() {
   document.getElementById("modalAddEditWallet").style.display = "none";
 }
 
+// Xử lý khi Admin thay đổi dropdown vai trò trong Modal
+function onWalletRoleSelectChange() {
+  const role = document.getElementById("walletFormRole")?.value;
+  const candCheck = document.getElementById("walletFormIsCandidate");
+  if (!candCheck) return;
+  if (role === "voter_candidate" || role === "candidate") {
+    candCheck.checked = true;
+  } else if (role === "admin" || role === "voter") {
+    candCheck.checked = false;
+  }
+}
+
+// Xử lý khi Admin tích/bỏ tích checkbox duyệt ứng viên
+function onWalletCandidateCheckboxChange() {
+  const isChecked = document.getElementById("walletFormIsCandidate")?.checked;
+  const roleSelect = document.getElementById("walletFormRole");
+  if (!roleSelect) return;
+  if (isChecked) {
+    if (roleSelect.value === "voter") {
+      roleSelect.value = "voter_candidate";
+    }
+  } else {
+    if (roleSelect.value === "voter_candidate" || roleSelect.value === "candidate") {
+      roleSelect.value = "voter";
+    }
+  }
+}
+
+// Admin trực tiếp bấm nút "Cho Ứng Cử" hoặc "Hủy Ứng Cử" trên bảng ví
+async function toggleWalletCandidateStatus(address, makeCandidate) {
+  if (!address || !ethers.isAddress(address)) {
+    showToast("Địa chỉ ví không hợp lệ!", "danger");
+    return;
+  }
+  const targetWallet = companyWallets.find(w => w.address.toLowerCase() === address.toLowerCase());
+  if (!targetWallet) {
+    showToast("Không tìm thấy ví trong danh bạ nội bộ công ty!", "danger");
+    return;
+  }
+
+  const name = targetWallet.name || address;
+  const actionText = makeCandidate ? "duyệt làm Ứng viên HĐQT" : "hủy tư cách Ứng viên HĐQT";
+  
+  showLoadingOverlay(`Đang ${actionText} cho ${name}...`);
+
+  try {
+    const isCand = Boolean(makeCandidate);
+    let newRole = targetWallet.role || "voter";
+
+    if (isCand) {
+      const shares = Number(targetWallet.onChainBalance !== undefined ? targetWallet.onChainBalance : targetWallet.shares) || 0;
+      if (shares > 0 || newRole === "voter" || newRole === "voter_candidate") {
+        newRole = "voter_candidate"; // 2 VAI TRÒ: VỪA LÀ CỔ ĐÔNG, VỪA LÀ ỨNG VIÊN
+      } else {
+        newRole = "candidate"; // ỨNG VIÊN HĐQT
+      }
+    } else {
+      newRole = "voter";
+    }
+
+    // 1. Gửi API backend
+    try {
+      await fetch(`/api/company-wallets/${targetWallet.address}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          role: newRole,
+          isCandidate: isCand
+        })
+      });
+    } catch (e) {
+      console.warn("Backend API call failed, fallback LocalStorage:", e);
+    }
+
+    // 2. Cập nhật local
+    targetWallet.isCandidate = isCand;
+    targetWallet.role = newRole;
+    targetWallet.updatedAt = new Date().toISOString();
+
+    localStorage.setItem("company_wallets_cache", JSON.stringify(companyWallets));
+    filterCompanyWallets();
+    populateQuickCandidateDropdown();
+
+    const msg = makeCandidate
+      ? `👑 Đã duyệt thành công cho "${name}" làm Ứng viên HĐQT (${newRole === "voter_candidate" ? "2 vai trò: Cổ đông & Ứng viên" : "Ứng viên HĐQT"})!`
+      : `Đã hủy tư cách Ứng viên của "${name}". Ví trở về vai trò Cổ đông thông thường.`;
+    showToast(msg, "success");
+    addLog(`Admin ${actionText}: ${name} (${targetWallet.address})`);
+  } catch (err) {
+    console.error("Lỗi toggle ứng cử:", err);
+    showToast("Lỗi cập nhật tư cách ứng cử: " + parseErrorMessage(err), "danger");
+  } finally {
+    hideLoadingOverlay();
+  }
+}
+
 async function submitCompanyWalletForm() {
   const isEdit = document.getElementById("walletFormIsEdit").value === "1";
   const rawAddr = document.getElementById("walletFormAddress").value.trim();
   const name = document.getElementById("walletFormName").value.trim();
   const title = document.getElementById("walletFormTitle").value.trim();
   const role = document.getElementById("walletFormRole").value;
+  const candCheck = document.getElementById("walletFormIsCandidate");
+  const isCandidate = candCheck ? candCheck.checked : Boolean(role === "candidate" || role === "voter_candidate");
   const notes = document.getElementById("walletFormNotes").value.trim();
 
   if (!rawAddr || !ethers.isAddress(rawAddr)) {
@@ -5145,7 +5495,7 @@ async function submitCompanyWalletForm() {
     // 1. Gọi backend API
     const url = isEdit ? `/api/company-wallets/${formattedAddr}` : "/api/company-wallets";
     const method = isEdit ? "PUT" : "POST";
-    const payload = { address: formattedAddr, name, title, role, shares: currentShares, notes };
+    const payload = { address: formattedAddr, name, title, role, isCandidate, shares: currentShares, notes };
 
     try {
       const res = await fetch(url, {
@@ -5168,6 +5518,7 @@ async function submitCompanyWalletForm() {
       name,
       title: title || "Nhân sự",
       role,
+      isCandidate,
       shares: currentShares,
       onChainBalance: onChainBal,
       notes,
@@ -5180,6 +5531,7 @@ async function submitCompanyWalletForm() {
     }
     localStorage.setItem("company_wallets_cache", JSON.stringify(companyWallets));
     filterCompanyWallets();
+    populateQuickCandidateDropdown();
 
     closeAddEditWalletModal();
     showToast(isEdit ? "Cập nhật thông tin ví thành công!" : "Thêm ví vào danh bạ công ty thành công!", "success");
