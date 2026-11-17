@@ -4468,18 +4468,21 @@ function initAdminSidebar() {
   const toggleIcon = document.getElementById("adminSidebarToggleIcon");
   if (!sidebar) return;
 
+  const svgLeft  = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>`;
+  const svgRight = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></svg>`;
+
   // Khôi phục trạng thái thu nhỏ / độ rộng từ localStorage
   const savedWidth = localStorage.getItem("admin_sidebar_width");
   const isCollapsed = localStorage.getItem("admin_sidebar_collapsed") === "1";
 
   if (isCollapsed) {
     sidebar.classList.add("collapsed");
-    sidebar.style.width = "68px";
-    if (toggleIcon) toggleIcon.textContent = "▶";
-    if (toggleBtn) toggleBtn.title = "Mở rộng bảng điều khiển";
-  } else if (savedWidth && Number(savedWidth) >= 180 && Number(savedWidth) <= 520) {
+    sidebar.style.width = "64px";
+    if (toggleIcon) toggleIcon.innerHTML = svgRight;
+    if (toggleBtn) toggleBtn.title = "Mở rộng thanh điều hướng";
+  } else if (savedWidth && Number(savedWidth) >= 180 && Number(savedWidth) <= 320) {
     sidebar.style.width = `${savedWidth}px`;
-    if (toggleIcon) toggleIcon.textContent = "◀";
+    if (toggleIcon) toggleIcon.innerHTML = svgLeft;
   }
 
   // Khởi động đồng hồ thời gian thực
@@ -4497,7 +4500,7 @@ function initAdminSidebar() {
   // Xử lý kéo thả chuột thay đổi độ rộng (Drag-to-resize)
   let isResizing = false;
   let startX = 0;
-  let startWidth = 280;
+  let startWidth = 256;
 
   resizer.addEventListener("mousedown", (e) => {
     isResizing = true;
@@ -4515,8 +4518,8 @@ function initAdminSidebar() {
     if (newWidth < 140) {
       // Tự động thu nhỏ khi kéo quá hẹp
       sidebar.classList.add("collapsed");
-      sidebar.style.width = "68px";
-      if (toggleIcon) toggleIcon.textContent = "▶";
+      sidebar.style.width = "60px";
+      if (toggleIcon) toggleIcon.innerHTML = svgRight;
       if (toggleBtn) toggleBtn.title = "Mở rộng bảng điều khiển";
       localStorage.setItem("admin_sidebar_collapsed", "1");
     } else {
@@ -4525,7 +4528,7 @@ function initAdminSidebar() {
       if (newWidth < 200) newWidth = 200;
       if (newWidth > 520) newWidth = 520;
       sidebar.style.width = `${newWidth}px`;
-      if (toggleIcon) toggleIcon.textContent = "◀";
+      if (toggleIcon) toggleIcon.innerHTML = svgLeft;
       if (toggleBtn) toggleBtn.title = "Thu nhỏ bảng điều khiển";
       localStorage.setItem("admin_sidebar_collapsed", "0");
       localStorage.setItem("admin_sidebar_width", newWidth);
@@ -4547,16 +4550,19 @@ function toggleAdminSidebar() {
   if (!sidebar) return;
 
   const isCollapsed = sidebar.classList.toggle("collapsed");
+  const svgLeft  = `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>`;
+  const svgRight = `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></svg>`;
+
   if (isCollapsed) {
-    sidebar.style.width = "68px";
-    if (toggleIcon) toggleIcon.textContent = "▶";
-    if (toggleBtn) toggleBtn.title = "Mở rộng bảng điều khiển";
+    sidebar.style.width = "64px";
+    if (toggleIcon) toggleIcon.innerHTML = svgRight;
+    if (toggleBtn) toggleBtn.title = "Mở rộng thanh điều hướng";
     localStorage.setItem("admin_sidebar_collapsed", "1");
   } else {
-    const savedWidth = localStorage.getItem("admin_sidebar_width") || "280";
+    const savedWidth = localStorage.getItem("admin_sidebar_width") || "240";
     sidebar.style.width = `${savedWidth}px`;
-    if (toggleIcon) toggleIcon.textContent = "◀";
-    if (toggleBtn) toggleBtn.title = "Thu nhỏ bảng điều khiển";
+    if (toggleIcon) toggleIcon.innerHTML = svgLeft;
+    if (toggleBtn) toggleBtn.title = "Thu gọn thanh điều hướng";
     localStorage.setItem("admin_sidebar_collapsed", "0");
   }
 }

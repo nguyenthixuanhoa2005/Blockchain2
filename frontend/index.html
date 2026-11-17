@@ -115,88 +115,69 @@
            ===================================================== -->
       <div id="screenAdmin" class="role-screen">
         <div class="admin-layout-container" id="adminLayoutContainer">
-          <!-- SIDEBAR BẢNG ĐIỀU KHIỂN QUẢN TRỊ VIÊN (KÉO RÃN / THU NHỎ ĐƯỢC) -->
+          <!-- SIDEBAR QUẢN TRỊ VIÊN (CLEAN SAAS FINTECH DESIGN) -->
           <aside id="adminSidebar" class="admin-sidebar">
-            <!-- Header Sidebar với nút thu nhỏ/kéo ra -->
+
+            <!-- Brand / Workspace Header -->
             <div class="admin-sidebar-header">
               <div class="admin-sidebar-brand">
-                <div class="admin-sidebar-logo">
-                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round">
-                    <path d="M12 2L2 7l10 5 10-5-10-5z"></path>
-                    <path d="M2 17l10 5 10-5"></path>
-                    <path d="M2 12l10 5 10-5"></path>
+                <span class="admin-sidebar-title">Bảng Quản Trị</span>
+              </div>
+              <button type="button" class="admin-sidebar-toggle-btn" id="adminSidebarToggleBtn" onclick="toggleAdminSidebar()" title="Thu gọn / Mở rộng">
+                <span id="adminSidebarToggleIcon" class="toggle-icon-wrap">
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M15 18l-6-6 6-6"/>
                   </svg>
-                </div>
-                <div class="admin-sidebar-title-group">
-                  <h3 class="admin-sidebar-title">Bảng Quản Trị</h3>
-                  <span class="admin-sidebar-subtitle">Admin Dashboard</span>
-                </div>
-              </div>
-              <button type="button" class="admin-sidebar-toggle-btn" id="adminSidebarToggleBtn" onclick="toggleAdminSidebar()" title="Thu nhỏ / Mở rộng bảng điều khiển">
-                <span id="adminSidebarToggleIcon">◀</span>
+                </span>
               </button>
             </div>
 
-            <!-- Profile mini trong sidebar -->
-            <div class="admin-sidebar-profile">
-              <div class="admin-profile-avatar">QT</div>
-              <div class="admin-profile-info">
-                <div class="admin-profile-name" id="sidebarAdminName">Quản Trị Viên</div>
-                <div class="admin-profile-role" id="sidebarAdminRole">Toàn quyền hệ thống</div>
-              </div>
-            </div>
-
-            <!-- Nhãn Menu -->
-            <div class="admin-sidebar-section-label">ĐIỀU HƯỚNG CHÍNH</div>
-
-            <!-- Danh sách Tab Menu chuyển đổi dạng vertical tabs -->
+            <!-- Điều hướng chính -->
             <nav class="admin-sidebar-nav tabs" id="adminSidebarTabs">
-              <button type="button" class="tab-btn admin-nav-btn active" onclick="switchTab('adminPanelTab', this)" title="Quản trị cuộc bầu cử">
-                <span class="nav-icon">📊</span>
-                <span class="nav-label">Quản Trị Bầu Cử</span>
+              <button type="button" class="tab-btn admin-nav-btn active" onclick="switchTab('adminPanelTab', this)" title="Quản trị bầu cử">
+                <svg class="nav-svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                  <rect x="3" y="4" width="18" height="18" rx="2" ry="2"/>
+                  <line x1="16" y1="2" x2="16" y2="6"/>
+                  <line x1="8" y1="2" x2="8" y2="6"/>
+                  <line x1="3" y1="10" x2="21" y2="10"/>
+                </svg>
+                <span class="nav-label">Quản lý kỳ bầu cử</span>
               </button>
-              <button type="button" class="tab-btn admin-nav-btn" onclick="switchTab('adminWalletsTab', this)" title="Danh sách ví nội bộ công ty">
-                <span class="nav-icon">💼</span>
-                <span class="nav-label">Danh Sách Ví Nội Bộ</span>
+
+              <button type="button" class="tab-btn admin-nav-btn" onclick="switchTab('adminWalletsTab', this)" title="Danh sách ví cổ đông & nội bộ">
+                <svg class="nav-svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
+                  <circle cx="9" cy="7" r="4"/>
+                  <path d="M23 21v-2a4 4 0 0 0-3-3.87"/>
+                  <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
+                </svg>
+                <span class="nav-label">Danh sách ví nội bộ</span>
               </button>
-              <button type="button" class="tab-btn admin-nav-btn" onclick="switchTab('adminResultsTab', this)" title="Kết quả & giám sát">
-                <span class="nav-icon">🏆</span>
-                <span class="nav-label">Kết Quả &amp; Giám Sát</span>
+
+              <button type="button" class="tab-btn admin-nav-btn" onclick="switchTab('adminResultsTab', this)" title="Kết quả & giám sát phiếu">
+                <svg class="nav-svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                  <line x1="18" y1="20" x2="18" y2="10"/>
+                  <line x1="12" y1="20" x2="12" y2="4"/>
+                  <line x1="6" y1="20" x2="6" y2="14"/>
+                </svg>
+                <span class="nav-label">Kết quả &amp; Giám sát</span>
               </button>
-              <button type="button" class="tab-btn admin-nav-btn" onclick="switchTab('adminLogsTab', this)" title="Nhật ký sự kiện blockchain">
-                <span class="nav-icon">📜</span>
-                <span class="nav-label">Nhật Ký On-Chain</span>
+
+              <button type="button" class="tab-btn admin-nav-btn" onclick="switchTab('adminLogsTab', this)" title="Nhật ký on-chain">
+                <svg class="nav-svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                  <polyline points="4 17 10 11 4 5"/>
+                  <line x1="12" y1="19" x2="20" y2="19"/>
+                </svg>
+                <span class="nav-label">Nhật ký On-chain</span>
               </button>
             </nav>
 
-            <!-- Tác vụ nhanh (Quick Actions) -->
-            <div class="admin-sidebar-section-label">TÁC VỤ NHANH</div>
-            <div class="admin-sidebar-quick-actions">
-              <button type="button" class="admin-quick-btn" onclick="openCreateElectionModal()" title="Tạo cuộc bầu cử mới">
-                <span class="nav-icon">➕</span>
-                <span class="nav-label">Tạo Kỳ Bầu Cử</span>
-              </button>
-              <button type="button" class="admin-quick-btn" onclick="openMintModal()" title="Cấp phát cổ phần on-chain">
-                <span class="nav-icon">🪙</span>
-                <span class="nav-label">Cấp Cổ Phần (Mint)</span>
-              </button>
-              <button type="button" class="admin-quick-btn" onclick="loadAllElections()" title="Đồng bộ lại dữ liệu blockchain">
-                <span class="nav-icon">🔄</span>
-                <span class="nav-label">Đồng Bộ On-Chain</span>
-              </button>
+            <!-- Bottom System Indicator -->
+            <div class="admin-sidebar-status">
+              <span class="status-indicator-dot"></span>
+              <span class="status-indicator-text">Sepolia Network Active</span>
             </div>
 
-            <!-- Sidebar Footer: Thông số tóm tắt -->
-            <div class="admin-sidebar-footer">
-              <div class="sidebar-stat-item">
-                <span class="sidebar-stat-label">Tổng kỳ:</span>
-                <span class="sidebar-stat-val" id="sidebarTotalElections">0</span>
-              </div>
-              <div class="sidebar-stat-item">
-                <span class="sidebar-stat-label">Hệ thống:</span>
-                <span class="sidebar-stat-val" id="sidebarSystemStatus" style="color: #10b981; font-weight:700;">● Hoạt động</span>
-              </div>
-            </div>
           </aside>
 
           <!-- THANH KÉO RESIZER ĐỘ RỘNG SIDEBAR (DRAGGABLE RESIZER) -->
