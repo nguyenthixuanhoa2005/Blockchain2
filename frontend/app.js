@@ -1098,9 +1098,24 @@ function updateCountdown(countdownId, endTimeId, election) {
 // ============================================================
 // THẺ TỔNG QUAN TÀI KHOẢN (ACCOUNT STATUS CARD)
 // ============================================================
+function toggleSnapshotTooltip() {
+  alert(
+    "💡 CƠ CHẾ SNAPSHOT TRÊN BLOCKCHAIN (THEO LUẬT DOANH NGHIỆP):\n\n" +
+    "1. Chốt danh sách cổ đông tại block mở phiên:\n" +
+    "Khi cuộc bầu cử chuyển sang trạng thái bỏ phiếu, Smart Contract chụp lại 'ảnh tức thời' (Snapshot) số dư cổ phần tại block đó để cố định quyền biểu quyết.\n\n" +
+    "2. Mục đích bảo mật & chống thao túng:\n" +
+    "Ngăn chặn việc chuyển token qua lại giữa các ví hoặc mint thêm cổ phần trong lúc đang diễn ra bỏ phiếu để làm sai lệch kết quả bầu cử.\n\n" +
+    "3. Cổ phần nhận sau khi mở phiên:\n" +
+    "Vẫn thuộc quyền sở hữu thực tế của bạn trên blockchain và sẽ có hiệu lực đầy đủ ở các kỳ bầu cử tiếp theo."
+  );
+}
+
 async function updateAccountCard() {
   if (!currentAccountInfo) return;
   document.getElementById("currentAddress").textContent = currentAccountInfo.address;
+
+  const diffNoteEl = document.getElementById("snapshotDiffNote");
+  if (diffNoteEl) diffNoteEl.style.display = "none";
 
   if (currentAccountInfo.isGuest) {
     setText("currentShares", "0 CP (Khách)");
@@ -1144,7 +1159,11 @@ async function updateAccountCard() {
           setText("maxVotesBoxTitle", `Phiếu bầu tối đa (Kỳ #${election.id}: ${election.seats} ghế)`);
 
           if (snapShares !== balNum) {
-            setText("formulaDesc", `= ${snapShares} CP (snapshot) × ${election.seats} ghế (Ví hiện có ${balNum} CP)`);
+            setText("formulaDesc", `= ${snapShares} CP (snapshot) × ${election.seats} ghế (Ví có ${balNum} CP)`);
+            if (diffNoteEl) {
+              diffNoteEl.style.display = "block";
+              diffNoteEl.innerHTML = `📌 <strong>Lưu ý:</strong> Kỳ #${election.id} chốt danh sách khi mở phiên (${snapShares} CP). Phần ${Math.abs(balNum - snapShares)} CP cấp bổ sung sau khi mở phiên sẽ có hiệu lực ở kỳ tiếp theo.`;
+            }
           } else {
             setText("formulaDesc", `= ${snapShares} CP × ${election.seats} ghế HĐQT`);
           }
@@ -1430,7 +1449,6 @@ async function loadAdminCandidates(election) {
 // ============================================================
 async function loadCandidatesAndVoting(election) {
   if (!election) return;
-  candidates = [];
 
   const phase = getElectionPhase(election, isPaused);
   const isVotable = phase.label === 'Đang diễn ra' && !isPaused;
@@ -1448,55 +1466,95 @@ async function loadCandidatesAndVoting(election) {
       }
     }
     // Nếu votingPowerOf trả về 0 (ví dụ do snapshot chưa kịp ghi nhận checkpoint hoặc phiên mô phỏng)
-    // thì lấy fallback từ số cổ phần thực tế x số ghế
-    if (allowedVotes === 0 && currentAccountInfo.balance > 0) {
+    if (allowedVotes === 0 && currentAccountInfo.balance > 0 && election.status < STATUS_CONTRACT.VOTING) {
       allowedVotes = currentAccountInfo.balance * election.seats;
     }
   } catch (e) {}
 
+  // Đọc lịch sử bỏ phiếu đã lưu của ví cho kỳ bầu cử này
+  const histKey = `voteHistory_${currentAccountInfo?.address?.toLowerCase()}`;
+  const history = JSON.parse(localStorage.getItem(histKey) || "[]");
+  const myVote = history.find(h => h.electionId === election.id);
+  const myAllocatedTotal = myVote ? myVote.totalVotes : 0;
+
+  // Thu thập danh sách ứng viên vào mảng cục bộ (tránh xung đột dữ liệu do nhiều tác vụ gọi đồng thời)
+  const fetchedCandidates = [];
   for (let i = 0; i < election.candidateCount; i++) {
     const c = await electionContract.getCandidate(election.id, i);
-    candidates.push({ id: i, name: c[0], profileCid: c[1], votes: Number(c[2]) });
+    fetchedCandidates.push({ id: i, name: c[0], profileCid: c[1], votes: Number(c[2]) });
   }
+  candidates = fetchedCandidates;
 
   const votedBadge = document.getElementById("votedStatusBadge");
   const submitBtn  = document.getElementById("btnSubmitVote");
   const blockedBox = document.getElementById("voterVoteBlockedBox");
   const voteDesc   = document.getElementById("voterVoteDesc");
+  const receiptBox = document.getElementById("voterVoteReceiptBox");
 
   if (hasVoted) {
     if (votedBadge) { votedBadge.textContent = "✅ Đã bỏ phiếu"; votedBadge.className = "badge badge-success"; }
-    if (submitBtn)  { submitBtn.disabled = true; submitBtn.textContent = "Bạn đã hoàn thành bỏ phiếu cho kỳ này"; }
+    if (submitBtn)  { submitBtn.disabled = true; submitBtn.innerHTML = "✅ Bạn Đã Hoàn Thành Bỏ Phiếu"; }
     if (blockedBox) { blockedBox.style.display = "none"; }
-  } else if (!isVotable) {
-    if (votedBadge) {
-      votedBadge.textContent = phase.label;
-      votedBadge.className = `badge ${phase.badgeClass}`;
-    }
-    if (submitBtn)  { submitBtn.disabled = true; submitBtn.innerHTML = "🗳️ Ký &amp; Gửi Phiếu Bầu Lên Blockchain"; }
-    if (blockedBox) {
-      blockedBox.style.display = "flex";
-      const blockedTitle = document.getElementById("voterBlockedTitle");
-      const blockedDesc  = document.getElementById("voterBlockedDesc");
-      blockedBox.className = `status-info-box ${phase.infoClass}`;
-      if (blockedTitle) blockedTitle.textContent = `Không thể bỏ phiếu — ${phase.label}`;
-      if (blockedDesc)  blockedDesc.textContent  = phase.desc;
-    }
-    if (voteDesc) voteDesc.style.display = "none";
-  } else if (allowedVotes === 0) {
-    if (votedBadge) { votedBadge.textContent = "0 phiếu tại snapshot"; votedBadge.className = "badge badge-danger"; }
-    if (submitBtn)  { submitBtn.disabled = true; }
-    if (blockedBox) {
-      blockedBox.style.display = "flex";
-      blockedBox.className = "status-info-box paused";
-      setText("voterBlockedTitle", "Không có quyền biểu quyết");
-      setText("voterBlockedDesc", "Tài khoản không sở hữu cổ phần tại thời điểm chốt snapshot.");
+    if (voteDesc)   { voteDesc.style.display = "none"; }
+
+    // Hiển thị Biên nhận bỏ phiếu on-chain
+    if (receiptBox) {
+      receiptBox.style.display = "block";
+      const votesDisp = myAllocatedTotal > 0 ? myAllocatedTotal : allowedVotes;
+      receiptBox.innerHTML = `
+        <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px;">
+          <div>
+            <div style="font-weight:700; color:#15803d; font-size:15px; display:flex; align-items:center; gap:6px;">
+              <span>✅</span> <span>BẠN ĐÃ HOÀN THÀNH BỎ PHIẾU CHO KỲ NÀY</span>
+            </div>
+            <div style="font-size:13px; color:#166534; margin-top:4px;">
+              Tổng số phiếu đã phân bổ: <strong style="font-size:14px; color:#15803d;">${votesDisp} / ${allowedVotes} phiếu</strong>
+              ${myVote?.timestamp ? ` • Bỏ phiếu lúc: ${new Date(myVote.timestamp).toLocaleTimeString('vi-VN')} ${new Date(myVote.timestamp).toLocaleDateString('vi-VN')}` : ''}
+            </div>
+            ${myVote?.txHash ? `
+              <div style="font-size:12px; margin-top:4px;">
+                Mã xác thực on-chain: <a href="${SEPOLIA_EXPLORER_URL}/tx/${myVote.txHash}" target="_blank" rel="noopener noreferrer" style="color:#1d4ed8; font-weight:600; text-decoration:underline;">${myVote.txHash.substring(0, 12)}...${myVote.txHash.substring(56)} ↗️</a>
+              </div>
+            ` : ''}
+          </div>
+          <button type="button" class="btn btn-outline btn-sm" onclick="switchTab('voterHistoryTab', document.querySelector('[onclick*=\\'voterHistoryTab\\']'))" style="border-color:#16a34a; color:#15803d; font-weight:600;">
+            📋 Xem Nhật Ký Bỏ Phiếu Chi Tiết
+          </button>
+        </div>
+      `;
     }
   } else {
-    if (votedBadge) { votedBadge.textContent = "Chưa bỏ phiếu"; votedBadge.className = "badge badge-primary"; }
-    if (submitBtn)  { submitBtn.disabled = false; submitBtn.innerHTML = "🗳️ Ký &amp; Gửi Phiếu Bầu Lên Blockchain"; }
-    if (blockedBox) blockedBox.style.display = "none";
-    if (voteDesc)   voteDesc.style.display = "";
+    if (receiptBox) receiptBox.style.display = "none";
+    if (!isVotable) {
+      if (votedBadge) {
+        votedBadge.textContent = phase.label;
+        votedBadge.className = `badge ${phase.badgeClass}`;
+      }
+      if (submitBtn)  { submitBtn.disabled = true; submitBtn.innerHTML = "🗳️ Ký &amp; Gửi Phiếu Bầu Lên Blockchain"; }
+      if (blockedBox) {
+        blockedBox.style.display = "flex";
+        const blockedTitle = document.getElementById("voterBlockedTitle");
+        const blockedDesc  = document.getElementById("voterBlockedDesc");
+        blockedBox.className = `status-info-box ${phase.infoClass}`;
+        if (blockedTitle) blockedTitle.textContent = `Không thể bỏ phiếu — ${phase.label}`;
+        if (blockedDesc)  blockedDesc.textContent  = phase.desc;
+      }
+      if (voteDesc) voteDesc.style.display = "none";
+    } else if (allowedVotes === 0) {
+      if (votedBadge) { votedBadge.textContent = "0 phiếu tại snapshot"; votedBadge.className = "badge badge-danger"; }
+      if (submitBtn)  { submitBtn.disabled = true; }
+      if (blockedBox) {
+        blockedBox.style.display = "flex";
+        blockedBox.className = "status-info-box paused";
+        setText("voterBlockedTitle", "Không có quyền biểu quyết");
+        setText("voterBlockedDesc", "Tài khoản không sở hữu cổ phần tại thời điểm chốt snapshot.");
+      }
+    } else {
+      if (votedBadge) { votedBadge.textContent = "Chưa bỏ phiếu"; votedBadge.className = "badge badge-primary"; }
+      if (submitBtn)  { submitBtn.disabled = false; submitBtn.innerHTML = "🗳️ Ký &amp; Gửi Phiếu Bầu Lên Blockchain"; }
+      if (blockedBox) blockedBox.style.display = "none";
+      if (voteDesc)   voteDesc.style.display = "";
+    }
   }
 
   setText("totalAllowedVotes", allowedVotes);
@@ -1525,15 +1583,42 @@ async function loadCandidatesAndVoting(election) {
   }
 
   if (!tbody) return;
-  if (candidates.length === 0) {
+  if (fetchedCandidates.length === 0) {
     tbody.innerHTML = `<tr><td colspan="5" style="text-align:center;color:var(--text-muted);padding:20px;">Chưa có ứng viên nào được đăng ký.</td></tr>`;
     calculateAllocatedVotes();
     return;
   }
 
   const disabled = hasVoted || !isVotable || allowedVotes === 0;
-  tbody.innerHTML = candidates.map(c => {
+  tbody.innerHTML = fetchedCandidates.map(c => {
     const ipfsDisplay = formatIpfsLink(c.profileCid);
+
+    // Tìm số phiếu mà cử tri này đã bầu cho ứng viên này (nếu đã bỏ phiếu)
+    let userVotedAmount = 0;
+    if (hasVoted && myVote && Array.isArray(myVote.candidates)) {
+      const match = myVote.candidates.find(item => item.id === c.id);
+      if (match) userVotedAmount = match.votes;
+    }
+
+    let voteColumnHtml = "";
+    if (hasVoted) {
+      voteColumnHtml = (userVotedAmount > 0)
+        ? `<div style="font-size:14px; font-weight:700; color:#15803d; display:flex; align-items:center; gap:6px;">
+             <span>🗳️</span> <span>Đã dồn: <strong>${userVotedAmount}</strong> phiếu</span>
+           </div>`
+        : `<span style="font-size:12.5px; color:var(--text-muted); font-style:italic;">-- 0 phiếu --</span>`;
+    } else {
+      voteColumnHtml = `
+        <div style="display:flex;align-items:center;gap:8px;">
+          <input type="number" class="form-input vote-input" data-candidate-id="${c.id}"
+                 min="0" max="${allowedVotes}" value="0"
+                 ${disabled ? "disabled" : ""}
+                 oninput="calculateAllocatedVotes()">
+          <span style="font-size:13px;color:var(--text-muted);">phiếu</span>
+        </div>
+      `;
+    }
+
     return `
       <tr>
         <td><strong>#${c.id}</strong></td>
@@ -1543,19 +1628,32 @@ async function loadCandidatesAndVoting(election) {
         </td>
         <td>${ipfsDisplay}</td>
         <td><strong>${c.votes}</strong> phiếu</td>
-        <td>
-          <div style="display:flex;align-items:center;gap:8px;">
-            <input type="number" class="form-input vote-input" data-candidate-id="${c.id}"
-                   min="0" max="${allowedVotes}" value="0"
-                   ${disabled ? "disabled" : ""}
-                   oninput="calculateAllocatedVotes()">
-            <span style="font-size:13px;color:var(--text-muted);">phiếu</span>
-          </div>
-        </td>
+        <td>${voteColumnHtml}</td>
       </tr>
     `;
   }).join("");
-  calculateAllocatedVotes();
+
+  if (hasVoted) {
+    // Hiển thị chính xác tiến độ phiếu đã bầu
+    const effectiveAllocated = myAllocatedTotal > 0 ? myAllocatedTotal : allowedVotes;
+    const effectiveRemaining = Math.max(0, allowedVotes - effectiveAllocated);
+    const pct = allowedVotes > 0 ? Math.min(100, Math.round((effectiveAllocated / allowedVotes) * 100)) : 100;
+
+    setText("allocatedVotes", effectiveAllocated);
+    setText("remainingVotes", effectiveRemaining);
+
+    const fill = document.getElementById("voteProgressFill");
+    if (fill) {
+      fill.style.width = pct + "%";
+      fill.className = "vote-progress-fill";
+    }
+    const remTextEl = document.getElementById("remainingVotesText");
+    if (remTextEl) {
+      remTextEl.innerHTML = `<span style="color:#15803d; font-weight:600;">✓ Bạn đã phân bổ thành công <strong>${effectiveAllocated} / ${allowedVotes}</strong> phiếu.</span>`;
+    }
+  } else {
+    calculateAllocatedVotes();
+  }
 }
 
 // ============================================================
@@ -2402,29 +2500,37 @@ async function adminQuickCloseVoting(electionId) {
 // ============================================================
 // SỰ KIỆN BLOCKCHAIN (EVENT LISTENERS)
 // ============================================================
+let _reloadElectionsTimeout = null;
+function debouncedLoadAllElections() {
+  if (_reloadElectionsTimeout) clearTimeout(_reloadElectionsTimeout);
+  _reloadElectionsTimeout = setTimeout(() => {
+    loadAllElections();
+  }, 400);
+}
+
 function setupEventListeners() {
   try {
     electionContract.removeAllListeners();
 
     electionContract.on("VoteCast", (electionId, voter, totalVotes) => {
       addLog(`📢 VoteCast: Cổ đông ${String(voter).substring(0,10)}... đã bỏ ${totalVotes} phiếu (Kỳ #${electionId})`);
-      loadAllElections();
+      debouncedLoadAllElections();
     });
     electionContract.on("CandidateAdded", (electionId, candidateId, name) => {
       addLog(`📢 CandidateAdded: Thêm ứng viên #${candidateId} "${name}" vào Kỳ #${electionId}`);
-      loadAllElections();
+      debouncedLoadAllElections();
     });
     electionContract.on("ElectionCreated", (electionId, title, seats) => {
       addLog(`📢 ElectionCreated: Khởi tạo cuộc bầu cử #${electionId} "${title}" (${seats} ghế)`);
-      loadAllElections();
+      debouncedLoadAllElections();
     });
     electionContract.on("VotingStarted", (electionId, snapshotBlock, endTime) => {
       addLog(`📢 VotingStarted: Mở phiên Kỳ #${electionId} tại snapshot block ${snapshotBlock}`);
-      loadAllElections();
+      debouncedLoadAllElections();
     });
     electionContract.on("ElectionClosed", (electionId) => {
       addLog(`📢 ElectionClosed: Kỳ #${electionId} đã kết thúc và chốt kết quả.`);
-      loadAllElections();
+      debouncedLoadAllElections();
     });
   } catch (e) {
     console.warn("Event listeners setup warning:", e);

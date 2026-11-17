@@ -28,5 +28,15 @@
     "notes": "",
     "createdAt": "2026-11-17T15:55:47.023Z",
     "updatedAt": "2026-11-17T15:55:47.023Z"
+  },
+  {
+    "address": "0x2F57B4651768a844eBa1053316DEA6dE2131C26D",
+    "name": "Sophia The First",
+    "title": "Thành viên công ty",
+    "role": "voter",
+    "shares": 50,
+    "notes": "bố là chủ tịch",
+    "createdAt": "2026-11-17T16:04:52.782Z",
+    "updatedAt": "2026-11-17T16:05:16.788Z"
   }
 ]
