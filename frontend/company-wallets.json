@@ -4,19 +4,19 @@
     "name": "Chủ tịch HĐQT / Quản trị viên tối cao",
     "title": "Chủ tịch Hội đồng Quản trị",
     "role": "admin",
-    "shares": 100,
+    "shares": 67,
     "notes": "Quản trị viên tối cao hệ thống (Super Admin)",
     "createdAt": "2026-01-01T00:00:00.000Z",
-    "updatedAt": "2026-01-01T00:00:00.000Z"
+    "updatedAt": "2026-11-17T15:32:52.251Z"
   },
   {
     "address": "0x97dDAB73649438b3a6bfE791B184d7F2aE7D31D4",
     "name": "Alicu",
     "title": "Thành viên công ty",
     "role": "voter",
-    "shares": 100,
-    "notes": "",
+    "shares": 200,
+    "notes": "Cổ đông đã nhận 200 CP trên Blockchain",
     "createdAt": "2026-11-17T12:36:07.454Z",
-    "updatedAt": "2026-11-17T12:36:07.454Z"
+    "updatedAt": "2026-11-17T15:08:27.075Z"
   }
 ]

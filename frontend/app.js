@@ -662,7 +662,7 @@ async function loadAllElections() {
       populateVoterSelector();
       renderAllElectionsResults('voterAllElections');
       renderAllElectionsResults('guestAllElections');
-      renderAllElectionsListAdmin();
+      renderAllElectionsResults('allElectionsListAdmin');
       renderAdminUnifiedElectionList();
       renderUpcomingChecklist();
       renderActiveChecklist();
@@ -680,7 +680,7 @@ async function loadAllElections() {
     populateVoterSelector();
     renderAllElectionsResults('voterAllElections');
     renderAllElectionsResults('guestAllElections');
-    renderAllElectionsListAdmin();
+    renderAllElectionsResults('allElectionsListAdmin');
     renderAdminUnifiedElectionList();
     renderUpcomingChecklist();
     renderActiveChecklist();
@@ -696,21 +696,20 @@ async function loadAllElections() {
       }
     }
 
-  // Tự động chọn cuộc bầu cử cho Cổ đông: ưu tiên cuộc đang diễn ra, nếu không thì lấy cuộc đầu tiên
+  // Tự động chọn cuộc bầu cử cho Cổ đông: ưu tiên cuộc đang diễn ra, nếu không thì lấy cuộc mới nhất
   if (currentAccountInfo?.resolvedRole === "voter") {
-    if (voterCurrentElectionId === null) {
-      const activeEl = allElections.find(e => {
-        const ph = getElectionPhase(e, isPaused);
-        return ph.label === "Đang diễn ra" && !isPaused;
-      }) || allElections[allElections.length - 1];
+    const activeEl = allElections.find(e => {
+      const ph = getElectionPhase(e, isPaused);
+      return ph.label === "Đang diễn ra" && !isPaused;
+    }) || allElections[allElections.length - 1];
 
-      if (activeEl) {
-        await voterSelectElection(activeEl.id);
-        const sel = document.getElementById("voterElectionSelect");
-        if (sel) sel.value = activeEl.id;
-      }
-    } else {
-      await voterSelectElection(voterCurrentElectionId);
+    if (activeEl) {
+      const targetId = (voterCurrentElectionId && allElections.some(e => e.id === voterCurrentElectionId))
+        ? voterCurrentElectionId
+        : activeEl.id;
+      await voterSelectElection(targetId);
+      const sel = document.getElementById("voterElectionSelect");
+      if (sel) sel.value = targetId;
     }
   }
   } catch (err) {
@@ -826,7 +825,11 @@ function populateVoterSelector() {
     opt.textContent = `#${e.id} — ${e.title}${isVotable ? " [Đang mở]" : " [" + getElectionPhase(e, isPaused).label + "]"}`;
     sel.appendChild(opt);
   });
-  if (prev && votableElections.find(x => x.id === Number(prev))) sel.value = prev;
+  if (prev && allElections.find(x => x.id === Number(prev))) {
+    sel.value = prev;
+  } else if (voterCurrentElectionId) {
+    sel.value = voterCurrentElectionId;
+  }
 }
 
 // ============================================================
@@ -2478,6 +2481,27 @@ async function adminMintTokens() {
     addLog(`Admin mint ${amount} CP cho ví ${to} (tx: ${tx.hash})`);
     document.getElementById("mintToAddress").value = "";
     document.getElementById("mintAmount").value = "";
+
+    // Cập nhật ngay số dư on-chain trong danh bạ ví và giao diện mà không cần reload trang
+    try {
+      const b = await tokenContract.balanceOf(to);
+      const newBal = Number(b);
+      const targetIdx = companyWallets.findIndex(w => w.address.toLowerCase() === to.toLowerCase());
+      if (targetIdx >= 0) {
+        companyWallets[targetIdx].shares = newBal;
+        companyWallets[targetIdx].onChainBalance = newBal;
+        localStorage.setItem("company_wallets_cache", JSON.stringify(companyWallets));
+        fetch(`/api/company-wallets/${ethers.getAddress(to)}`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ ...companyWallets[targetIdx], shares: newBal })
+        }).catch(() => {});
+        filterCompanyWallets();
+      }
+    } catch (syncErr) {
+      console.warn("Lỗi cập nhật số dư sau mint:", syncErr);
+    }
+
     await updateAccountCard();
   } catch (err) {
     showToast("Lỗi cấp phát cổ phần: " + parseErrorMessage(err), "danger");
@@ -2952,10 +2976,13 @@ function switchTab(tabId, btn) {
     renderUpcomingChecklist();
     renderActiveChecklist();
   }
+  if (tabId === "voterVotingTab" && voterCurrentElectionId) {
+    voterSelectElection(voterCurrentElectionId);
+  }
   if (tabId === "voterHistoryTab") loadVoteHistory();
   if (tabId === "voterResultsTab") renderAllElectionsResults("voterAllElections");
   if (tabId === "guestResultsTab") renderAllElectionsResults("guestAllElections");
-  if (tabId === "adminResultsTab") { loadResults(); renderAllElectionsListAdmin(); }
+  if (tabId === "adminResultsTab") { loadResults(); renderAllElectionsResults("allElectionsListAdmin"); }
   if (tabId === "adminWalletsTab" || tabId === "voterWalletsTab" || tabId === "guestWalletsTab") {
     fetchCompanyWallets();
   }
@@ -3118,6 +3145,7 @@ function filterCompanyWallets() {
   });
 
   renderCompanyWalletsTable();
+  syncCompanyWalletsOnChainBalances();
 }
 
 function getRoleBadgeHtml(role) {
@@ -3137,6 +3165,34 @@ function copyWalletAddress(addr) {
   }).catch(() => {
     prompt("Sao chép địa chỉ ví:", addr);
   });
+}
+
+let _isSyncingWallets = false;
+async function syncCompanyWalletsOnChainBalances() {
+  if (!tokenContract || _isSyncingWallets) return;
+  _isSyncingWallets = true;
+  try {
+    let changed = false;
+    for (const w of companyWallets) {
+      if (w.address && ethers.isAddress(w.address)) {
+        try {
+          const bal = await tokenContract.balanceOf(w.address);
+          const balNum = Number(bal);
+          if (w.onChainBalance !== balNum || w.shares !== balNum) {
+            w.onChainBalance = balNum;
+            w.shares = balNum;
+            changed = true;
+          }
+        } catch {}
+      }
+    }
+    if (changed) {
+      localStorage.setItem("company_wallets_cache", JSON.stringify(companyWallets));
+      renderCompanyWalletsTable();
+    }
+  } finally {
+    _isSyncingWallets = false;
+  }
 }
 
 function renderCompanyWalletsTable() {
@@ -3181,8 +3237,21 @@ function renderCompanyWalletsTable() {
             </td>
             <td>${getRoleBadgeHtml(w.role)}</td>
             <td>
-              <strong style="color:#1d4ed8; font-size:14px;">${Number(w.shares) || 0} CP</strong>
-              <button type="button" class="btn-icon-link" onclick="checkWalletOnChainBalance('${w.address}')" title="Kiểm tra số dư Smart Contract trực tiếp" style="margin-left:4px;">🔍</button>
+              <div style="display:flex; flex-direction:column; gap:2px;">
+                <div style="display:flex; align-items:center; gap:6px;">
+                  <strong style="color:#1d4ed8; font-size:14px;">${w.onChainBalance !== undefined ? w.onChainBalance : (Number(w.shares) || 0)} CP</strong>
+                  <button type="button" class="btn-icon-link" onclick="checkWalletOnChainBalance('${w.address}')" title="Kiểm tra số dư Smart Contract trực tiếp" style="margin-left:2px;">🔍</button>
+                </div>
+                ${w.onChainBalance !== undefined ? `
+                  <div style="font-size:11px; color:#15803d; font-weight:600;">
+                    ✓ On-Chain: ${w.onChainBalance}
+                  </div>
+                ` : `
+                  <div style="font-size:11px; color:var(--text-muted);">
+                    Sổ sách: ${Number(w.shares) || 0} CP
+                  </div>
+                `}
+              </div>
             </td>
             <td style="font-size:12.5px; color:#475569;">${escapeHtml(w.notes || "--")}</td>
             <td>
@@ -3230,7 +3299,10 @@ function renderCompanyWalletsTable() {
             <div class="wallet-person-title">${escapeHtml(w.title || "")}</div>
           </td>
           <td>${getRoleBadgeHtml(w.role)}</td>
-          <td><strong style="color:#1d4ed8;">${Number(w.shares) || 0} CP</strong></td>
+          <td>
+            <strong style="color:#1d4ed8;">${w.onChainBalance !== undefined ? w.onChainBalance : (Number(w.shares) || 0)} CP</strong>
+            ${w.onChainBalance !== undefined ? `<div style="font-size:11px; color:#15803d; font-weight:600;">✓ On-Chain</div>` : ''}
+          </td>
           <td style="font-size:12.5px; color:#475569;">${escapeHtml(w.notes || "--")}</td>
         </tr>
       `;
@@ -3261,7 +3333,15 @@ async function checkWalletOnChainBalance(addr) {
   }
   try {
     const bal = await tokenContract.balanceOf(addr);
-    showToast(`Số dư on-chain của ví ${addr.substring(0, 8)}...: ${Number(bal)} Token CP`, "success");
+    const balNum = Number(bal);
+    const targetIdx = companyWallets.findIndex(w => w.address.toLowerCase() === addr.toLowerCase());
+    if (targetIdx >= 0) {
+      companyWallets[targetIdx].shares = balNum;
+      companyWallets[targetIdx].onChainBalance = balNum;
+      localStorage.setItem("company_wallets_cache", JSON.stringify(companyWallets));
+      renderCompanyWalletsTable();
+    }
+    showToast(`Số dư on-chain của ví ${addr.substring(0, 8)}...: ${balNum} Token CP`, "success");
   } catch (err) {
     showToast("Lỗi kiểm tra số dư: " + parseErrorMessage(err), "danger");
   }
@@ -3277,10 +3357,8 @@ function openAddWalletModal() {
   document.getElementById("walletFormName").value = "";
   document.getElementById("walletFormTitle").value = "";
   document.getElementById("walletFormRole").value = "voter";
-  document.getElementById("walletFormShares").value = "0";
   document.getElementById("walletFormNotes").value = "";
   document.getElementById("walletOptGrantRole").checked = false;
-  document.getElementById("walletOptMintShares").checked = false;
   handleWalletRoleChange("voter");
   document.getElementById("modalAddEditWallet").style.display = "flex";
 }
@@ -3299,10 +3377,8 @@ function openEditWalletModal(address) {
   document.getElementById("walletFormName").value = w.name || "";
   document.getElementById("walletFormTitle").value = w.title || "";
   document.getElementById("walletFormRole").value = w.role || "voter";
-  document.getElementById("walletFormShares").value = w.shares || 0;
   document.getElementById("walletFormNotes").value = w.notes || "";
   document.getElementById("walletOptGrantRole").checked = false;
-  document.getElementById("walletOptMintShares").checked = false;
   handleWalletRoleChange(w.role || "voter");
   document.getElementById("modalAddEditWallet").style.display = "flex";
 }
@@ -3324,10 +3400,8 @@ async function submitCompanyWalletForm() {
   const name = document.getElementById("walletFormName").value.trim();
   const title = document.getElementById("walletFormTitle").value.trim();
   const role = document.getElementById("walletFormRole").value;
-  const shares = Number(document.getElementById("walletFormShares").value) || 0;
   const notes = document.getElementById("walletFormNotes").value.trim();
   const optGrant = document.getElementById("walletOptGrantRole").checked;
-  const optMint = document.getElementById("walletOptMintShares").checked;
 
   if (!rawAddr || !ethers.isAddress(rawAddr)) {
     showToast("Địa chỉ ví Ethereum không hợp lệ!", "danger");
@@ -3343,10 +3417,25 @@ async function submitCompanyWalletForm() {
   showLoadingOverlay("Đang lưu thông tin ví vào hệ thống...");
 
   try {
+    // Xác định số cổ phần hiện có trên on-chain hoặc trong cache
+    const existingWallet = companyWallets.find(w => w.address.toLowerCase() === formattedAddr.toLowerCase());
+    let currentShares = existingWallet ? (Number(existingWallet.shares) || 0) : 0;
+    let onChainBal = existingWallet ? existingWallet.onChainBalance : undefined;
+
+    if (tokenContract) {
+      try {
+        const bal = await tokenContract.balanceOf(formattedAddr);
+        currentShares = Number(bal);
+        onChainBal = currentShares;
+      } catch (err) {
+        console.warn("Không thể đọc số dư on-chain khi lưu ví:", err);
+      }
+    }
+
     // 1. Gọi backend API
     const url = isEdit ? `/api/company-wallets/${formattedAddr}` : "/api/company-wallets";
     const method = isEdit ? "PUT" : "POST";
-    const payload = { address: formattedAddr, name, title, role, shares, notes };
+    const payload = { address: formattedAddr, name, title, role, shares: currentShares, notes };
 
     try {
       const res = await fetch(url, {
@@ -3369,7 +3458,8 @@ async function submitCompanyWalletForm() {
       name,
       title: title || "Nhân sự",
       role,
-      shares,
+      shares: currentShares,
+      onChainBalance: onChainBal,
       notes,
       updatedAt: new Date().toISOString()
     };
@@ -3394,20 +3484,6 @@ async function submitCompanyWalletForm() {
       } catch (roleErr) {
         console.error("Lỗi cấp quyền on-chain:", roleErr);
         showToast("Lưu thông tin thành công, nhưng lỗi cấp quyền On-chain: " + parseErrorMessage(roleErr), "warning");
-      }
-    }
-
-    if (optMint && shares > 0 && tokenContract) {
-      showLoadingOverlay(`Đang gửi giao dịch cấp phát (mint) ${shares} cổ phần lên blockchain...`);
-      try {
-        const tx = await tokenContract.mint(formattedAddr, shares);
-        addLog(`Đang mint ${shares} CP cho ${formattedAddr} (Tx: ${tx.hash.substring(0, 10)}...)`);
-        await tx.wait();
-        addLog(`Đã mint thành công ${shares} CP cho ${formattedAddr}`);
-        showToast(`Đã mint thành công ${shares} cổ phần cho ví!`, "success");
-      } catch (mintErr) {
-        console.error("Lỗi mint on-chain:", mintErr);
-        showToast("Lưu thông tin thành công, nhưng lỗi mint cổ phần: " + parseErrorMessage(mintErr), "warning");
       }
     }
 
@@ -3536,15 +3612,32 @@ async function executeQuickMint() {
   try {
     const tx = await tokenContract.mint(addr, amount);
     addLog(`Đang gửi mint ${amount} CP cho ${addr} (Tx: ${tx.hash.substring(0, 10)}...)`);
-    await tx.wait();
+    await tx.wait(1);
     addLog(`Đã mint thành công ${amount} cổ phần cho ví ${addr}`);
     showToast(`Đã cấp phát thành công ${amount} cổ phần cho ví!`, "success");
 
-    // Cập nhật số cổ phần trong companyWallets nếu có
+    // Tra cứu số dư on-chain mới nhất ngay lập tức để cập nhật giao diện mà không cần tải lại trang
+    let newBal = amount;
+    try {
+      const b = await tokenContract.balanceOf(addr);
+      newBal = Number(b);
+    } catch (e) {
+      console.warn("Lỗi đọc số dư sau mint:", e);
+    }
+
+    // Cập nhật số cổ phần trong companyWallets
     const targetIdx = companyWallets.findIndex(w => w.address.toLowerCase() === addr.toLowerCase());
     if (targetIdx >= 0) {
-      companyWallets[targetIdx].shares = (Number(companyWallets[targetIdx].shares) || 0) + amount;
+      companyWallets[targetIdx].shares = newBal;
+      companyWallets[targetIdx].onChainBalance = newBal;
       localStorage.setItem("company_wallets_cache", JSON.stringify(companyWallets));
+      try {
+        fetch(`/api/company-wallets/${ethers.getAddress(addr)}`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ ...companyWallets[targetIdx], shares: newBal })
+        }).catch(() => {});
+      } catch {}
       filterCompanyWallets();
     }
 
