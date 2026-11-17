@@ -185,6 +185,20 @@ window.addEventListener("DOMContentLoaded", async () => {
   initAdminSidebar();
   initVoterSidebar();
 
+  // Khởi tạo lắng nghe xác thực ứng viên hợp lệ theo thời gian thực
+  const cNameInp = document.getElementById("candidateNameInput");
+  const cWalletInp = document.getElementById("candidateWalletInput");
+  if (cNameInp) {
+    cNameInp.addEventListener("input", () => {
+      checkCandidateValidity(cNameInp.value, cWalletInp ? cWalletInp.value : "");
+    });
+  }
+  if (cWalletInp) {
+    cWalletInp.addEventListener("input", () => {
+      checkCandidateValidity(cNameInp ? cNameInp.value : "", cWalletInp.value);
+    });
+  }
+
   // Mặc định hiển thị Màn hình Đăng Nhập
   showLoginScreen();
 });
@@ -1758,19 +1772,21 @@ function toggleAdminCandidateTable() {
 
 function formatIpfsLink(cid) {
   if (!cid || cid === "N/A" || cid === "—") {
-    return `<span style="color:var(--text-muted);font-size:12px;">Chưa có</span>`;
+    return `<span style="color:var(--text-muted);font-size:11.5px;">Chưa có</span>`;
   }
   const isCid = cid.startsWith("Qm") || cid.startsWith("bafy");
-  const shortCid = cid.length > 20 ? cid.substring(0, 10) + "..." + cid.substring(cid.length - 6) : cid;
+  // Rút gọn CID gọn gàng (6 ký tự đầu + ... + 4 ký tự cuối) tránh tràn ra ngoài thẻ ô
+  const shortCid = cid.length > 14 ? cid.substring(0, 6) + "..." + cid.substring(cid.length - 4) : cid;
   if (!isCid) {
-    return `<span style="font-family:monospace;font-size:12px;background:#f1f5f9;padding:3px 7px;border-radius:4px;">${shortCid}</span>`;
+    return `<span class="ipfs-cid-badge" style="background:#f1f5f9; color:#475569; border-color:#e2e8f0;" title="${cid}">${shortCid}</span>`;
   }
   const url = `https://purple-fashionable-rooster-653.mypinata.cloud/ipfs/${cid}`;
   return `
     <a href="${url}" target="_blank" rel="noopener noreferrer" 
-       title="Mở hồ sơ trên IPFS Gateway (${cid})" 
-       style="display:inline-flex;align-items:center;gap:4px;font-family:monospace;font-size:12px;background:#eff6ff;color:#1d4ed8;padding:3px 8px;border-radius:4px;border:1px solid #bfdbfe;text-decoration:none;font-weight:600;">
-      CID ${shortCid} <span style="font-size:10px;">↗</span>
+       class="ipfs-cid-badge"
+       title="Mở hồ sơ trên IPFS Gateway (${cid})">
+      <span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">CID ${shortCid}</span>
+      <span style="font-size:9.5px;flex-shrink:0;">↗</span>
     </a>
   `;
 }
@@ -2245,7 +2261,9 @@ async function getElectedBoardVictories() {
 // Hiển thị khung thông tin và thống kê dành cho Ứng Cử Viên HĐQT (hoặc Cổ đông & Ứng viên)
 async function renderCandidateDashboardSection() {
   const section = document.getElementById("voterCandidateSection");
-  if (!section) return;
+  const candidateSidebarBtn = document.getElementById("voterCandidateSidebarBtn");
+  const candidateQuickTile  = document.getElementById("voterCandidateHistoryTile");
+  const candidateNoticeHist = document.getElementById("voterCandidateNoticeInHistory");
 
   const role = currentAccountInfo?.resolvedRole;
   const isCandidateRole = (role === "voter_candidate" || role === "candidate");
@@ -2256,11 +2274,18 @@ async function renderCandidateDashboardSection() {
   const isCandidate = isCandidateRole || Boolean(companyEntry?.isCandidate || companyEntry?.role === "candidate" || companyEntry?.role === "voter_candidate");
 
   if (!isCandidate) {
-    section.style.display = "none";
+    if (section) section.style.display = "none";
+    if (candidateSidebarBtn) candidateSidebarBtn.style.display = "none";
+    if (candidateQuickTile)  candidateQuickTile.style.display  = "none";
+    if (candidateNoticeHist) candidateNoticeHist.style.display = "none";
     return;
   }
 
-  section.style.display = "block";
+  // Hiển thị các nút truy cập chức năng ứng viên
+  if (section) section.style.display = "block";
+  if (candidateSidebarBtn) candidateSidebarBtn.style.display = "flex";
+  if (candidateQuickTile)  candidateQuickTile.style.display  = "flex";
+  if (candidateNoticeHist) candidateNoticeHist.style.display = "flex";
 
   const userAddr = currentAccountInfo?.address;
   const userName = currentAccountInfo?.name || companyEntry?.name || "";
@@ -2273,49 +2298,105 @@ async function renderCandidateDashboardSection() {
   for (const election of allElections) {
     if (!election.candidateCount || election.candidateCount === 0) continue;
     
-    let foundCand = null;
-    if (election.candidates && Array.isArray(election.candidates)) {
-      foundCand = election.candidates.find(c => isCandidateMatchingUser(c.name, userAddr, userName));
-    }
-
-    if (!foundCand && electionContract) {
+    // Nạp toàn bộ ứng viên của kỳ để tính toán thứ hạng và số phiếu
+    let allCands = [];
+    if (electionContract) {
       try {
         for (let i = 0; i < election.candidateCount; i++) {
           const c = await electionContract.getCandidate(election.id, i);
-          if (isCandidateMatchingUser(c[0], userAddr, userName)) {
-            foundCand = { id: i, name: c[0], profileCid: c[1], votes: Number(c[2]) };
-            break;
-          }
+          allCands.push({ id: i, name: c[0], profileCid: c[1], votes: Number(c[2]) });
         }
       } catch (err) {}
+    }
+
+    let foundCand = allCands.find(c => isCandidateMatchingUser(c.name, userAddr, userName));
+    if (!foundCand && election.candidates && Array.isArray(election.candidates)) {
+      foundCand = election.candidates.find(c => isCandidateMatchingUser(c.name, userAddr, userName));
+      if (foundCand && allCands.length === 0) {
+        allCands = [...election.candidates];
+      }
     }
 
     if (foundCand) {
       participatingCount++;
       totalVotesReceived += Number(foundCand.votes || 0);
       const phase = getElectionPhase(election, isPaused);
-      
+
+      // Sắp xếp giảm dần theo số phiếu để xác định thứ hạng (ranking)
+      allCands.sort((a, b) => b.votes - a.votes);
+      const candRank = allCands.findIndex(c => c.id === foundCand.id) + 1;
+
       let isElected = false;
-      if (Number(election.status) === STATUS_CONTRACT.CLOSED) {
+      const isClosed = Number(election.status) === STATUS_CONTRACT.CLOSED;
+      const isVoting = Number(election.status) === STATUS_CONTRACT.VOTING;
+      const isCancelled = Number(election.status) === STATUS_CONTRACT.CANCELLED;
+
+      if (isClosed) {
+        let winners = [];
         try {
           const res = await electionContract.getWinners(election.id);
-          const winners = res[0].map(Number);
-          if (winners.includes(Number(foundCand.id))) {
-            isElected = true;
-            electedCount++;
-          }
+          winners = res[0].map(Number);
         } catch (e) {}
+
+        if (winners.length === 0) {
+          winners = allCands.slice(0, election.seats).filter(c => c.votes > 0).map(c => c.id);
+        }
+
+        if (winners.includes(Number(foundCand.id))) {
+          isElected = true;
+          electedCount++;
+        }
+      }
+
+      let resultType = 'draft';
+      let resultBadgeHtml = '';
+      let resultDetailText = '';
+
+      if (isCancelled) {
+        resultType = 'cancelled';
+        resultBadgeHtml = '<span class="badge badge-cand-cancelled">⛔ ĐÃ HỦY VĨNH VIỄN</span>';
+        resultDetailText = 'Kỳ bầu cử đã bị hủy bỏ bởi Quản trị viên';
+      } else if (isClosed) {
+        if (isElected) {
+          resultType = 'elected';
+          resultBadgeHtml = `<span class="badge badge-cand-elected">🏆 ĐẮC CỬ HĐQT</span>`;
+          resultDetailText = `Trúng cử HĐQT • Hạng #${candRank}/${allCands.length} (Số ghế cần bầu: ${election.seats})`;
+        } else {
+          resultType = 'not_elected';
+          resultBadgeHtml = `<span class="badge badge-cand-not-elected">❌ KHÔNG TRÚNG CỬ</span>`;
+          resultDetailText = `Không đủ phiếu đắc cử • Hạng #${candRank}/${allCands.length} (Cần top ${election.seats} ghế)`;
+        }
+      } else if (isVoting) {
+        resultType = 'running';
+        resultBadgeHtml = `<span class="badge badge-cand-running">🟢 ĐANG TRANH CỬ</span>`;
+        resultDetailText = `Đang mở bỏ phiếu • Hạng tạm thời: #${candRank}/${allCands.length} (${foundCand.votes} phiếu)`;
+      } else {
+        resultType = 'draft';
+        resultBadgeHtml = `<span class="badge badge-secondary">${isPaused ? '⏸️ TẠM DỪNG' : '📝 CHƯA MỞ'}</span>`;
+        resultDetailText = isPaused ? 'Kỳ bầu cử đang tạm dừng' : 'Chưa mở phiên bỏ phiếu';
       }
 
       participatingElections.push({
         election,
         phase,
         candidate: foundCand,
-        isElected
+        allCands,
+        candRank,
+        isElected,
+        resultType,
+        resultBadgeHtml,
+        resultDetailText
       });
     }
   }
 
+  // Lưu trữ dữ liệu lịch sử ứng cử để phục vụ lọc tìm kiếm
+  window.candidateHistoryData = participatingElections;
+
+  const closedCount = participatingElections.filter(p => Number(p.election.status) === STATUS_CONTRACT.CLOSED).length;
+  const electedRate = closedCount > 0 ? Math.round((electedCount / closedCount) * 100) : 0;
+
+  // 1. Cập nhật Thống kê trên Quản lý chung (voterOverviewTab)
   const statsSummaryEl = document.getElementById("candidateLiveStatsSummary");
   if (statsSummaryEl) {
     statsSummaryEl.innerHTML = `
@@ -2324,7 +2405,7 @@ async function renderCandidateDashboardSection() {
         <div style="font-size:20px; font-weight:800; color:#7c3aed;">${totalVotesReceived.toLocaleString()}</div>
       </div>
       <div style="background:#fff; border:1px solid #ddd6fe; border-radius:8px; padding:6px 14px; text-align:center; box-shadow:0 1px 4px rgba(139,92,246,0.06);">
-        <div style="font-size:11px; color:#6b21a8; font-weight:700;">KỲ ĐANG THAM GIA</div>
+        <div style="font-size:11px; color:#6b21a8; font-weight:700;">KỲ THAM GIA</div>
         <div style="font-size:20px; font-weight:800; color:#2563eb;">${participatingCount}</div>
       </div>
       <div style="background:#fff; border:1px solid #ddd6fe; border-radius:8px; padding:6px 14px; text-align:center; box-shadow:0 1px 4px rgba(139,92,246,0.06);">
@@ -2334,6 +2415,7 @@ async function renderCandidateDashboardSection() {
     `;
   }
 
+  // 2. Cập nhật Danh sách tóm tắt trên Quản lý chung (voterOverviewTab)
   const listEl = document.getElementById("candidateParticipatingElections");
   if (listEl) {
     if (participatingElections.length === 0) {
@@ -2344,29 +2426,153 @@ async function renderCandidateDashboardSection() {
       `;
     } else {
       listEl.innerHTML = `
-        <div style="font-size:13px; font-weight:700; color:#581c87; margin-bottom:8px;">
-          📋 Danh sách kỳ bầu cử bạn đang tham gia ứng cử HĐQT:
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px; flex-wrap:wrap; gap:8px;">
+          <div style="font-size:13px; font-weight:700; color:#581c87;">
+            📋 Danh sách các kỳ bạn tham gia ứng cử HĐQT (${participatingElections.length} kỳ):
+          </div>
+          <button type="button" class="btn btn-outline btn-sm" onclick="switchTab('voterCandidateHistoryTab', document.getElementById('voterCandidateSidebarBtn'))" style="border-color:#8b5cf6; color:#7c3aed; font-size:11.5px; padding:2px 10px; background:#fff; font-weight:700;">
+            Xem chi tiết kiểm phiếu &amp; bảng điểm →
+          </button>
         </div>
         <div style="display:flex; flex-direction:column; gap:8px;">
           ${participatingElections.map(item => `
             <div style="display:flex; justify-content:space-between; align-items:center; background:#fff; border:1px solid #e9d5ff; border-radius:8px; padding:10px 14px; flex-wrap:wrap; gap:8px;">
-              <div>
+              <div style="min-width:220px; flex:1;">
                 <strong style="color:#4c1d95; font-size:13.5px;">Kỳ #${item.election.id}: ${escapeHtml(item.election.title)}</strong>
                 <div style="font-size:12px; color:#64748b; margin-top:2px;">
-                  Hồ sơ ứng viên: <strong>${escapeHtml(item.candidate.name)}</strong> • Số ghế cần bầu: ${item.election.seats} ghế
+                  Hồ sơ: <strong>${escapeHtml(item.candidate.name)}</strong> • Số ghế: <strong>${item.election.seats}</strong> • ${item.resultDetailText}
                 </div>
               </div>
-              <div style="display:flex; align-items:center; gap:10px;">
+              <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
                 <span class="badge ${item.phase.className}" style="font-size:11.5px;">${item.phase.label}</span>
-                <span style="font-size:13.5px; font-weight:800; color:#7c3aed; background:#f5f3ff; border:1px solid #ddd6fe; border-radius:6px; padding:3px 10px;">
+                <span style="font-size:13px; font-weight:800; color:#7c3aed; background:#f5f3ff; border:1px solid #ddd6fe; border-radius:6px; padding:3px 10px;">
                   🗳️ ${Number(item.candidate.votes).toLocaleString()} phiếu
                 </span>
-                ${item.isElected ? '<span class="badge badge-success" style="font-size:11.5px; font-weight:700;">🏆 ĐÃ TRÚNG CỬ HĐQT</span>' : ''}
+                ${item.resultBadgeHtml}
+                <button type="button" class="btn btn-outline btn-sm" onclick="openElectionScoreboardModal(${item.election.id})" style="font-size:11.5px; padding:3px 8px; font-weight:600;" title="Xem bảng điểm và kiểm phiếu trực tiếp kỳ này">
+                  📊 Bảng điểm
+                </button>
               </div>
             </div>
           `).join("")}
         </div>
       `;
+    }
+  }
+
+  // 3. Cập nhật Thống kê & Danh sách chi tiết tại Tab Lịch Sử Ứng Cử (voterCandidateHistoryTab)
+  const totalVotesTabEl = document.getElementById("candTabTotalVotes");
+  if (totalVotesTabEl) totalVotesTabEl.textContent = `${totalVotesReceived.toLocaleString()} Phiếu`;
+
+  const totalPartTabEl = document.getElementById("candTabTotalParticipating");
+  if (totalPartTabEl) totalPartTabEl.textContent = `${participatingCount} Kỳ`;
+
+  const totalElectedTabEl = document.getElementById("candTabTotalElected");
+  if (totalElectedTabEl) totalElectedTabEl.textContent = `${electedCount} Kỳ`;
+
+  const electedRateTabEl = document.getElementById("candTabElectedRate");
+  if (electedRateTabEl) electedRateTabEl.textContent = `${electedRate}%`;
+
+  const filterSelect = document.getElementById("candFilterStatus");
+  const currentFilter = filterSelect ? filterSelect.value : "all";
+  if (currentFilter && currentFilter !== "all") {
+    filterCandidateElectionList(currentFilter);
+  } else {
+    renderCandidateHistoryCards(participatingElections);
+  }
+}
+
+// Render danh sách các thẻ cuộc bầu cử tại Tab Lịch Sử Ứng Cử
+function renderCandidateHistoryCards(list) {
+  const container = document.getElementById("candidateElectionHistoryList");
+  if (!container) return;
+
+  if (!list || list.length === 0) {
+    container.innerHTML = `
+      <div style="text-align:center; padding:36px 20px; color:var(--text-muted); background:#f8fafc; border-radius:8px; border:1px dashed #cbd5e1;">
+        <div style="font-size:32px; margin-bottom:8px;">🗳️</div>
+        <div style="font-size:14px; font-weight:700; color:#334155;">Chưa có dữ liệu ứng cử nào phù hợp</div>
+        <div style="font-size:12.5px; margin-top:4px;">Khi bạn được thêm vào danh sách ứng cử viên của kỳ bầu cử, dữ liệu và số phiếu sẽ hiển thị tại đây.</div>
+      </div>
+    `;
+    return;
+  }
+
+  container.innerHTML = list.map(item => {
+    let cardClass = "cand-history-card";
+    if (item.resultType === "elected") cardClass += " card-elected";
+    else if (item.resultType === "running") cardClass += " card-running";
+    else if (item.resultType === "cancelled") cardClass += " card-cancelled";
+    else if (item.resultType === "not_elected") cardClass += " card-not-elected";
+
+    const isVoting = Number(item.election.status) === STATUS_CONTRACT.VOTING && !isPaused;
+
+    return `
+      <div class="${cardClass}">
+        <div class="cand-history-info">
+          <div class="cand-history-title-wrap">
+            <span class="cand-history-title">Kỳ #${item.election.id}: ${escapeHtml(item.election.title)}</span>
+            <span class="badge ${item.phase.className}" style="font-size:11px;">${item.phase.label}</span>
+          </div>
+          <div class="cand-history-sub">
+            <span>Hồ sơ ứng viên: <strong style="color:#1e293b;">${escapeHtml(item.candidate.name)}</strong></span>
+            <span>•</span>
+            <span>Số ghế cần bầu: <strong style="color:#1e293b;">${item.election.seats} ghế</strong></span>
+            <span>•</span>
+            <span>Xếp hạng: <strong style="color:#4c1d95;">Hạng #${item.candRank} / ${item.allCands.length}</strong></span>
+          </div>
+          <div style="font-size:12px; color:#64748b; margin-top:3px;">
+            ${item.resultDetailText}
+          </div>
+        </div>
+
+        <div class="cand-history-metrics">
+          <div class="cand-votes-highlight">
+            <span>🗳️</span>
+            <span>${Number(item.candidate.votes).toLocaleString()}</span>
+            <span style="font-size:11px; font-weight:600; color:#6b21a8;">phiếu</span>
+          </div>
+
+          <div>
+            ${item.resultBadgeHtml}
+          </div>
+
+          <div style="display:flex; align-items:center; gap:6px;">
+            <button type="button" class="btn btn-outline btn-sm" onclick="openElectionScoreboardModal(${item.election.id})" style="font-weight:600; font-size:12px; padding:6px 12px; background:#fff;" title="Xem bảng điểm xếp hạng và chi tiết kiểm phiếu">
+              📊 Bảng điểm
+            </button>
+            ${isVoting ? `
+              <button type="button" class="btn btn-primary btn-sm" onclick="goToVoteElection(${item.election.id})" style="font-weight:700; font-size:12px; padding:6px 12px; background:#16a34a; border-color:#15803d;" title="Đi đến màn hình bỏ phiếu bầu dồn">
+                Bỏ phiếu kỳ này
+              </button>
+            ` : ''}
+          </div>
+        </div>
+      </div>
+    `;
+  }).join("");
+}
+
+// Bộ lọc trạng thái tại Tab Lịch Sử Ứng Cử
+function filterCandidateElectionList(filterStatus) {
+  if (!window.candidateHistoryData) return;
+  if (!filterStatus || filterStatus === "all") {
+    renderCandidateHistoryCards(window.candidateHistoryData);
+    return;
+  }
+  const filtered = window.candidateHistoryData.filter(item => item.resultType === filterStatus);
+  renderCandidateHistoryCards(filtered);
+}
+
+// Chuyển hướng nhanh đến kỳ bầu cử để bỏ phiếu bầu dồn
+async function goToVoteElection(id) {
+  const tabBtn = document.querySelector("#voterSidebarTabs button[onclick*='voterVotingTab']");
+  if (tabBtn) switchTab('voterVotingTab', tabBtn);
+  const select = document.getElementById("voterElectionSelect");
+  if (select) {
+    select.value = id;
+    if (typeof voterSelectElection === 'function') {
+      await voterSelectElection(id);
     }
   }
 }
@@ -2790,31 +2996,117 @@ async function loadResults(forcedEid) {
 }
 
 // ============================================================
-// HIỂN THỊ DANH SÁCH TẤT CẢ CUỘC BẦU CỬ (VOTER / GUEST)
+// HIỂN THỊ DANH SÁCH TẤT CẢ CUỘC BẦU CỬ & BỘ LỌC (VOTER / GUEST)
 // ============================================================
-async function renderAllElectionsResults(containerId) {
-  const container = document.getElementById(containerId);
-  if (!container) return;
 
-  if (allElections.length === 0) {
-    container.innerHTML = `<div style="text-align:center;padding:30px;color:var(--text-muted);">Chưa có cuộc bầu cử nào được tạo trong hệ thống.</div>`;
-    return;
+window.electionResultsDetailsCache = window.electionResultsDetailsCache || {};
+
+// Tạo mã HTML cho từng thẻ kỳ bầu cử & kết quả
+function buildElectionResultCardHtml(election, details, phase) {
+  let resultHtml = "";
+  const isClosed = Number(election.status) === STATUS_CONTRACT.CLOSED;
+  const isVoting = Number(election.status) === STATUS_CONTRACT.VOTING;
+
+  if (isClosed || isVoting) {
+    const { candidateList = [], totalVotes = 0, winners = [], isTied = false } = details || {};
+
+    if (candidateList.length > 0) {
+      const rows = candidateList.map((c, rank) => {
+        const isWinner = winners.includes(c.id) || (isVoting && rank < election.seats && c.votes > 0);
+        const pct = totalVotes > 0 ? Math.round((c.votes / totalVotes) * 100) : 0;
+        let badge;
+        if (isClosed && winners.includes(c.id))
+          badge = `<span class="badge badge-success">🏆 Đắc cử</span>`;
+        else if (isVoting && rank < election.seats && c.votes > 0)
+          badge = `<span class="badge badge-primary">Dẫn đầu</span>`;
+        else
+          badge = `<span class="badge badge-secondary">Tranh cử</span>`;
+        const rankIcon = `#${rank + 1}`;
+        return `<tr>
+          <td style="font-weight:700;">${rankIcon}</td>
+          <td><strong>${escapeHtml(c.name)}</strong><div style="font-size:11px;color:var(--text-muted);">ID #${c.id}</div></td>
+          <td><strong style="color:var(--primary);">${c.votes.toLocaleString()}</strong> phiếu</td>
+          <td>
+            <div style="display:flex;align-items:center;gap:5px;">
+              <div style="flex:1;height:6px;background:#e2e8f0;border-radius:3px;overflow:hidden;">
+                <div style="height:100%;width:${pct}%;background:${isWinner?"var(--success)":"var(--primary)"};"></div>
+              </div>
+              <span style="font-size:11px;min-width:25px;font-weight:600;">${pct}%</span>
+            </div>
+          </td>
+          <td>${badge}</td>
+        </tr>`;
+      }).join("");
+
+      resultHtml = `
+        ${isTied ? `<div class="tied-warning" style="display:block;margin-bottom:10px;">Phát hiện đồng phiếu ở vị trí cuối cùng.</div>` : ""}
+        <div class="table-container"><table>
+          <thead><tr><th style="width:50px">Hạng</th><th>Ứng viên</th><th>Số phiếu</th><th>Tỷ lệ</th><th>Trạng thái</th></tr></thead>
+          <tbody>${rows}</tbody>
+        </table></div>
+      `;
+    } else {
+      resultHtml = `<div style="color:var(--text-muted);font-size:13px;padding:8px 0;">Chưa có ứng viên nào được thêm vào kỳ này.</div>`;
+    }
+  } else {
+    resultHtml = `<div style="color:var(--text-muted);font-size:13px;padding:8px 0;">Đang trong giai đoạn chuẩn bị — danh sách ứng viên sẽ được mở công khai khi bắt đầu.</div>`;
   }
 
-  const html = [];
-  for (const election of [...allElections].reverse()) {
-    const phase = getElectionPhase(election, isPaused);
-    let resultHtml = "";
+  const endTimeStr = election.endTime > 0
+    ? new Date(election.endTime * 1000).toLocaleString("vi-VN")
+    : "--";
 
-    if (election.status === STATUS_CONTRACT.CLOSED || election.status === STATUS_CONTRACT.VOTING) {
-      let candidateList = [], totalVotes = 0;
-      let winners = [], isTied = false;
+  const isCurrentVoting = isVoting && !isPaused && !phase.isCancelled;
+
+  return `
+    <div class="card election-result-card" style="margin-bottom:20px;border-left:4px solid ${
+      phase.isCancelled ? '#ef4444' :
+      election.status === 1 ? '#d97706' :
+      election.status === 2 && !isPaused ? '#16a34a' :
+      election.status === 2 && isPaused  ? '#dc2626' :
+      '#6b7280'
+    };">
+      <div style="display:flex;align-items:flex-start;justify-content:space-between;flex-wrap:wrap;gap:10px;margin-bottom:16px;">
+        <div>
+          <div style="font-size:17px;font-weight:800;color:#0f172a;">${escapeHtml(election.title)}</div>
+          <div style="font-size:12px;color:var(--text-muted);margin-top:3px;">
+            Cuộc bầu cử #${election.id} • ${election.seats} ghế HĐQT • Kết thúc: ${endTimeStr}
+          </div>
+        </div>
+        <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+          ${isCurrentVoting ? `
+            <button type="button" class="btn btn-primary btn-sm" onclick="goToVoteElection(${election.id})" style="font-size:12px;font-weight:700;background:#16a34a;border-color:#15803d;">
+              Bỏ phiếu kỳ này
+            </button>
+          ` : ''}
+          <button type="button" class="btn btn-outline btn-sm" onclick="openElectionScoreboardModal(${election.id})" style="font-size:12px;font-weight:700;border-color:#3b82f6;color:#2563eb;">
+            Xem bảng điểm kỳ #${election.id}
+          </button>
+          <span class="badge ${phase.badgeClass || phase.className}" style="font-size:13px;padding:5px 14px;">${phase.label}</span>
+        </div>
+      </div>
+      ${resultHtml}
+    </div>
+  `;
+}
+
+// Nạp chi tiết ứng viên cho một kỳ bầu cử (có lưu cache)
+async function getElectionResultsDetails(election) {
+  if (window.electionResultsDetailsCache[election.id]) {
+    return window.electionResultsDetailsCache[election.id];
+  }
+
+  let candidateList = [], totalVotes = 0;
+  let winners = [], isTied = false;
+
+  if (election.status === STATUS_CONTRACT.CLOSED || election.status === STATUS_CONTRACT.VOTING) {
+    if (electionContract) {
       for (let i = 0; i < election.candidateCount; i++) {
         try {
           const c = await electionContract.getCandidate(election.id, i);
           const v = Number(c[2]);
           totalVotes += v;
-          candidateList.push({ id: i, name: c[0], votes: v });
+          candidateList.push({ id: i, name: c[0], votes: v, profileCid: c[1] });
         } catch {}
       }
       if (election.status === STATUS_CONTRACT.CLOSED) {
@@ -2825,78 +3117,301 @@ async function renderAllElectionsResults(containerId) {
         } catch {}
       }
       candidateList.sort((a, b) => b.votes - a.votes);
-
-      if (candidateList.length > 0) {
-        const rows = candidateList.map((c, rank) => {
-          const isWinner = winners.includes(c.id) || (election.status === STATUS_CONTRACT.VOTING && rank < election.seats && c.votes > 0);
-          const pct = totalVotes > 0 ? Math.round((c.votes / totalVotes) * 100) : 0;
-          let badge;
-          if (election.status === STATUS_CONTRACT.CLOSED && winners.includes(c.id))
-            badge = `<span class="badge badge-success">Đắc cử</span>`;
-          else if (election.status === STATUS_CONTRACT.VOTING && rank < election.seats && c.votes > 0)
-            badge = `<span class="badge badge-primary">Dẫn đầu</span>`;
-          else
-            badge = `<span class="badge badge-secondary">Tranh cử</span>`;
-          const rankIcon = `#${rank + 1}`;
-          return `<tr>
-            <td>${rankIcon}</td>
-            <td><strong>${c.name}</strong><div style="font-size:11px;color:var(--text-muted);">ID #${c.id}</div></td>
-            <td><strong style="color:var(--primary);">${c.votes}</strong> phiếu</td>
-            <td>
-              <div style="display:flex;align-items:center;gap:5px;">
-                <div style="flex:1;height:6px;background:#e2e8f0;border-radius:3px;overflow:hidden;">
-                  <div style="height:100%;width:${pct}%;background:${isWinner?"var(--success)":"var(--primary)"};"></div>
-                </div>
-                <span style="font-size:11px;min-width:25px;">${pct}%</span>
-              </div>
-            </td>
-            <td>${badge}</td>
-          </tr>`;
-        }).join("");
-        resultHtml = `
-          ${isTied ? `<div class="tied-warning" style="display:block;margin-bottom:10px;">Phát hiện đồng phiếu ở vị trí cuối cùng.</div>` : ""}
-          <div class="table-container"><table>
-            <thead><tr><th style="width:50px">Hạng</th><th>Ứng viên</th><th>Số phiếu</th><th>Tỷ lệ</th><th>Trạng thái</th></tr></thead>
-            <tbody>${rows}</tbody>
-          </table></div>
-        `;
-      } else {
-        resultHtml = `<div style="color:var(--text-muted);font-size:13px;padding:8px 0;">Chưa có ứng viên nào.</div>`;
-      }
-    } else {
-      resultHtml = `<div style="color:var(--text-muted);font-size:13px;padding:8px 0;">Đang trong giai đoạn chuẩn bị — danh sách ứng viên sẽ được mở công khai khi bắt đầu.</div>`;
     }
-
-    const endTimeStr = election.endTime > 0
-      ? new Date(election.endTime * 1000).toLocaleString("vi-VN")
-      : "--";
-
-    html.push(`
-      <div class="card election-result-card" style="margin-bottom:20px;border-left:4px solid ${
-        election.status === 1 ? '#d97706' :
-        election.status === 2 && !isPaused ? '#16a34a' :
-        election.status === 2 && isPaused  ? '#dc2626' :
-        '#6b7280'
-      };">
-        <div style="display:flex;align-items:flex-start;justify-content:space-between;flex-wrap:wrap;gap:10px;margin-bottom:16px;">
-          <div>
-            <div style="font-size:17px;font-weight:800;color:#0f172a;">${election.title}</div>
-            <div style="font-size:12px;color:var(--text-muted);margin-top:3px;">
-              Cuộc bầu cử #${election.id} • ${election.seats} ghế HĐQT • Kết thúc: ${endTimeStr}
-            </div>
-          </div>
-          <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
-            <button type="button" class="btn btn-outline btn-sm" onclick="openElectionScoreboardModal(${election.id})" style="font-size:12px;font-weight:700;border-color:#3b82f6;color:#2563eb;">
-              Xem bảng điểm kỳ #${election.id}
-            </button>
-            <span class="badge ${phase.badgeClass}" style="font-size:13px;padding:5px 14px;">${phase.label}</span>
-          </div>
-        </div>
-        ${resultHtml}
-      </div>
-    `);
   }
 
+  const details = { candidateList, totalVotes, winners, isTied };
+  window.electionResultsDetailsCache[election.id] = details;
+  return details;
+}
+
+// Cập nhật số lượng đếm trên thanh Filter Chips
+function updateResultsChipCounters() {
+  let countAll = allElections.length;
+  let countVoting = 0;
+  let countClosed = 0;
+  let countDraft = 0;
+  let countCancelled = 0;
+
+  for (const e of allElections) {
+    const ph = getElectionPhase(e, isPaused);
+    if (ph.isCancelled || Number(e.status) === STATUS_CONTRACT.CANCELLED) {
+      countCancelled++;
+    } else if (Number(e.status) === STATUS_CONTRACT.CLOSED) {
+      countClosed++;
+    } else if (Number(e.status) === STATUS_CONTRACT.VOTING && !isPaused) {
+      countVoting++;
+    } else if (Number(e.status) === STATUS_CONTRACT.REGISTRATION) {
+      countDraft++;
+    }
+  }
+
+  const elAll = document.getElementById("voterResultsCountAll");
+  const elVoting = document.getElementById("voterResultsCountVoting");
+  const elClosed = document.getElementById("voterResultsCountClosed");
+  const elDraft = document.getElementById("voterResultsCountDraft");
+  const elCancelled = document.getElementById("voterResultsCountCancelled");
+  if (elAll) elAll.textContent = countAll;
+  if (elVoting) elVoting.textContent = countVoting;
+  if (elClosed) elClosed.textContent = countClosed;
+  if (elDraft) elDraft.textContent = countDraft;
+  if (elCancelled) elCancelled.textContent = countCancelled;
+
+  const gAll = document.getElementById("guestResultsCountAll");
+  const gVoting = document.getElementById("guestResultsCountVoting");
+  const gClosed = document.getElementById("guestResultsCountClosed");
+  const gDraft = document.getElementById("guestResultsCountDraft");
+  const gCancelled = document.getElementById("guestResultsCountCancelled");
+  if (gAll) gAll.textContent = countAll;
+  if (gVoting) gVoting.textContent = countVoting;
+  if (gClosed) gClosed.textContent = countClosed;
+  if (gDraft) gDraft.textContent = countDraft;
+  if (gCancelled) gCancelled.textContent = countCancelled;
+}
+
+// Hàm lọc và sắp xếp danh sách các kỳ bầu cử
+function filterAndSortElections(searchInputId, statusFilterId, sortFilterId) {
+  const searchInput = document.getElementById(searchInputId);
+  const statusFilter = document.getElementById(statusFilterId);
+  const sortFilter = document.getElementById(sortFilterId);
+
+  const query = (searchInput?.value || "").trim().toLowerCase();
+  const statusVal = statusFilter?.value || "all";
+  const sortVal = sortFilter?.value || "newest";
+
+  let list = [...allElections];
+
+  // 1. Lọc theo trạng thái
+  if (statusVal !== "all") {
+    list = list.filter(e => {
+      const ph = getElectionPhase(e, isPaused);
+      if (statusVal === "cancelled") {
+        return Boolean(ph.isCancelled || Number(e.status) === STATUS_CONTRACT.CANCELLED);
+      }
+      if (statusVal === "voting") {
+        return Number(e.status) === STATUS_CONTRACT.VOTING && !isPaused && !ph.isCancelled;
+      }
+      if (statusVal === "closed") {
+        return Number(e.status) === STATUS_CONTRACT.CLOSED && !ph.isCancelled;
+      }
+      if (statusVal === "draft") {
+        return Number(e.status) === STATUS_CONTRACT.REGISTRATION && !ph.isCancelled;
+      }
+      if (statusVal === "paused") {
+        return Boolean(isPaused || ph.isPaused || localStorage.getItem(`paused_election_${e.id}`) === "true" || localStorage.getItem(`postponed_election_${e.id}`) === "true");
+      }
+      return true;
+    });
+  }
+
+  // 2. Lọc theo từ khóa (Mã kỳ, tên kỳ hoặc tên ứng viên)
+  if (query) {
+    list = list.filter(e => {
+      const idMatch = String(e.id) === query || `#${e.id}` === query || `kỳ #${e.id}`.includes(query) || `kỳ ${e.id}`.includes(query);
+      const titleMatch = (e.title || "").toLowerCase().includes(query);
+      
+      const details = window.electionResultsDetailsCache?.[e.id];
+      let candMatch = false;
+      if (details?.candidateList) {
+        candMatch = details.candidateList.some(c => (c.name || "").toLowerCase().includes(query));
+      } else if (e.candidates && Array.isArray(e.candidates)) {
+        candMatch = e.candidates.some(c => (c.name || "").toLowerCase().includes(query));
+      }
+
+      return idMatch || titleMatch || candMatch;
+    });
+  }
+
+  // 3. Sắp xếp
+  if (sortVal === "oldest") {
+    list.sort((a, b) => a.id - b.id);
+  } else if (sortVal === "most_seats") {
+    list.sort((a, b) => (b.seats || 0) - (a.seats || 0));
+  } else if (sortVal === "most_cands") {
+    list.sort((a, b) => (b.candidateCount || 0) - (a.candidateCount || 0));
+  } else {
+    // Mặc định: Mới nhất trước (ID giảm dần)
+    list.sort((a, b) => b.id - a.id);
+  }
+
+  return list;
+}
+
+// Bộ lọc cho Cổ Đông (Voter Results)
+async function filterVoterResultsList() {
+  const container = document.getElementById("voterAllElections");
+  if (!container) return;
+
+  const filtered = filterAndSortElections("voterResultsSearchInput", "voterResultsStatusFilter", "voterResultsSortFilter");
+
+  const badge = document.getElementById("voterResultsCountBadge");
+  if (badge) badge.textContent = `${filtered.length} / ${allElections.length} kỳ`;
+
+  if (filtered.length === 0) {
+    container.innerHTML = `
+      <div style="text-align:center; padding:36px 20px; background:#f8fafc; border:1px dashed #cbd5e1; border-radius:10px; color:var(--text-muted); margin-top:10px;">
+        <div style="font-size:32px; margin-bottom:8px;">🔍</div>
+        <div style="font-size:15px; font-weight:700; color:#334155;">Không tìm thấy kỳ bầu cử nào khớp với điều kiện lọc</div>
+        <div style="font-size:12.5px; margin:4px 0 14px 0;">Thử tìm kiếm với từ khóa khác hoặc xóa bộ lọc để xem tất cả cuộc bầu cử.</div>
+        <button type="button" class="btn btn-outline btn-sm" onclick="resetVoterResultsFilter()">
+          🔄 Đặt lại bộ lọc
+        </button>
+      </div>
+    `;
+    return;
+  }
+
+  const html = [];
+  for (const election of filtered) {
+    const phase = getElectionPhase(election, isPaused);
+    const details = await getElectionResultsDetails(election);
+    html.push(buildElectionResultCardHtml(election, details, phase));
+  }
+  container.innerHTML = html.join("");
+}
+
+function setVoterResultsFilterChip(status, btnEl) {
+  const container = document.getElementById("voterResultsChipBar");
+  if (container) {
+    container.querySelectorAll(".filter-chip").forEach(c => c.classList.remove("active"));
+  }
+  if (btnEl) btnEl.classList.add("active");
+  const select = document.getElementById("voterResultsStatusFilter");
+  if (select) select.value = status;
+  filterVoterResultsList();
+}
+
+function onVoterResultsStatusSelectChange(status) {
+  const container = document.getElementById("voterResultsChipBar");
+  if (container) {
+    container.querySelectorAll(".filter-chip").forEach(c => {
+      if (c.dataset.filter === status) c.classList.add("active");
+      else c.classList.remove("active");
+    });
+  }
+  filterVoterResultsList();
+}
+
+function resetVoterResultsFilter() {
+  const searchInput = document.getElementById("voterResultsSearchInput");
+  const statusFilter = document.getElementById("voterResultsStatusFilter");
+  const sortFilter = document.getElementById("voterResultsSortFilter");
+  if (searchInput) searchInput.value = "";
+  if (statusFilter) statusFilter.value = "all";
+  if (sortFilter) sortFilter.value = "newest";
+
+  const chipBar = document.getElementById("voterResultsChipBar");
+  if (chipBar) {
+    chipBar.querySelectorAll(".filter-chip").forEach(c => {
+      if (c.dataset.filter === "all") c.classList.add("active");
+      else c.classList.remove("active");
+    });
+  }
+  filterVoterResultsList();
+}
+
+// Bộ lọc cho Ban Giám Sát (Guest Results)
+async function filterGuestResultsList() {
+  const container = document.getElementById("guestAllElections");
+  if (!container) return;
+
+  const filtered = filterAndSortElections("guestResultsSearchInput", "guestResultsStatusFilter", "guestResultsSortFilter");
+
+  const badge = document.getElementById("guestResultsCountBadge");
+  if (badge) badge.textContent = `${filtered.length} / ${allElections.length} kỳ`;
+
+  if (filtered.length === 0) {
+    container.innerHTML = `
+      <div style="text-align:center; padding:36px 20px; background:#f8fafc; border:1px dashed #cbd5e1; border-radius:10px; color:var(--text-muted); margin-top:10px;">
+        <div style="font-size:32px; margin-bottom:8px;">🔍</div>
+        <div style="font-size:15px; font-weight:700; color:#334155;">Không tìm thấy kỳ bầu cử nào khớp với điều kiện lọc</div>
+        <div style="font-size:12.5px; margin:4px 0 14px 0;">Thử tìm kiếm với từ khóa khác hoặc xóa bộ lọc để xem tất cả cuộc bầu cử.</div>
+        <button type="button" class="btn btn-outline btn-sm" onclick="resetGuestResultsFilter()">
+          🔄 Đặt lại bộ lọc
+        </button>
+      </div>
+    `;
+    return;
+  }
+
+  const html = [];
+  for (const election of filtered) {
+    const phase = getElectionPhase(election, isPaused);
+    const details = await getElectionResultsDetails(election);
+    html.push(buildElectionResultCardHtml(election, details, phase));
+  }
+  container.innerHTML = html.join("");
+}
+
+function setGuestResultsFilterChip(status, btnEl) {
+  const container = document.getElementById("guestResultsChipBar");
+  if (container) {
+    container.querySelectorAll(".filter-chip").forEach(c => c.classList.remove("active"));
+  }
+  if (btnEl) btnEl.classList.add("active");
+  const select = document.getElementById("guestResultsStatusFilter");
+  if (select) select.value = status;
+  filterGuestResultsList();
+}
+
+function onGuestResultsStatusSelectChange(status) {
+  const container = document.getElementById("guestResultsChipBar");
+  if (container) {
+    container.querySelectorAll(".filter-chip").forEach(c => {
+      if (c.dataset.filter === status) c.classList.add("active");
+      else c.classList.remove("active");
+    });
+  }
+  filterGuestResultsList();
+}
+
+function resetGuestResultsFilter() {
+  const searchInput = document.getElementById("guestResultsSearchInput");
+  const statusFilter = document.getElementById("guestResultsStatusFilter");
+  const sortFilter = document.getElementById("guestResultsSortFilter");
+  if (searchInput) searchInput.value = "";
+  if (statusFilter) statusFilter.value = "all";
+  if (sortFilter) sortFilter.value = "newest";
+
+  const chipBar = document.getElementById("guestResultsChipBar");
+  if (chipBar) {
+    chipBar.querySelectorAll(".filter-chip").forEach(c => {
+      if (c.dataset.filter === "all") c.classList.add("active");
+      else c.classList.remove("active");
+    });
+  }
+  filterGuestResultsList();
+}
+
+// Hiển thị danh sách tất cả cuộc bầu cử
+async function renderAllElectionsResults(containerId) {
+  const container = document.getElementById(containerId);
+  if (!container) return;
+
+  if (allElections.length === 0) {
+    container.innerHTML = `<div style="text-align:center;padding:30px;color:var(--text-muted);">Chưa có cuộc bầu cử nào được tạo trong hệ thống.</div>`;
+    return;
+  }
+
+  updateResultsChipCounters();
+
+  if (containerId === "voterAllElections") {
+    await filterVoterResultsList();
+    return;
+  }
+
+  if (containerId === "guestAllElections") {
+    await filterGuestResultsList();
+    return;
+  }
+
+  // Dành cho allElectionsListAdmin hoặc container khác
+  const html = [];
+  for (const election of [...allElections].reverse()) {
+    const phase = getElectionPhase(election, isPaused);
+    const details = await getElectionResultsDetails(election);
+    html.push(buildElectionResultCardHtml(election, details, phase));
+  }
   container.innerHTML = html.join("");
 }
 
@@ -3123,15 +3638,15 @@ async function renderAdminUnifiedElectionList() {
         `;
       } else {
         const candItems = candList.map((c, idx) => `
-          <div style="display:flex; align-items:center; justify-content:space-between; padding:8px 12px; background:#f8fafc; border:1px solid #e2e8f0; border-radius:8px; font-size:13px;">
-            <div style="display:flex; align-items:center; gap:10px;">
-              <span class="candidate-avatar" style="width:28px; height:28px; font-size:12px;">#${idx+1}</span>
-              <div>
-                <strong style="color:#0f172a;">${c.name}</strong>
-                <div style="font-size:11px; color:var(--text-muted);">Mã ứng viên #${c.id}</div>
+          <div style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; padding:8px 12px; background:#f8fafc; border:1px solid #e2e8f0; border-radius:8px; font-size:13px; gap:8px; min-width:0; overflow:hidden;">
+            <div style="display:flex; align-items:center; gap:8px; min-width:0; flex:1 1 130px; overflow:hidden;">
+              <span class="candidate-avatar" style="width:28px; height:28px; font-size:12px; flex-shrink:0;">#${idx+1}</span>
+              <div style="min-width:0; overflow:hidden;">
+                <strong style="color:#0f172a; display:block; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;" title="${escapeHtml(c.name)}">${escapeHtml(c.name)}</strong>
+                <div style="font-size:11px; color:var(--text-muted); white-space:nowrap;">Mã ứng viên #${c.id}</div>
               </div>
             </div>
-            <div>
+            <div style="flex-shrink:0; max-width:100%; overflow:hidden;">
               ${formatIpfsLink(c.profileCid)}
             </div>
           </div>
@@ -3139,7 +3654,7 @@ async function renderAdminUnifiedElectionList() {
 
         detailsHtml = `
           <div style="margin-top:12px; border-top:1px solid #e2e8f0; padding-top:12px;">
-            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px; flex-wrap:wrap; gap:6px;">
               <span style="font-size:13px; font-weight:700; color:#334155;">
                 Danh sách ứng viên đã đăng ký (${candList.length}/${seats} ghế):
               </span>
@@ -3147,7 +3662,7 @@ async function renderAdminUnifiedElectionList() {
                 ${hasEnoughCand ? 'Đủ điều kiện mở phiên' : `Thiếu ${seats - candList.length} ứng viên`}
               </span>
             </div>
-            <div style="display:grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap:8px;">
+            <div style="display:grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap:8px;">
               ${candItems}
             </div>
           </div>
@@ -3393,6 +3908,12 @@ async function openAddCandidateModal(electionId) {
   if (successBox) successBox.style.display = "none";
   const progressBox = document.getElementById("ipfsUploadProgress");
   if (progressBox) progressBox.style.display = "none";
+
+  // Reset hộp cảnh báo quyền ứng cử và mở khóa nút
+  const alertEl = document.getElementById("addCandidateValidationAlert");
+  if (alertEl) alertEl.style.display = "none";
+  const submitBtn = document.getElementById("btnAddCandidate");
+  if (submitBtn) submitBtn.disabled = false;
 
   // Nạp danh bạ cổ đông vào select nhanh
   populateQuickCandidateDropdown();
@@ -3670,14 +4191,74 @@ async function adminMintTokens() {
   }
 }
 
+// ============================================================
+// XÁC THỰC QUYỀN ỨNG CỬ & CHỐT CHẶN HỢP LỆ (CANDIDATE VALIDATION)
+// ============================================================
+function checkCandidateValidity(name, wallet) {
+  const alertEl = document.getElementById("addCandidateValidationAlert");
+  const alertMsg = document.getElementById("addCandidateValidationAlertMsg");
+  const submitBtn = document.getElementById("btnAddCandidate");
+
+  if (!name && !wallet) {
+    if (alertEl) alertEl.style.display = "none";
+    if (submitBtn) submitBtn.disabled = false;
+    return { valid: true };
+  }
+
+  const walletClean = (wallet || "").trim().toLowerCase();
+  const nameClean = (name || "").split("[")[0].split("(")[0].trim().toLowerCase();
+
+  let matched = null;
+  if (walletClean && /^0x[a-fA-F0-9]{40}$/i.test(walletClean)) {
+    matched = companyWallets.find(w => w.address && w.address.toLowerCase() === walletClean);
+  }
+  if (!matched && nameClean) {
+    matched = companyWallets.find(w => (w.name || "").toLowerCase().trim() === nameClean);
+  }
+
+  if (matched) {
+    const isCand = matched.isCandidate === true || matched.role === "candidate" || matched.role === "voter_candidate";
+    if (!isCand) {
+      if (alertEl) {
+        alertEl.style.display = "block";
+        if (alertMsg) {
+          alertMsg.innerHTML = `Cổ đông <b>${matched.name}</b> (ví <code>${(matched.address || '').substring(0, 10)}...</code>) hiện chỉ có vai trò là Cổ đông biểu quyết thông thường, <u>chưa được Admin phê duyệt quyền ứng cử HĐQT</u>! Vui lòng vào tab "Danh sách ví nội bộ" để duyệt quyền Ứng viên trước khi nạp vào kỳ bầu cử.`;
+        }
+      }
+      if (submitBtn) submitBtn.disabled = true;
+      return {
+        valid: false,
+        reason: "Ứng viên hiện tại chưa được ứng cử! Cần được Admin phê duyệt quyền ứng cử trước khi thêm vào kỳ bầu cử.",
+        entry: matched
+      };
+    } else {
+      if (alertEl) alertEl.style.display = "none";
+      if (submitBtn) submitBtn.disabled = false;
+      return { valid: true, entry: matched };
+    }
+  }
+
+  if (alertEl) alertEl.style.display = "none";
+  if (submitBtn) submitBtn.disabled = false;
+  return { valid: true, entry: null };
+}
+
 function applyQuickCandidate(val) {
-  if (!val) return;
+  if (!val) {
+    checkCandidateValidity("", "");
+    return;
+  }
   const parts = val.split("|");
   const name = parts[0];
   const wallet = parts[1] || "";
   document.getElementById("candidateNameInput").value = name;
   const wInput = document.getElementById("candidateWalletInput");
   if (wInput) wInput.value = wallet;
+
+  const check = checkCandidateValidity(name, wallet);
+  if (!check.valid) {
+    showToast(check.reason, "warning");
+  }
 }
 
 // Xử lý upload file hồ sơ trực tiếp: đọc tệp và gửi lên Backend để lưu lên Pinata IPFS thật
@@ -3767,6 +4348,18 @@ async function adminAddCandidate() {
     let cid  = document.getElementById("candidateCidInput").value.trim();
     if (!name) { showToast("Vui lòng nhập họ tên ứng viên!", "warning"); return; }
 
+    // 0. Chốt chặn bắt buộc: Xác thực vai trò Ứng viên HĐQT hợp lệ
+    const candValidity = checkCandidateValidity(name, wallet);
+    if (!candValidity.valid) {
+      showToast(candValidity.reason, "warning");
+      const alertEl = document.getElementById("addCandidateValidationAlert");
+      if (alertEl) {
+        alertEl.style.display = "block";
+        alertEl.scrollIntoView({ behavior: "smooth", block: "nearest" });
+      }
+      return;
+    }
+
     // 1. Kiểm tra định dạng địa chỉ ví cổ đông (nếu có nhập)
     if (wallet) {
       if (!/^0x[a-fA-F0-9]{40}$/.test(wallet)) {
@@ -3850,6 +4443,9 @@ async function adminAddCandidate() {
     await adminSelectElection(currentElectionId);
     closeAddCandidateModal();
     renderAdminUnifiedElectionList();
+    if (typeof renderAdminCandidatesTab === "function") {
+      renderAdminCandidatesTab(false);
+    }
   } catch (err) {
     showToast("Lỗi thêm ứng viên: " + parseErrorMessage(err), "danger");
   }
@@ -4632,6 +5228,7 @@ function switchTab(tabId, btn) {
   if (breadcrumbEl) {
     if (tabId === "adminPanelTab") breadcrumbEl.innerHTML = "Quản trị cuộc bầu cử";
     if (tabId === "adminWalletsTab") breadcrumbEl.innerHTML = "Ví &amp; cổ phần nội bộ";
+    if (tabId === "adminCandidatesTab") breadcrumbEl.innerHTML = "🎯 Quản lý ứng viên đã ứng cử";
     if (tabId === "adminResultsTab") breadcrumbEl.innerHTML = "Kết quả &amp; giám sát";
     if (tabId === "adminLogsTab") breadcrumbEl.innerHTML = "Nhật ký blockchain";
   }
@@ -4643,6 +5240,7 @@ function switchTab(tabId, btn) {
     if (tabId === "voterTransferTab") voterBreadcrumbEl.innerHTML = "Chuyển nhượng cổ phần";
     if (tabId === "voterResultsTab") voterBreadcrumbEl.innerHTML = "Kỳ bầu cử &amp; Kết quả";
     if (tabId === "voterHistoryTab") voterBreadcrumbEl.innerHTML = "Lịch sử bỏ phiếu";
+    if (tabId === "voterCandidateHistoryTab") voterBreadcrumbEl.innerHTML = "Lịch sử ứng cử HĐQT";
   }
 
   const guestBreadcrumbEl = document.getElementById("guestActiveTabBreadcrumb");
@@ -4658,7 +5256,7 @@ function switchTab(tabId, btn) {
     statsCard.style.display = isMainOverviewTab ? "" : "none";
   }
 
-  if (tabId === "voterOverviewTab") {
+  if (tabId === "voterOverviewTab" || tabId === "voterCandidateHistoryTab") {
     renderCandidateDashboardSection();
   }
 
@@ -4667,6 +5265,9 @@ function switchTab(tabId, btn) {
     renderUpcomingChecklist();
     renderActiveChecklist();
     renderCancelChecklist();
+  }
+  if (tabId === "adminCandidatesTab") {
+    renderAdminCandidatesTab();
   }
   if (tabId === "voterVotingTab" && voterCurrentElectionId) {
     voterSelectElection(voterCurrentElectionId);
@@ -4679,6 +5280,362 @@ function switchTab(tabId, btn) {
   if (tabId === "adminWalletsTab") {
     fetchCompanyWallets();
   }
+}
+
+function switchAdminTab(tabId) {
+  const btn = document.querySelector(`.admin-sidebar-nav [data-tab="${tabId}"]`) || document.getElementById("btnNavAdminCandidates");
+  if (btn) {
+    switchTab(tabId, btn);
+  } else {
+    document.querySelectorAll(".role-screen .tab-content").forEach(el => el.classList.remove("active"));
+    const target = document.getElementById(tabId);
+    if (target) target.classList.add("active");
+    if (tabId === "adminCandidatesTab") {
+      renderAdminCandidatesTab();
+    }
+  }
+}
+
+// ============================================================
+// QUẢN LÝ ỨNG VIÊN HĐQT ĐÃ ỨNG CỬ & KẾT QUẢ TRÚNG CỬ
+// ============================================================
+let adminCandidatesCache = [];
+
+async function renderAdminCandidatesTab(forceRefresh = false) {
+  const tbody = document.getElementById("adminCandidatesTableBody");
+  if (!tbody) return;
+
+  if (forceRefresh) {
+    tbody.innerHTML = `
+      <tr>
+        <td colspan="8" style="text-align:center; padding:30px; color:var(--text-muted);">
+          <div style="display:inline-block; animation:spin 1s linear infinite; margin-right:8px;">⏳</div>
+          Đang đồng bộ dữ liệu ứng viên từ Smart Contract và IPFS...
+        </td>
+      </tr>
+    `;
+    if (typeof fetchCompanyWallets === "function") await fetchCompanyWallets(false);
+    if (typeof loadAllElections === "function") await loadAllElections();
+  }
+
+  try {
+    const list = [];
+    const participatedWallets = new Set();
+    const participatedNames = new Set();
+
+    // 1. Quét tất cả các cuộc bầu cử
+    for (const e of allElections) {
+      let winners = [];
+      if (Number(e.status) === STATUS_CONTRACT.CLOSED && electionContract) {
+        try {
+          const res = await electionContract.getWinners(e.id);
+          winners = (res[0] || []).map(w => Number(w));
+        } catch (wErr) {
+          console.warn(`Lỗi lấy winners kỳ #${e.id}:`, wErr);
+        }
+      }
+
+      const count = Number(e.candidateCount) || 0;
+      for (let i = 0; i < count; i++) {
+        let cName = `Ứng viên #${i}`;
+        let cCid = "";
+        let cVotes = 0n;
+
+        if (electionContract) {
+          try {
+            const cData = await electionContract.getCandidate(e.id, i);
+            cName = cData[0] || cName;
+            cCid = cData[1] || "";
+            cVotes = cData[2] || 0n;
+          } catch (cErr) {
+            console.warn(`Lỗi lấy ứng viên ${i} kỳ ${e.id}:`, cErr);
+          }
+        }
+
+        // Tách ví từ chuỗi tên (nếu có format: Tên [0x...])
+        let candWallet = "";
+        const walletMatch = cName.match(/0x[a-fA-F0-9]{40}/i);
+        if (walletMatch) {
+          candWallet = walletMatch[0];
+        }
+
+        // Tên hiển thị thuần
+        const pureName = cName.split("[")[0].split("(")[0].trim();
+
+        // Đối chiếu trong companyWallets để lấy thêm thông tin
+        let matchedWallet = null;
+        if (candWallet) {
+          matchedWallet = companyWallets.find(w => w.address && w.address.toLowerCase() === candWallet.toLowerCase());
+        }
+        if (!matchedWallet && pureName) {
+          matchedWallet = companyWallets.find(w => (w.name || "").toLowerCase().trim() === pureName.toLowerCase());
+          if (matchedWallet && !candWallet) candWallet = matchedWallet.address;
+        }
+
+        if (candWallet) participatedWallets.add(candWallet.toLowerCase());
+        if (pureName) participatedNames.add(pureName.toLowerCase());
+
+        // Xác định kết quả trúng cử
+        let status = "running";
+        if (Number(e.status) === STATUS_CONTRACT.CLOSED) {
+          status = winners.includes(i) ? "elected" : "not_elected";
+        } else if (Number(e.status) === STATUS_CONTRACT.VOTING) {
+          status = "running";
+        } else {
+          status = "running"; // Registration
+        }
+
+        let roleDesc = "Ứng viên HĐQT";
+        if (matchedWallet) {
+          if (matchedWallet.role === "voter_candidate") roleDesc = "Cổ đông & Ứng viên";
+          else if (matchedWallet.role === "candidate") roleDesc = "Ứng viên HĐQT";
+          else if (matchedWallet.isCandidate) roleDesc = "Cổ đông & Ứng viên";
+        }
+
+        list.push({
+          candidateIndex: i,
+          name: pureName || cName,
+          fullName: cName,
+          wallet: candWallet,
+          profileCid: cCid,
+          title: (matchedWallet && matchedWallet.title) ? matchedWallet.title : "Thành viên ứng cử HĐQT",
+          roleDesc: roleDesc,
+          electionId: e.id,
+          electionTitle: e.title,
+          electionStatus: Number(e.status),
+          votes: Number(cVotes),
+          status: status, // "elected" | "running" | "not_elected"
+          isApproved: true
+        });
+      }
+    }
+
+    // 2. Bổ sung các ứng viên đã được Admin duyệt trong Danh bạ ví nhưng chưa nạp vào kỳ nào
+    for (const w of companyWallets) {
+      if ((w.isCandidate || w.role === "candidate" || w.role === "voter_candidate") && w.role !== "admin") {
+        const wAddrLower = (w.address || "").toLowerCase();
+        const wNameLower = (w.name || "").toLowerCase().trim();
+
+        if (!participatedWallets.has(wAddrLower) && !participatedNames.has(wNameLower)) {
+          list.push({
+            candidateIndex: null,
+            name: w.name,
+            fullName: w.name,
+            wallet: w.address,
+            profileCid: "",
+            title: w.title || "Nhân sự được phê duyệt",
+            roleDesc: w.role === "voter_candidate" ? "Cổ đông & Ứng viên" : "Ứng viên HĐQT",
+            electionId: null,
+            electionTitle: "Chưa tham gia kỳ nào",
+            electionStatus: null,
+            votes: 0,
+            status: "pending", // "⭐ Đã duyệt - Chưa nạp kỳ nào"
+            isApproved: true
+          });
+        }
+      }
+    }
+
+    adminCandidatesCache = list;
+
+    // 3. Cập nhật các thẻ thống kê
+    const totalCount = list.length;
+    const activeCount = list.filter(c => c.status === "running").length;
+    const electedCount = list.filter(c => c.status === "elected").length;
+    const finishedCount = list.filter(c => c.status === "elected" || c.status === "not_elected").length;
+    const rate = finishedCount > 0 ? Math.round((electedCount / finishedCount) * 100) : 0;
+
+    setText("statAdminCandTotal", totalCount);
+    setText("statAdminCandActive", activeCount);
+    setText("statAdminCandElected", electedCount);
+    setText("statAdminCandRate", `${rate}%`);
+
+    // 4. Cập nhật dropdown bộ lọc kỳ bầu cử (#candidateElectionFilter)
+    const electionFilter = document.getElementById("candidateElectionFilter");
+    if (electionFilter) {
+      const currentVal = electionFilter.value;
+      let opts = '<option value="">-- Tất cả kỳ bầu cử --</option>';
+      allElections.forEach(e => {
+        const statusLabel = Number(e.status) === STATUS_CONTRACT.CLOSED ? "[Đã đóng]" : (Number(e.status) === STATUS_CONTRACT.VOTING ? "[Đang bầu]" : "[Đăng ký]");
+        opts += `<option value="${e.id}">Kỳ #${e.id}: ${e.title} ${statusLabel}</option>`;
+      });
+      opts += '<option value="pending">⭐ Chưa nạp vào kỳ nào</option>';
+      electionFilter.innerHTML = opts;
+      if (currentVal) electionFilter.value = currentVal;
+    }
+
+    // 5. Render bảng theo bộ lọc hiện tại
+    filterAdminCandidatesTable();
+
+    if (forceRefresh) showToast("Đã đồng bộ danh sách ứng viên HĐQT thành công!", "success");
+  } catch (err) {
+    console.error("Lỗi renderAdminCandidatesTab:", err);
+    tbody.innerHTML = `
+      <tr>
+        <td colspan="8" style="text-align:center; padding:30px; color:#ef4444;">
+          Lỗi tải danh sách ứng viên: ${parseErrorMessage(err)}
+        </td>
+      </tr>
+    `;
+  }
+}
+
+function filterAdminCandidatesTable() {
+  const tbody = document.getElementById("adminCandidatesTableBody");
+  if (!tbody) return;
+
+  const query = (document.getElementById("candidateSearchInput")?.value || "").trim().toLowerCase();
+  const eidFilter = document.getElementById("candidateElectionFilter")?.value || "";
+  const statusFilter = document.getElementById("candidateStatusFilter")?.value || "";
+
+  const filtered = adminCandidatesCache.filter(c => {
+    // Tìm kiếm text
+    if (query) {
+      const matchName = (c.name || "").toLowerCase().includes(query);
+      const matchWallet = (c.wallet || "").toLowerCase().includes(query);
+      const matchTitle = (c.title || "").toLowerCase().includes(query);
+      const matchElection = (c.electionTitle || "").toLowerCase().includes(query);
+      if (!matchName && !matchWallet && !matchTitle && !matchElection) return false;
+    }
+
+    // Lọc theo kỳ
+    if (eidFilter) {
+      if (eidFilter === "pending") {
+        if (c.electionId !== null) return false;
+      } else {
+        if (String(c.electionId) !== String(eidFilter)) return false;
+      }
+    }
+
+    // Lọc theo trạng thái
+    if (statusFilter) {
+      if (c.status !== statusFilter) return false;
+    }
+
+    return true;
+  });
+
+  if (filtered.length === 0) {
+    tbody.innerHTML = `
+      <tr>
+        <td colspan="8" style="text-align:center; padding:36px; color:var(--text-muted);">
+          🔍 Không tìm thấy ứng viên nào phù hợp với bộ lọc tìm kiếm.
+        </td>
+      </tr>
+    `;
+    return;
+  }
+
+  tbody.innerHTML = filtered.map((c, idx) => {
+    // Avatar
+    const avatarLetter = (c.name || "U").charAt(0).toUpperCase();
+    const avatarHtml = `<div class="cand-cell-avatar">${avatarLetter}</div>`;
+
+    // Wallet HTML
+    let walletHtml = `<span style="color:var(--text-muted); font-size:12px;">Chưa gán ví</span>`;
+    if (c.wallet) {
+      const shortAddr = `${c.wallet.substring(0, 6)}...${c.wallet.substring(38)}`;
+      const etherscanUrl = `https://sepolia.etherscan.io/address/${c.wallet}`;
+      walletHtml = `
+        <div style="display:flex; align-items:center; gap:6px;">
+          <code style="font-family:var(--font-mono); font-size:12px; background:#f1f5f9; padding:2px 5px; border-radius:4px;" title="${c.wallet}">${shortAddr}</code>
+          <button type="button" class="btn btn-outline btn-sm" style="padding:1px 5px; font-size:10px;" onclick="copyToClipboard('${c.wallet}', 'Địa chỉ ví')">Copy</button>
+          <a href="${etherscanUrl}" target="_blank" rel="noopener noreferrer" style="font-size:11px; text-decoration:none;" title="Xem trên Sepolia Etherscan">🔗</a>
+        </div>
+      `;
+    }
+
+    // Internal role badge
+    const roleBadge = c.roleDesc.includes("Cổ đông") 
+      ? `<span class="badge" style="background:#ede9fe; color:#6d28d9; border:1px solid #ddd6fe; font-size:11px;">👑 ${c.roleDesc}</span>`
+      : `<span class="badge" style="background:#e0f2fe; color:#0369a1; border:1px solid #bae6fd; font-size:11px;">🎯 ${c.roleDesc}</span>`;
+
+    // Election info
+    let electionHtml = `<span style="color:var(--text-muted); font-size:12px;">⭐ Chưa tham gia kỳ nào</span>`;
+    if (c.electionId) {
+      electionHtml = `
+        <div>
+          <strong style="color:#1e3a8a; font-size:12.5px;">Kỳ #${c.electionId}</strong>
+          <div style="font-size:11.5px; color:#64748b; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:200px;" title="${c.electionTitle}">
+            ${c.electionTitle}
+          </div>
+        </div>
+      `;
+    }
+
+    // Votes
+    const votesHtml = c.electionId !== null 
+      ? `<span class="cand-votes-badge">${c.votes.toLocaleString()} phiếu</span>`
+      : `<span style="color:var(--text-muted); font-size:12px;">--</span>`;
+
+    // Result status badge
+    let statusBadge = "";
+    if (c.status === "elected") {
+      statusBadge = `<span class="badge-elected">🏆 Đã Trúng Cử HĐQT</span>`;
+    } else if (c.status === "running") {
+      statusBadge = `<span class="badge-running">⏳ Đang Tranh Cử</span>`;
+    } else if (c.status === "not_elected") {
+      statusBadge = `<span class="badge-not-elected">❌ Không Đắc Cử</span>`;
+    } else {
+      statusBadge = `<span class="badge-approved-pending">⭐ Đã Duyệt - Chưa Nạp</span>`;
+    }
+
+    // Actions
+    let actionBtn = "";
+    if (c.electionId) {
+      actionBtn = `
+        <button type="button" class="btn btn-outline btn-sm" style="font-size:11px; padding:3px 8px;" onclick="adminViewCandidateElection(${c.electionId})" title="Chuyển đến quản trị kỳ bầu cử này">
+          👁️ Xem Kỳ
+        </button>
+      `;
+    } else {
+      actionBtn = `
+        <button type="button" class="btn btn-primary btn-sm" style="font-size:11px; padding:3px 8px;" onclick="openAddCandidateForPending('${c.name}', '${c.wallet}')" title="Nạp ứng viên này vào kỳ bầu cử">
+          ➕ Nạp Kỳ
+        </button>
+      `;
+    }
+
+    return `
+      <tr>
+        <td data-label="STT" style="text-align:center; font-weight:600; color:#64748b;">${idx + 1}</td>
+        <td data-label="Ứng viên HĐQT">
+          <div class="cand-cell-info">
+            ${avatarHtml}
+            <div class="cand-cell-details">
+              <span class="cand-cell-name">${c.name}</span>
+              <span class="cand-cell-title">${c.title}</span>
+              ${c.profileCid ? `<a href="https://purple-fashionable-rooster-653.mypinata.cloud/ipfs/${c.profileCid.replace('ipfs://', '')}" target="_blank" rel="noopener noreferrer" style="font-size:11px; color:#2563eb; text-decoration:none;">📄 Xem hồ sơ IPFS</a>` : ''}
+            </div>
+          </div>
+        </td>
+        <td data-label="Địa chỉ ví">${walletHtml}</td>
+        <td data-label="Vai trò nội bộ">${roleBadge}</td>
+        <td data-label="Kỳ bầu cử">${electionHtml}</td>
+        <td data-label="Phiếu bầu" style="text-align:right;">${votesHtml}</td>
+        <td data-label="Kết quả trúng cử" style="text-align:center;">${statusBadge}</td>
+        <td data-label="Thao tác" style="text-align:center;">${actionBtn}</td>
+      </tr>
+    `;
+  }).join("");
+}
+
+function adminViewCandidateElection(electionId) {
+  const panelBtn = document.querySelector('.admin-sidebar-nav [data-tab="adminPanelTab"]');
+  if (panelBtn) switchTab('adminPanelTab', panelBtn);
+  if (typeof adminSelectElection === "function") adminSelectElection(electionId);
+}
+
+function openAddCandidateForPending(name, wallet) {
+  if (!currentElectionId && allElections.length > 0) {
+    const regElection = allElections.find(e => Number(e.status) === STATUS_CONTRACT.REGISTRATION) || allElections[0];
+    currentElectionId = regElection.id;
+  }
+  openAddCandidateModal();
+  document.getElementById("candidateNameInput").value = name;
+  const wInput = document.getElementById("candidateWalletInput");
+  if (wInput) wInput.value = wallet || "";
+  checkCandidateValidity(name, wallet);
 }
 
 // ============================================================
@@ -5001,17 +5958,19 @@ const DEFAULT_COMPANY_WALLETS = [
     address: "0x97dDAB73649438b3a6bfE791B184d7F2aE7D31D4",
     name: "Alicu",
     title: "Thành viên công ty",
-    role: "voter",
+    role: "voter_candidate",
+    isCandidate: true,
     shares: 200,
-    notes: "Cổ đông đã nhận 200 CP trên Blockchain",
+    notes: "Cổ đông (200 CP) kiêm Ứng viên HĐQT được Admin duyệt",
     createdAt: "2026-11-17T12:36:07.454Z",
-    updatedAt: "2026-11-17T15:08:27.075Z"
+    updatedAt: "2026-11-17T23:17:12.357Z"
   },
   {
     address: "0xEC724825a8d91B1C7Fbc39720eaF56D51c28f7Ea",
     name: "Bob",
     title: "Thành viên công ty",
     role: "voter",
+    isCandidate: false,
     shares: 0,
     notes: "",
     createdAt: "2026-11-17T15:55:47.023Z",
@@ -5022,6 +5981,7 @@ const DEFAULT_COMPANY_WALLETS = [
     name: "Sophia The First",
     title: "Thành viên công ty",
     role: "voter",
+    isCandidate: false,
     shares: 50,
     notes: "bố là chủ tịch",
     createdAt: "2026-11-17T16:04:52.782Z",
@@ -5031,9 +5991,10 @@ const DEFAULT_COMPANY_WALLETS = [
     address: "0xabbC81db44b1B05033C6AEa9321c544A51C7AE19",
     name: "Ungvien",
     title: "Thành viên công ty",
-    role: "voter",
+    role: "candidate",
+    isCandidate: true,
     shares: 0,
-    notes: "",
+    notes: "Ứng viên HĐQT được Admin phê duyệt",
     createdAt: "2026-11-17T21:21:03.463Z",
     updatedAt: "2026-11-17T21:21:03.463Z"
   }
@@ -5200,8 +6161,8 @@ function renderCompanyWalletsTable() {
 
         return `
           <tr>
-            <td style="font-weight:600; color:var(--text-muted);">${idx + 1}</td>
-            <td>
+            <td data-label="STT" style="font-weight:600; color:var(--text-muted);">${idx + 1}</td>
+            <td data-label="Địa chỉ ví">
               <div class="addr-badge-wrapper" title="${w.address}">
                 <span class="addr-mono">${shortAddr}</span>
                 <button type="button" class="btn-icon-link" onclick="copyWalletAddress('${w.address}')" title="Sao chép địa chỉ">Copy</button>
@@ -5209,12 +6170,12 @@ function renderCompanyWalletsTable() {
               </div>
               ${isSuper ? '<div style="font-size:10px; color:#d97706; font-weight:700; margin-top:3px;">Genesis Super Admin</div>' : ''}
             </td>
-            <td>
+            <td data-label="Họ tên & Chức danh">
               <div class="wallet-person-name">${escapeHtml(w.name || "Chưa đặt tên")}</div>
               <div class="wallet-person-title">${escapeHtml(w.title || "Nhân sự")}</div>
             </td>
-            <td>${getRoleBadgeHtml(w.role, w.isCandidate)}</td>
-            <td>
+            <td data-label="Vai trò">${getRoleBadgeHtml(w.role, w.isCandidate)}</td>
+            <td data-label="Cổ phần">
               ${isAdmin ? `
                 <div style="font-size:12.5px; color:var(--text-muted); font-style:italic;">
                   -- (Admin không nhận CP)
@@ -5247,8 +6208,8 @@ function renderCompanyWalletsTable() {
                 </div>
               `)}
             </td>
-            <td style="font-size:12.5px; color:#475569;">${escapeHtml(w.notes || "--")}</td>
-            <td>
+            <td data-label="Ghi chú" style="font-size:12.5px; color:#475569;">${escapeHtml(w.notes || "--")}</td>
+            <td data-label="Thao tác">
               <div class="table-actions" style="justify-content:center;">
                 <button type="button" class="btn btn-outline btn-sm" onclick="openEditWalletModal('${w.address}')" title="Chỉnh sửa thông tin">
                   ✏️ Sửa

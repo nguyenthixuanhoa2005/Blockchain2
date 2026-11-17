@@ -147,6 +147,15 @@
                 <span class="nav-label">Danh sách ví nội bộ</span>
               </button>
 
+              <button type="button" class="tab-btn admin-nav-btn" id="btnNavAdminCandidates" data-tab="adminCandidatesTab" onclick="switchTab('adminCandidatesTab', this); if (typeof switchAdminTab === 'function') switchAdminTab('adminCandidatesTab');" title="Quản lý ứng viên HĐQT đã ứng cử">
+                <svg class="nav-svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                  <circle cx="12" cy="12" r="10"/>
+                  <circle cx="12" cy="12" r="6"/>
+                  <circle cx="12" cy="12" r="2"/>
+                </svg>
+                <span class="nav-label">Quản lý ứng viên</span>
+              </button>
+
               <button type="button" class="tab-btn admin-nav-btn" onclick="switchTab('adminResultsTab', this)" title="Kết quả & giám sát phiếu">
                 <svg class="nav-svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
                   <line x1="18" y1="20" x2="18" y2="10"/>
@@ -537,6 +546,95 @@
           </div>
         </section>
 
+        <!-- Tab 1.2b: Quản lý Ứng Viên HĐQT Đã Ứng Cử -->
+        <section id="adminCandidatesTab" class="tab-content">
+          <!-- Thống kê ứng viên -->
+          <div class="card" style="margin-bottom: 18px;">
+            <div class="grid-4" style="grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));">
+              <div class="stat-box">
+                <div class="stat-label">Tổng ứng viên HĐQT</div>
+                <div class="stat-value" id="statAdminCandTotal">0</div>
+                <div class="stat-desc">Đã phê duyệt hoặc tham gia kỳ</div>
+              </div>
+              <div class="stat-box" style="border-left: 3px solid #2563eb;">
+                <div class="stat-label">Đang tranh cử</div>
+                <div class="stat-value" id="statAdminCandActive" style="color:#1d4ed8;">0</div>
+                <div class="stat-desc">Trong các kỳ đang mở bỏ phiếu</div>
+              </div>
+              <div class="stat-box stat-box-primary" style="border-left: 3px solid #16a34a;">
+                <div class="stat-label">Đã đắc cử HĐQT 🏆</div>
+                <div class="stat-value" id="statAdminCandElected" style="color:#15803d;">0</div>
+                <div class="stat-desc">Trúng cử theo Điều 148 Luật DN</div>
+              </div>
+              <div class="stat-box" style="border-left: 3px solid #f59e0b;">
+                <div class="stat-label">Tỷ lệ trúng cử</div>
+                <div class="stat-value" id="statAdminCandRate" style="color:#b45309;">0%</div>
+                <div class="stat-desc">Số đắc cử / Đã hoàn tất kỳ</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Bảng danh sách ứng viên đã ứng cử -->
+          <div class="card">
+            <div class="card-title">
+              <div style="display:flex; align-items:center; gap:8px;">
+                <span>Quản Lý Ứng Viên HĐQT Đã Ứng Cử &amp; Kết Quả Trúng Cử</span>
+              </div>
+              <div style="font-size:12px; font-weight:normal; color:var(--text-muted);">
+                Theo dõi quá trình ứng cử, số phiếu dồn lũy kế và tình trạng trúng cử vào HĐQT
+              </div>
+            </div>
+
+            <!-- Toolbar Lọc & Tìm kiếm -->
+            <div class="wallets-toolbar">
+              <div class="wallets-filter-group" style="flex-wrap: wrap; gap: 8px;">
+                <input type="text" id="candidateSearchInput" class="form-input wallets-search-input" placeholder="Tìm ứng viên theo tên, địa chỉ ví 0x..., chức vụ" oninput="if(typeof filterAdminCandidatesTable==='function')filterAdminCandidatesTable()" style="min-width: 260px;">
+                <select id="candidateElectionFilter" class="form-select" style="min-width: 180px;" onchange="if(typeof filterAdminCandidatesTable==='function')filterAdminCandidatesTable()">
+                  <option value="">-- Tất cả kỳ bầu cử --</option>
+                </select>
+                <select id="candidateStatusFilter" class="form-select" style="min-width: 180px;" onchange="if(typeof filterAdminCandidatesTable==='function')filterAdminCandidatesTable()">
+                  <option value="">-- Tất cả trạng thái --</option>
+                  <option value="elected">🏆 Đã đắc cử HĐQT</option>
+                  <option value="running">⏳ Đang tranh cử (Đang bầu)</option>
+                  <option value="not_elected">❌ Không đắc cử</option>
+                  <option value="pending">⭐ Đã duyệt - Chưa nạp kỳ nào</option>
+                </select>
+              </div>
+
+              <div class="wallets-actions-group">
+                <button type="button" id="btnRefreshCandidates" class="btn btn-outline btn-sm" onclick="if(typeof renderAdminCandidatesTab==='function')renderAdminCandidatesTab(true)" title="Làm mới và đồng bộ dữ liệu ứng viên">
+                  🔄 Đồng bộ lại
+                </button>
+              </div>
+            </div>
+
+            <!-- Bảng danh sách ứng viên -->
+            <div class="table-container">
+              <table id="adminCandidatesTable">
+                <thead>
+                  <tr>
+                    <th style="width:40px; text-align:center;">STT</th>
+                    <th style="min-width:200px;">Ứng Viên HĐQT</th>
+                    <th style="min-width:200px;">Địa Chỉ Ví Ethereum</th>
+                    <th style="width:140px;">Vai Trò Nội Bộ</th>
+                    <th style="min-width:210px;">Kỳ Bầu Cử Tham Gia</th>
+                    <th style="width:130px; text-align:right;">Phiếu Bầu</th>
+                    <th style="width:160px; text-align:center;">Kết Quả Trúng Cử</th>
+                    <th style="width:110px; text-align:center;">Thao Tác</th>
+                  </tr>
+                </thead>
+                <tbody id="adminCandidatesTableBody">
+                  <tr>
+                    <td colspan="8" style="text-align:center; padding:30px; color:var(--text-muted);">
+                      Đang tải danh sách ứng viên HĐQT đã ứng cử...
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </section>
+
         <!-- Tab 1.3: Kết quả -->
         <section id="adminResultsTab" class="tab-content">
           <div class="card" style="margin-bottom: 20px;">
@@ -679,6 +777,13 @@
                 </svg>
                 <span class="nav-label">Lịch sử bỏ phiếu</span>
               </button>
+
+              <button type="button" class="tab-btn admin-nav-btn" id="voterCandidateSidebarBtn" onclick="switchTab('voterCandidateHistoryTab', this)" title="Lịch sử tham gia ứng cử HĐQT" style="display:none;">
+                <svg class="nav-svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
+                </svg>
+                <span class="nav-label">Lịch sử ứng cử</span>
+              </button>
             </nav>
 
             <!-- Bottom System Indicator -->
@@ -724,9 +829,12 @@
                 <div class="card" style="border-left: 5px solid #8b5cf6; background: linear-gradient(135deg, #fcfaff 0%, #f6effe 100%); border-radius:12px; box-shadow:0 4px 16px rgba(139,92,246,0.08);">
                   <div style="display:flex; justify-content:space-between; align-items:flex-start; flex-wrap:wrap; gap:12px;">
                     <div>
-                      <div style="display:flex; align-items:center; gap:8px; margin-bottom:6px;">
-                        <span class="badge" style="background:#8b5cf6; color:white; font-weight:700; font-size:11px;">🎯 VAI TRÒ: ỨNG CỬ VIÊN HĐQT</span>
+                      <div style="display:flex; align-items:center; gap:8px; margin-bottom:6px; flex-wrap:wrap;">
+                        <span class="badge" style="background:#8b5cf6; color:white; font-weight:700; font-size:11px;">VAI TRÒ: ỨNG CỬ VIÊN HĐQT</span>
                         <span class="badge badge-success" style="font-size:11px;">✓ Đã được Admin phê duyệt</span>
+                        <button type="button" class="btn btn-outline btn-sm" onclick="switchTab('voterCandidateHistoryTab', document.getElementById('voterCandidateSidebarBtn'))" style="border-color:#8b5cf6; color:#6b21a8; font-weight:700; font-size:11px; padding:2px 10px; background:#fff;">
+                          Xem chi tiết lịch sử ứng cử →
+                        </button>
                       </div>
                       <h3 style="font-size:16px; font-weight:800; color:#581c87; margin:0;">
                         Bạn đang là Ứng cử viên chính thức tham gia tranh cử Hội Đồng Quản Trị
@@ -800,6 +908,19 @@
                     <div class="action-tile-content">
                       <div class="action-tile-title">Lịch Sử &amp; Biên Nhận</div>
                       <div class="action-tile-desc">Đối chiếu biên nhận phiếu bầu và mã băm giao dịch xác thực on-chain</div>
+                    </div>
+                    <span class="action-tile-arrow">→</span>
+                  </div>
+
+                  <div class="voter-action-tile" id="voterCandidateHistoryTile" style="display:none;" onclick="switchTab('voterCandidateHistoryTab', document.getElementById('voterCandidateSidebarBtn'))">
+                    <div class="action-tile-icon" style="background:#fdf4ff; color:#a855f7;">
+                      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
+                      </svg>
+                    </div>
+                    <div class="action-tile-content">
+                      <div class="action-tile-title">Lịch Sử Ứng Cử HĐQT</div>
+                      <div class="action-tile-desc">Theo dõi các kỳ tham gia, số phiếu nhận được và kết quả trúng cử HĐQT</div>
                     </div>
                     <span class="action-tile-arrow">→</span>
                   </div>
@@ -991,10 +1112,115 @@
             <p style="font-size:13px;color:var(--text-muted);margin-bottom:14px;">
               Đối chiếu các lượt bỏ phiếu, số phiếu và mã giao dịch on-chain.
             </p>
+
+            <!-- Banner nhắc nhở ứng cử viên nếu tài khoản có vai trò ứng viên -->
+            <div id="voterCandidateNoticeInHistory" style="display:none; background:#f5f3ff; border:1px solid #ddd6fe; border-radius:8px; padding:12px 16px; margin-bottom:14px; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px;">
+              <div style="font-size:13px; color:#581c87;">
+                <strong>Bạn có vai trò Ứng viên HĐQT:</strong> Bạn có thể theo dõi số phiếu bầu nhận được từ các cổ đông khác và kết quả trúng cử tại mục <strong>Lịch sử ứng cử HĐQT</strong>.
+              </div>
+              <button type="button" class="btn btn-outline btn-sm" onclick="switchTab('voterCandidateHistoryTab', document.getElementById('voterCandidateSidebarBtn'))" style="border-color:#8b5cf6; color:#7c3aed; font-weight:700; background:#fff;">
+                Xem lịch sử ứng cử →
+              </button>
+            </div>
+
             <div id="voteHistoryContainer">
               <div class="history-empty">
                 <div class="history-icon">--</div>
                 <div>Chưa có lịch sử bỏ phiếu nào cho ví này.</div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- Tab 2.4: Lịch sử ứng cử HĐQT (Dành cho Cổ đông có vai trò Ứng viên hoặc Ứng viên HĐQT) -->
+        <section id="voterCandidateHistoryTab" class="tab-content">
+          <!-- Thống kê tổng hợp ứng cử -->
+          <div class="card" style="margin-bottom: 18px; border-left: 5px solid #8b5cf6; background: linear-gradient(135deg, #ffffff 0%, #faf5ff 100%);">
+            <div style="display:flex; justify-content:space-between; align-items:flex-start; flex-wrap:wrap; gap:12px; margin-bottom:16px;">
+              <div>
+                <div style="display:flex; align-items:center; gap:8px; margin-bottom:6px; flex-wrap:wrap;">
+                  <span class="badge" style="background:#8b5cf6; color:white; font-weight:700; font-size:11px;">VAI TRÒ ỨNG VIÊN HĐQT</span>
+                  <span class="badge badge-success" style="font-size:11px;">✓ Đã phê duyệt chính thức</span>
+                </div>
+                <h3 style="margin:0; font-size:17px; font-weight:800; color:#581c87;">
+                  Lịch Sử Tham Gia Ứng Cử &amp; Kết Quả Trúng Cử HĐQT
+                </h3>
+                <div style="font-size:12.5px; color:#6b21a8; margin-top:4px;">
+                  Theo dõi minh bạch số phiếu nhận được từ các cổ đông, vị trí xếp hạng và kết quả đắc cử Hội đồng Quản trị trên Blockchain
+                </div>
+              </div>
+              <div style="display:flex; align-items:center; gap:8px;">
+                <button type="button" class="btn btn-outline btn-sm" onclick="renderCandidateDashboardSection()" title="Đồng bộ lại dữ liệu ứng viên từ blockchain" style="background:#fff;">
+                  🔄 Đồng bộ lại
+                </button>
+              </div>
+            </div>
+
+            <!-- Panel 4 chỉ số thống kê ứng cử -->
+            <div class="overview-stats-grid">
+              <div class="overview-stat-cell">
+                <div class="stat-cell-header">
+                  <span class="stat-cell-title">Tổng phiếu nhận được</span>
+                </div>
+                <div class="stat-number-val" id="candTabTotalVotes" style="color:#7c3aed;">0</div>
+                <div class="stat-cell-sub">Lũy kế từ tất cả các kỳ</div>
+              </div>
+
+              <div class="overview-stat-cell">
+                <div class="stat-cell-header">
+                  <span class="stat-cell-title">Kỳ tham gia ứng cử</span>
+                </div>
+                <div class="stat-number-val" id="candTabTotalParticipating" style="color:#2563eb;">0</div>
+                <div class="stat-cell-sub">Tổng số kỳ trong danh sách</div>
+              </div>
+
+              <div class="overview-stat-cell" style="border-left: 3px solid #16a34a;">
+                <div class="stat-cell-header">
+                  <span class="stat-cell-title">Số kỳ đắc cử HĐQT</span>
+                  <span style="font-size:14px;">🏆</span>
+                </div>
+                <div class="stat-number-val" id="candTabTotalElected" style="color:#15803d;">0</div>
+                <div class="stat-cell-sub">Trúng cử chính thức</div>
+              </div>
+
+              <div class="overview-stat-cell" style="border-left: 3px solid #f59e0b;">
+                <div class="stat-cell-header">
+                  <span class="stat-cell-title">Tỷ lệ trúng cử</span>
+                </div>
+                <div class="stat-number-val" id="candTabElectedRate" style="color:#b45309;">0%</div>
+                <div class="stat-cell-sub">Tỷ lệ trên số kỳ đã hoàn tất</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Bảng danh sách chi tiết các cuộc bầu cử đã tham gia -->
+          <div class="card">
+            <div class="card-title">
+              <div style="display:flex; align-items:center; gap:8px;">
+                <span>📋 Danh Sách Các Cuộc Bầu Cử Đã Tham Gia &amp; Trạng Thái Đắc Cử</span>
+              </div>
+              <div style="font-size:12px; font-weight:normal; color:var(--text-muted);">
+                Xác thực trực tiếp từ Smart Contract Sepolia
+              </div>
+            </div>
+
+            <!-- Toolbar Lọc trạng thái -->
+            <div class="wallets-toolbar" style="margin-bottom:14px;">
+              <div class="wallets-filter-group" style="flex-wrap: wrap; gap: 8px;">
+                <select id="candFilterStatus" class="form-select" style="min-width: 200px;" onchange="filterCandidateElectionList(this.value)">
+                  <option value="all">-- Tất cả trạng thái --</option>
+                  <option value="elected">🏆 Đã đắc cử HĐQT</option>
+                  <option value="running">🟢 Đang tranh cử (Đang bầu)</option>
+                  <option value="not_elected">❌ Không đắc cử</option>
+                  <option value="cancelled">⛔ Đã hủy</option>
+                </select>
+              </div>
+            </div>
+
+            <!-- Container danh sách thẻ hoặc bảng -->
+            <div id="candidateElectionHistoryList">
+              <div style="text-align:center; padding:30px; color:var(--text-muted);">
+                Đang tải dữ liệu lịch sử ứng cử...
               </div>
             </div>
           </div>
@@ -1357,6 +1583,23 @@
       </div>
       <div class="modal-body">
         <input type="hidden" id="candidateTargetElectionId" value="">
+
+        <!-- Hộp cảnh báo kiểm tra quyền ứng cử (Mặc định ẩn, bật khi ví/tên chưa có quyền ứng cử) -->
+        <div id="addCandidateValidationAlert" class="alert alert-danger" style="display: none; margin-bottom: 14px; border-left: 4px solid #ef4444; background: #fef2f2; border-radius: 8px; padding: 12px 14px;">
+          <div style="display: flex; align-items: flex-start; gap: 10px;">
+            <span style="font-size: 18px; line-height: 1;">⚠️</span>
+            <div>
+              <strong style="color: #991b1b; font-size: 13.5px; display: block;">Ứng viên hiện tại chưa được ứng cử!</strong>
+              <span id="addCandidateValidationAlertMsg" style="color: #b91c1c; font-size: 12.5px;">Cổ đông này chưa được cấp quyền ứng cử HĐQT. Vui lòng chuyển vai trò thành Ứng viên trong Danh sách ví nội bộ trước khi nạp vào kỳ bầu cử.</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Thông báo quy chế hợp lệ -->
+        <div style="background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 8px; padding: 10px 14px; margin-bottom: 14px; font-size: 12.5px; color: #1e40af; display: flex; align-items: center; gap: 8px;">
+          <span style="font-size: 16px;">ℹ️</span>
+          <span><strong>Quy chế ứng cử:</strong> Ứng viên bắt buộc phải có vai trò là Ứng viên (được Admin phê duyệt trong Danh bạ ví). Cổ đông thông thường chưa được cấp quyền ứng cử sẽ không thể tham gia tranh cử HĐQT.</span>
+        </div>
 
         <!-- Chọn nhanh từ danh bạ cổ đông công ty -->
         <div class="form-group" style="background:#f5f3ff; border:1px solid #ddd6fe; border-radius:8px; padding:12px; margin-bottom:14px;">
