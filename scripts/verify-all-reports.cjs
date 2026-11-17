@@ -60,7 +60,8 @@ function verifyDocx(filePath, docName) {
     stats,
     paragraphCount,
     tableCount,
-    tableRowCount
+    tableRowCount,
+    tableCellCount
   };
 }
 
@@ -112,6 +113,24 @@ try {
     checkKeyword(masterDoc.rawText, 'PHIẾU CHẤM ĐIỂM', 'Evaluation / Grading Sheet (Phiếu chấm điểm)'),
     checkKeyword(masterDoc.rawText, 'MỤC LỤC', 'Table of Contents (Mục lục)'),
 
+    // 4 Actors & Matrix & Overview
+    checkKeyword(masterDoc.rawText, 'Quản trị viên', 'Actor 1: Quản trị viên (Super Admin / Election Admin)'),
+    checkKeyword(masterDoc.rawText, 'Cổ đông doanh nghiệp', 'Actor 2: Cổ đông doanh nghiệp (Shareholder / Voter)'),
+    checkKeyword(masterDoc.rawText, 'Ban Kiểm Soát', 'Actor 3: Ban Kiểm Soát (Supervisory Board / Auditor)'),
+    checkKeyword(masterDoc.rawText, 'Khách vãng lai', 'Actor 4: Khách vãng lai / Cộng đồng (Public Guest)'),
+    checkKeyword(masterDoc.rawText, 'Ma trận phân quyền tác nhân', 'Actor vs Features Matrix (Ma trận phân quyền)'),
+    checkKeyword(masterDoc.rawText, 'Sơ đồ tổng quát hệ thống', 'Use Case & System Architecture Overview Diagram'),
+
+    // 5 Activity Diagrams (Biểu đồ hoạt động) & Descriptions
+    checkKeyword(masterDoc.rawText, 'Activity Diagram 1', 'Activity Diagram 1 (Phát hành cổ phần & Auto-Delegation)'),
+    checkKeyword(masterDoc.rawText, 'Activity Diagram 2', 'Activity Diagram 2 (Tạo kỳ bầu cử & Đăng ký ứng viên IPFS)'),
+    checkKeyword(masterDoc.rawText, 'Activity Diagram 3', 'Activity Diagram 3 (Mở phiên & Chốt Snapshot Block)'),
+    checkKeyword(masterDoc.rawText, 'Activity Diagram 4', 'Activity Diagram 4 (Bỏ phiếu dồn Cumulative Voting)'),
+    checkKeyword(masterDoc.rawText, 'Activity Diagram 5', 'Activity Diagram 5 (Đóng phiên & Kiểm phiếu Selection Sort)'),
+    checkKeyword(masterDoc.rawText, 'Phân làn', 'UML Swimlanes structure'),
+    checkKeyword(masterDoc.rawText, 'Chốt an toàn', 'Security Validation Gates analysis in all diagrams'),
+    checkKeyword(masterDoc.rawText, 'Luồng Ngoại Lệ', 'Exception and Revert conditions table column'),
+
     // Functional & Domain Requirements
     checkKeyword(masterDoc.rawText, 'Luật Doanh nghiệp', 'Law on Enterprises (Luật Doanh nghiệp 2020)'),
     checkKeyword(masterDoc.rawText, 'Bầu dồn phiếu', 'Cumulative Voting Concept'),
@@ -119,13 +138,6 @@ try {
     checkKeyword(masterDoc.rawText, 'FR01', 'Functional Requirement FR01 (ShareToken)'),
     checkKeyword(masterDoc.rawText, 'FR05', 'Functional Requirement FR05 (Cumulative Voting)'),
     checkKeyword(masterDoc.rawText, 'FR08', 'Functional Requirement FR08 (Tie Detection)'),
-
-    // System Architecture & Activity Diagrams
-    checkKeyword(masterDoc.rawText, 'Kiến trúc', 'System Architecture'),
-    checkKeyword(masterDoc.rawText, 'Biểu đồ hoạt động', 'Activity Diagrams'),
-    checkKeyword(masterDoc.rawText, 'Đăng ký ứng viên', 'Candidate Registration Activity'),
-    checkKeyword(masterDoc.rawText, 'Bỏ phiếu dồn', 'Voting Activity Diagram'),
-    checkKeyword(masterDoc.rawText, 'Đóng phiên', 'Close Election Activity'),
 
     // Smart Contracts & Tech Stack
     checkKeyword(masterDoc.rawText, 'ShareToken.sol', 'ShareToken Contract'),
@@ -177,7 +189,8 @@ try {
   console.log('✓ 100% CHECKLIST ITEMS PASSED for Bao_Cao_He_Thong_Bau_HDQT_Blockchain.docx\n');
 
   console.log(`======================================================`);
-  console.log(`AUDIT RESULT: 100% OF REQUIREMENTS SATISFIED!`);
+  console.log(`FINAL AUDIT RESULT: 100% OF USER CHECKLIST SATISFIED!`);
+  console.log(`Both files verified successfully.`);
   console.log(`======================================================\n`);
 
 } catch (err) {

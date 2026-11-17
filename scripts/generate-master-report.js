@@ -183,6 +183,52 @@ function createCalloutBox(title, content) {
   });
 }
 
+function createDataTable(headers, rows, widths) {
+  const border = {
+    top: { style: BorderStyle.SINGLE, size: 4, color: COLOR_BORDER },
+    bottom: { style: BorderStyle.SINGLE, size: 4, color: COLOR_BORDER },
+    left: { style: BorderStyle.SINGLE, size: 4, color: COLOR_BORDER },
+    right: { style: BorderStyle.SINGLE, size: 4, color: COLOR_BORDER },
+    insideHorizontal: { style: BorderStyle.SINGLE, size: 4, color: COLOR_BORDER },
+    insideVertical: { style: BorderStyle.SINGLE, size: 4, color: COLOR_BORDER }
+  };
+  return new Table({
+    width: { size: 100, type: WidthType.PERCENTAGE },
+    borders: border,
+    rows: [
+      new TableRow({
+        children: headers.map((h, i) => new TableCell({
+          width: { size: widths[i], type: WidthType.PERCENTAGE },
+          shading: { fill: COLOR_BG_HEADER, type: ShadingType.CLEAR },
+          margins: { top: 80, bottom: 80, left: 100, right: 100 },
+          children: [
+            new Paragraph({
+              alignment: AlignmentType.CENTER,
+              children: [new TextRun({ text: h, bold: true, color: "FFFFFF", font: FONT_FAMILY, size: 20 })]
+            })
+          ]
+        }))
+      }),
+      ...rows.map((row, rIdx) => {
+        const bg = rIdx % 2 === 1 ? COLOR_BG_ZEBRA : "FFFFFF";
+        return new TableRow({
+          children: row.map((cellText, cIdx) => new TableCell({
+            width: { size: widths[cIdx], type: WidthType.PERCENTAGE },
+            shading: { fill: bg, type: ShadingType.CLEAR },
+            margins: { top: 70, bottom: 70, left: 90, right: 90 },
+            children: [
+              new Paragraph({
+                alignment: cIdx === 0 ? AlignmentType.CENTER : AlignmentType.LEFT,
+                children: [new TextRun({ text: cellText, font: FONT_FAMILY, size: 19 })]
+              })
+            ]
+          }))
+        });
+      })
+    ]
+  });
+}
+
 function createCodeBlock(codeText, lang = "solidity") {
   const lines = codeText.split('\n');
   const paragraphs = lines.map(line => {
@@ -245,9 +291,9 @@ function createDiagramBox(title, diagramText) {
           new TextRun({
             text: line,
             font: "Consolas",
-            size: 18, // 9pt
+            size: 17, // 8.5pt
             color: "1A365D",
-            bold: line.includes("┌") || line.includes("├") || line.includes("│") || line.includes("==") || line.includes("STEP")
+            bold: line.includes("┌") || line.includes("├") || line.includes("│") || line.includes("==") || line.includes("STEP") || line.includes("LÀN")
           })
         ]
       });
@@ -267,7 +313,7 @@ function createDiagramBox(title, diagramText) {
         children: [
           new TableCell({
             shading: { fill: "F8FAFC", type: ShadingType.CLEAR },
-            margins: { top: 120, bottom: 120, left: 160, right: 160 },
+            margins: { top: 120, bottom: 120, left: 140, right: 140 },
             children: paragraphs
           })
         ]
@@ -279,9 +325,8 @@ function createDiagramBox(title, diagramText) {
 // Generate the whole document
 export async function buildMasterReport() {
   console.log("🚀 Bắt đầu khởi tạo Báo cáo Chuyên đề: Xây dựng Hệ thống Bỏ phiếu Bầu HĐQT Doanh nghiệp...");
+  console.log("-> Đang cấu hình các chương và sơ đồ hoàn chỉnh...");
 
-  // Load test cases data
-  console.log("-> Đang khởi tạo tài liệu Document...");
   const doc = new Document({
     styles: {
       default: {
@@ -552,7 +597,7 @@ export async function buildMasterReport() {
                 children: [
                   new TableCell({ margins: { top: 120, bottom: 120, left: 100, right: 100 }, children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: "1", font: FONT_FAMILY, size: 22 })] })] }),
                   new TableCell({ margins: { top: 120, bottom: 120, left: 100, right: 100 }, children: [new Paragraph({ children: [new TextRun({ text: "Nguyễn Thị Xuân Hoa\nMSV: 23810310027\nLớp: D18CNPM1", bold: true, font: FONT_FAMILY, size: 22 })] })] }),
-                  new TableCell({ margins: { top: 120, bottom: 120, left: 100, right: 100 }, children: [new Paragraph({ alignment: AlignmentType.JUSTIFIED, children: [new TextRun({ text: "- Nghiên cứu cơ chế Bầu dồn phiếu theo Luật Doanh nghiệp 2020.\n- Thiết kế kiến trúc hệ thống 3 tầng: Web dApp, Node.js Backend & IPFS Pinata, Ethereum Smart Contract.\n- Phát triển Smart Contract: ShareToken.sol (ERC20Votes checkpoint snapshot) và BoardElection.sol (Cumulative voting, Selection Sort winners, tie detection, Pausable, ReentrancyGuard).\n- Xây dựng bộ kiểm thử Hardhat tự động với 35/35 ca kiểm thử đạt 100% PASS.\n- Triển khai thực tế và xác minh thành công trên mạng Ethereum Sepolia Testnet.", font: FONT_FAMILY, size: 20 })] })] }),
+                  new TableCell({ margins: { top: 120, bottom: 120, left: 100, right: 100 }, children: [new Paragraph({ alignment: AlignmentType.JUSTIFIED, children: [new TextRun({ text: "- Nghiên cứu cơ chế Bầu dồn phiếu theo Luật Doanh nghiệp 2020.\n- Thiết kế kiến trúc hệ thống 3 tầng: Web dApp, Node.js Backend & IPFS Pinata, Ethereum Smart Contract.\n- Phân tích chi tiết 4 tác nhân (Actors) và xây dựng 5 Biểu đồ hoạt động Swimlane chuẩn UML kèm mô tả bước và chốt an toàn.\n- Phát triển Smart Contract: ShareToken.sol (ERC20Votes checkpoint snapshot) và BoardElection.sol (Cumulative voting, Selection Sort winners, tie detection, Pausable, ReentrancyGuard).\n- Xây dựng bộ kiểm thử Hardhat tự động với 35/35 ca kiểm thử đạt 100% PASS.\n- Triển khai thực tế và xác minh thành công trên mạng Ethereum Sepolia Testnet.", font: FONT_FAMILY, size: 20 })] })] }),
                   new TableCell({ margins: { top: 120, bottom: 120, left: 100, right: 100 }, children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: "(Đã ký)", italics: true, color: COLOR_MUTED, font: FONT_FAMILY, size: 20 })] })] })
                 ]
               })
@@ -609,7 +654,7 @@ export async function buildMasterReport() {
           createBodyParagraph("Trong bối cảnh nền kinh tế thị trường hiện đại, quản trị công ty cổ phần đóng vai trò then chốt quyết định sự thành bại và tính bền vững của doanh nghiệp. Trong đó, Đại hội đồng Cổ đông là cơ quan có thẩm quyền quyết định cao nhất, và cuộc bỏ phiếu bầu cử các thành viên Hội đồng Quản trị (HĐQT) — cơ quan quản lý trực tiếp doanh nghiệp giữa hai kỳ đại hội — là sự kiện trọng đại, trực tiếp định hình định hướng chiến lược và phân chia lợi ích giữa các nhóm cổ đông."),
           createBodyParagraph("Tuy nhiên, phương thức bầu cử truyền thống áp dụng cơ chế bầu đa số thông thường (Majority Voting) thường dẫn đến tình trạng cổ đông nắm đa số cổ phần (trên 51%) có thể thâu tóm toàn bộ số ghế trong HĐQT, gạt bỏ hoàn toàn tiếng nói của các cổ đông thiểu số. Để khắc phục điều này, Luật Doanh nghiệp Việt Nam số 59/2020/QH14 (Điều 148, Khoản 3) đã quy định bắt buộc áp dụng phương thức Bầu dồn phiếu (Cumulative Voting) nhằm tạo điều kiện cho các nhóm cổ đông nhỏ liên kết số phiếu để đưa đại diện có uy tín vào HĐQT."),
           createBodyParagraph("Mặc dù có ý nghĩa pháp lý và nhân văn to lớn, việc thực thi bầu dồn phiếu bằng phương thức truyền thống (bỏ phiếu giấy hoặc phần mềm tập trung do ban quản trị công ty cài đặt) lại đối mặt với hàng loạt thách thức: nguy cơ gian lận trong khâu kiểm phiếu, thao túng cơ sở dữ liệu nội bộ, thiếu tính công khai thời gian thực, và rủi ro sửa đổi biên bản kiểm phiếu. Công nghệ chuỗi khối (Blockchain) với đặc tính bất biến (immutability), minh bạch tuyệt đối (transparency), và thực thi tự động qua Hợp đồng thông minh (Smart Contract) là lời giải công nghệ hoàn hảo cho bài toán này."),
-          createBodyParagraph("Báo cáo chuyên đề này trình bày toàn diện quá trình nghiên cứu, thiết kế, cài đặt, kiểm thử và triển khai 'Hệ thống Bỏ phiếu Bầu Hội đồng Quản trị Doanh nghiệp On-chain' trên nền tảng Blockchain Ethereum. Hệ thống kết hợp chuẩn token ERC20Votes lưu checkpoint lịch sử nhằm loại bỏ tấn công vay nhanh (Flash Loan), lưu trữ hồ sơ lý lịch ứng viên phi tập trung qua mạng IPFS (Pinata Cloud), và cung cấp giao diện Web dApp tương tác phân quyền cho ba vai trò: Quản trị viên, Cổ đông và Ban kiểm soát/Công chúng."),
+          createBodyParagraph("Báo cáo chuyên đề này trình bày toàn diện quá trình nghiên cứu, thiết kế, cài đặt, kiểm thử và triển khai 'Hệ thống Bỏ phiếu Bầu Hội đồng Quản trị Doanh nghiệp On-chain' trên nền tảng Blockchain Ethereum. Hệ thống kết hợp chuẩn token ERC20Votes lưu checkpoint lịch sử nhằm loại bỏ tấn công vay nhanh (Flash Loan), lưu trữ hồ sơ lý lịch ứng viên phi tập trung qua mạng IPFS (Pinata Cloud), và cung cấp giao diện Web dApp tương tác phân quyền cho 4 vai trò tác nhân: Quản trị viên, Cổ đông, Ban kiểm soát và Khách giám sát."),
 
           // MỤC LỤC TỔNG QUAN
           new Paragraph({ spacing: { before: 200, after: 100 } }),
@@ -619,36 +664,37 @@ export async function buildMasterReport() {
           createBodyParagraph("  1.1. Đặt vấn đề và tính cấp thiết ......................................................................................... 5"),
           createBodyParagraph("  1.2. Mục tiêu nghiên cứu và phạm vi hệ thống ..................................................................... 6"),
           createBodyParagraph("  1.3. Mô hình toán học Bầu dồn phiếu & Bảo vệ cổ đông thiểu số ........................................... 7"),
-          createBodyParagraph("  1.4. Phân tích các tác nhân trong hệ thống (Actors) ............................................................ 9"),
-          createBodyParagraph("  1.5. Phân rã yêu cầu chức năng (FR) và phi chức năng (NFR) ................................................ 10"),
-          createBodyParagraph("CHƯƠNG 2. THIẾT KẾ KIẾN TRÚC VÀ QUY TRÌNH HỆ THỐNG ..................................................... 13"),
-          createBodyParagraph("  2.1. Kiến trúc tổng thể 3 tầng (Client - Server & IPFS - Blockchain) ........................................ 13"),
-          createBodyParagraph("  2.2. Sơ đồ kiến trúc tổng quan (Architecture Diagram) ........................................................ 14"),
-          createBodyParagraph("  2.3. Sơ đồ luồng quy trình nghiệp vụ (Sequence Diagram) ..................................................... 16"),
-          createBodyParagraph("  2.4. Sơ đồ máy trạng thái cuộc bầu cử (State Diagram) ........................................................ 18"),
-          createBodyParagraph("  2.5. Chi tiết các biểu đồ hoạt động (Activity Diagrams) cho 5 quy trình cốt lõi ........................ 20"),
-          createBodyParagraph("  2.6. Thiết kế mô hình lớp và phân quyền Smart Contract (Class Diagram) .............................. 26"),
-          createBodyParagraph("CHƯƠNG 3. HIỆN THỰC HÓA SMART CONTRACT VÀ CÔNG NGHỆ ỨNG DỤNG ............................ 28"),
-          createBodyParagraph("  3.1. Phân tích chuyên sâu Smart Contract ShareToken.sol ..................................................... 28"),
-          createBodyParagraph("  3.2. Phân tích chuyên sâu Smart Contract BoardElection.sol ................................................. 31"),
-          createBodyParagraph("  3.3. Tầng trung gian và Lưu trữ phi tập trung IPFS (Pinata Gateway) ....................................... 36"),
-          createBodyParagraph("  3.4. Giao diện người dùng Web dApp đa vai trò ................................................................... 38"),
-          createBodyParagraph("CHƯƠNG 4. HƯỚNG DẪN TRIỂN KHAI VÀ VẬN HÀNH HỆ THỐNG ................................................ 41"),
-          createBodyParagraph("  4.1. Hướng dẫn khởi chạy trên môi trường Localhost ........................................................... 41"),
-          createBodyParagraph("  4.2. Hướng dẫn triển khai lên mạng Ethereum Sepolia Testnet bằng CLI .................................. 44"),
-          createBodyParagraph("  4.3. Thông tin triển khai thực tế trên Sepolia & Etherscan ..................................................... 47"),
-          createBodyParagraph("  4.4. Hướng dẫn xác minh mã nguồn hợp đồng (Contract Verification) .................................... 49"),
-          createBodyParagraph("CHƯƠNG 5. KIỂM THỬ TỰ ĐỘNG VÀ ĐÁNH GIÁ CHẤT LƯỢNG (TEST SUITE) .............................. 51"),
-          createBodyParagraph("  5.1. Chiến lược và môi trường kiểm thử (Hardhat, Mocha, Chai, Ethers.js) .............................. 51"),
-          createBodyParagraph("  5.2. Ma trận các ca kiểm thử chi tiết (TC01 – TC35) ............................................................. 53"),
-          createBodyParagraph("  5.3. Kết quả thực thi kiểm thử thực tế (100% PASS, 866 ms) ................................................. 61"),
-          createBodyParagraph("  5.4. Đánh giá kiểm thử kịch bản bảo vệ cổ đông thiểu số (TC26) ............................................ 64"),
-          createBodyParagraph("CHƯƠNG 6. PHÂN TÍCH AN TOÀN VÀ BẢO MẬT SMART CONTRACT ........................................... 66"),
-          createBodyParagraph("  6.1. Tổng quan an toàn bảo mật trong Smart Contract (SWC Registry) ................................... 66"),
-          createBodyParagraph("  6.2. Phân tích 9 lỗ hổng bảo mật Web3 trọng yếu và biện pháp phòng ngừa ........................... 67"),
-          createBodyParagraph("  6.3. Chính sách bảo mật API Key và Quản lý Secrets ............................................................ 74"),
-          createBodyParagraph("KẾT LUẬN VÀ HƯỚNG PHÁT TRIỂN ........................................................................................... 76"),
-          createBodyParagraph("TÀI LIỆU THAM KHẢO ............................................................................................................. 78"),
+          createBodyParagraph("  1.4. Phân tích chi tiết 4 tác nhân trong hệ thống (Actors Analysis) ........................................ 9"),
+          createBodyParagraph("  1.5. Sơ đồ tổng quát Use Case và Ma trận phân quyền Tác nhân .......................................... 12"),
+          createBodyParagraph("  1.6. Phân rã yêu cầu chức năng (FR) và phi chức năng (NFR) ................................................ 15"),
+          createBodyParagraph("CHƯƠNG 2. THIẾT KẾ KIẾN TRÚC VÀ QUY TRÌNH HỆ THỐNG ..................................................... 18"),
+          createBodyParagraph("  2.1. Kiến trúc tổng thể 3 tầng (Client - Server & IPFS - Blockchain) ........................................ 18"),
+          createBodyParagraph("  2.2. Sơ đồ kiến trúc tổng quan (Architecture Diagram) ........................................................ 19"),
+          createBodyParagraph("  2.3. Sơ đồ luồng quy trình nghiệp vụ (Sequence Diagram) ..................................................... 21"),
+          createBodyParagraph("  2.4. Sơ đồ máy trạng thái cuộc bầu cử (State Diagram) ........................................................ 23"),
+          createBodyParagraph("  2.5. Chi tiết 5 Biểu đồ hoạt động Swimlane chuẩn UML kèm mô tả và chốt an toàn ......... 25"),
+          createBodyParagraph("  2.6. Thiết kế mô hình lớp và phân quyền Smart Contract (Class Diagram) .............................. 36"),
+          createBodyParagraph("CHƯƠNG 3. HIỆN THỰC HÓA SMART CONTRACT VÀ CÔNG NGHỆ ỨNG DỤNG ............................ 38"),
+          createBodyParagraph("  3.1. Phân tích chuyên sâu Smart Contract ShareToken.sol ..................................................... 38"),
+          createBodyParagraph("  3.2. Phân tích chuyên sâu Smart Contract BoardElection.sol ................................................. 41"),
+          createBodyParagraph("  3.3. Tầng trung gian và Lưu trữ phi tập trung IPFS (Pinata Gateway) ....................................... 46"),
+          createBodyParagraph("  3.4. Giao diện người dùng Web dApp đa vai trò ................................................................... 48"),
+          createBodyParagraph("CHƯƠNG 4. HƯỚNG DẪN TRIỂN KHAI VÀ VẬN HÀNH HỆ THỐNG ................................................ 51"),
+          createBodyParagraph("  4.1. Hướng dẫn khởi chạy trên môi trường Localhost ........................................................... 51"),
+          createBodyParagraph("  4.2. Hướng dẫn triển khai lên mạng Ethereum Sepolia Testnet bằng CLI .................................. 54"),
+          createBodyParagraph("  4.3. Thông tin triển khai thực tế trên Sepolia & Etherscan ..................................................... 57"),
+          createBodyParagraph("  4.4. Hướng dẫn xác minh mã nguồn hợp đồng (Contract Verification) .................................... 59"),
+          createBodyParagraph("CHƯƠNG 5. KIỂM THỬ TỰ ĐỘNG VÀ ĐÁNH GIÁ CHẤT LƯỢNG (TEST SUITE) .............................. 61"),
+          createBodyParagraph("  5.1. Chiến lược và môi trường kiểm thử (Hardhat, Mocha, Chai, Ethers.js) .............................. 61"),
+          createBodyParagraph("  5.2. Ma trận các ca kiểm thử chi tiết (TC01 – TC35) ............................................................. 63"),
+          createBodyParagraph("  5.3. Kết quả thực thi kiểm thử thực tế (100% PASS, 866 ms) ................................................. 71"),
+          createBodyParagraph("  5.4. Đánh giá kiểm thử kịch bản bảo vệ cổ đông thiểu số (TC26) ............................................ 74"),
+          createBodyParagraph("CHƯƠNG 6. PHÂN TÍCH AN TOÀN VÀ BẢO MẬT SMART CONTRACT ........................................... 76"),
+          createBodyParagraph("  6.1. Tổng quan an toàn bảo mật trong Smart Contract (SWC Registry) ................................... 76"),
+          createBodyParagraph("  6.2. Phân tích 9 lỗ hổng bảo mật Web3 trọng yếu và biện pháp phòng ngừa ........................... 77"),
+          createBodyParagraph("  6.3. Chính sách bảo mật API Key và Quản lý Secrets ............................................................ 84"),
+          createBodyParagraph("KẾT LUẬN VÀ HƯỚNG PHÁT TRIỂN ........................................................................................... 86"),
+          createBodyParagraph("TÀI LIỆU THAM KHẢO ............................................................................................................. 88"),
 
           // Page Break to CHƯƠNG 1
           new Paragraph({ children: [new PageBreak()] }),
@@ -686,9 +732,9 @@ export async function buildMasterReport() {
 
           createSectionTitle("1.3. Mô hình toán học Bầu dồn phiếu & Bảo vệ cổ đông thiểu số"),
           createSubSectionTitle("1.3.1. Công thức phân bổ phiếu biểu quyết"),
-          createBodyParagraph("Gọi $S_i$ là số cổ phần sở hữu hợp pháp của cổ đông $i$ tại thời điểm chốt danh sách (block snapshot), và $N$ là tổng số ghế thành viên Hội đồng Quản trị cần bầu trong kỳ bầu cử. Khi đó, tổng số phiếu biểu quyết tối đa $V_i$ mà cổ đông $i$ nắm giữ được xác định bởi:"),
+          createBodyParagraph("Gọi S_i là số cổ phần sở hữu hợp pháp của cổ đông i tại thời điểm chốt danh sách (block snapshot), và N là tổng số ghế thành viên Hội đồng Quản trị cần bầu trong kỳ bầu cử. Khi đó, tổng số phiếu biểu quyết tối đa V_i mà cổ đông i nắm giữ được xác định bởi:"),
           createBodyParagraph("V_i = S_i × N", { alignment: AlignmentType.CENTER, bold: true, color: COLOR_PRIMARY }),
-          createBodyParagraph("Cổ đông $i$ có toàn quyền phân bổ số phiếu này cho danh sách các ứng viên $C = {c_1, c_2, ..., c_m}$ thỏa mãn hai điều kiện ràng buộc:"),
+          createBodyParagraph("Cổ đông i có toàn quyền phân bổ số phiếu này cho danh sách các ứng viên C = {c_1, c_2, ..., c_m} thỏa mãn hai điều kiện ràng buộc:"),
           createBulletItem("Điều kiện không vượt hạn mức", "∑ v_{i,j} ≤ V_i (trong đó v_{i,j} là số phiếu dồn cho ứng viên j)."),
           createBulletItem("Điều kiện không âm và nguyên vẹn", "v_{i,j} ≥ 0, v_{i,j} ∈ ℤ (phiếu bầu là số nguyên, không chia nhỏ)."),
 
@@ -706,15 +752,78 @@ export async function buildMasterReport() {
           createBodyParagraph("N × (V_X + 1) > N × [S × N / (N + 1)] = S × N² / (N + 1) > V_majority", { alignment: AlignmentType.CENTER, italics: true }),
           createBodyParagraph("Điều này là bất khả thi vì nhóm đa số không có đủ tổng số phiếu. Do đó, chắc chắn có ít nhất một ứng viên của nhóm thiểu số trúng cử. Đây chính là tấm lá chắn bảo vệ quyền lợi cổ đông nhỏ đã được hệ thống kiểm chứng tự động tại Test Case TC26."),
 
-          createSectionTitle("1.4. Phân tích các tác nhân trong hệ thống (Actors)"),
-          createBodyParagraph("Hệ thống xác định 4 tác nhân chính tương tác với các tầng kiến trúc:"),
-          createBulletItem("1. Quản trị viên tối cao (Super Admin / Election Admin)", "Đại diện cho Ban Tổ chức Đại hội hoặc Chủ tọa cuộc họp. Nắm giữ DEFAULT_ADMIN_ROLE và ELECTION_ADMIN_ROLE trên Smart Contract. Có nhiệm vụ khởi tạo cổ phần, thiết lập kỳ bầu cử, phê duyệt ứng viên, mở phiên bầu cử (chốt snapshot), đóng phiên và có quyền kích hoạt chế độ dừng khẩn cấp (Pausable)."),
-          createBulletItem("2. Cổ đông doanh nghiệp (Shareholder / Voter)", "Những nhà đầu tư sở hữu cổ phần hợp pháp (ShareToken). Có quyền tra cứu số dư cổ phần, kiểm tra quyền biểu quyết tại block snapshot, phân bổ dồn phiếu cho các ứng viên ưa thích và nhận biên lai giao dịch on-chain."),
-          createBulletItem("3. Ban Kiểm soát / Kiểm toán viên nội bộ (Supervisory Board)", "Cơ quan độc lập giám sát tính minh bạch của đại hội. Tra cứu số liệu snapshot, kiểm tra tính hợp lệ của việc chốt số dư và thuật toán sắp xếp người trúng cử."),
-          createBulletItem("4. Công chúng & Cổ đông tiềm năng (Guest / Public Auditor)", "Bất kỳ ai trên Internet đều có thể truy cập giao diện dApp hoặc Etherscan để xem diễn biến bầu cử, kiểm tra hồ sơ ứng viên trên IPFS và xác minh kết quả kiểm phiếu mà không cần kết nối ví."),
+          createSectionTitle("1.4. Phân tích chi tiết 4 tác nhân trong hệ thống (Actors Analysis)"),
+          createBodyParagraph("Hệ thống xác định 4 tác nhân cụ thể với các vai trò, trách nhiệm, phạm vi tương tác và các hàm smart contract gọi tương ứng:"),
+          createBulletItem("1. Quản trị viên tối cao (Super Admin / Election Admin)", "Đại diện cho Ban Tổ chức Đại hội, Thư ký đoàn hoặc Chủ tọa cuộc họp. Nắm giữ vai trò DEFAULT_ADMIN_ROLE và ELECTION_ADMIN_ROLE. Trách nhiệm: Khởi tạo và cấp phát cổ phần ban đầu (mint), tạo kỳ bầu cử (createElection), phê duyệt và nạp hồ sơ ứng viên lên IPFS (addCandidate), mở phiên bỏ phiếu (startVoting) kèm chốt block snapshot, đóng phiên kiểm phiếu (closeElection), và kích hoạt cơ chế ngắt mạch tạm dừng khẩn cấp (pause/unpause)."),
+          createBulletItem("2. Cổ đông doanh nghiệp (Shareholder / Voter)", "Những nhà đầu tư sở hữu cổ phần hợp pháp dưới dạng token ShareToken. Trách nhiệm & Quyền hạn: Kết nối ví Web3 (MetaMask hoặc Quick Wallets), tra cứu số dư cổ phần và quyền biểu quyết snapshot (votingPowerOf), kiểm tra thông tin hồ sơ ứng viên trên IPFS, phân bổ phiếu dồn linh hoạt và ký giao dịch bỏ phiếu (vote), nhận biên lai on-chain."),
+          createBulletItem("3. Ban Kiểm Soát / Kiểm toán viên (Supervisory Board / Auditor)", "Đoàn giám sát độc lập của đại hội cổ đông. Quyền hạn: Truy vấn dữ liệu on-chain theo thời gian thực, đối chiếu số dư cổ phần tại snapshotBlock để xác minh danh sách chốt cổ đông, kiểm tra các sự kiện VoteCast để phát hiện gian lận, xác thực thuật toán getWinners() và cờ hòa phiếu tied."),
+          createBulletItem("4. Khách vãng lai & Cộng đồng (Public Guest / Independent Verifier)", "Bất kỳ nhà đầu tư, cổ đông tiềm năng hoặc cơ quan quản lý nhà nước nào theo dõi đại hội. Không cần kết nối ví Web3 hay chi trả phí gas. Có thể xem diễn biến bầu cử thời gian thực, tải xem hồ sơ ứng viên từ IPFS Gateway, và kiểm chứng tính hợp lệ trên Sepolia Etherscan."),
 
-          createSectionTitle("1.5. Phân rã yêu cầu chức năng (FR) và phi chức năng (NFR)"),
-          createSubSectionTitle("1.5.1. Yêu cầu chức năng (Functional Requirements)"),
+          createSectionTitle("1.5. Sơ đồ tổng quát Use Case và Ma trận phân quyền Tác nhân"),
+          createSubSectionTitle("1.5.1. Ma trận phân quyền Tác nhân & Chức năng (Actor vs Features Matrix)"),
+          createDataTable(
+            ["Mã UC", "Tên Chức Năng Nghiệp Vụ", "Super Admin", "Voter", "Ban Kiểm Soát", "Public Guest", "Smart Contract API Tương Ứng"],
+            [
+              ["UC01", "Cấp phát cổ phần biểu quyết (Mint)", "X", "-", "-", "-", "ShareToken.mint(to, amount)"],
+              ["UC02", "Chuyển nhượng cổ phần", "X", "X", "-", "-", "ShareToken.transfer(to, amount)"],
+              ["UC03", "Tạo kỳ bầu cử mới", "X", "-", "-", "-", "BoardElection.createElection()"],
+              ["UC04", "Thêm ứng viên & Upload IPFS", "X", "-", "-", "-", "BoardElection.addCandidate()"],
+              ["UC05", "Mở phiên bầu cử & Chốt Snapshot", "X", "-", "-", "-", "BoardElection.startVoting()"],
+              ["UC06", "Tra cứu quyền biểu quyết cá nhân", "X", "X", "X", "-", "BoardElection.votingPowerOf()"],
+              ["UC07", "Thực hiện Bỏ phiếu Bầu dồn", "-", "X", "-", "-", "BoardElection.vote()"],
+              ["UC08", "Đóng phiên bầu cử", "X", "-", "-", "-", "BoardElection.closeElection()"],
+              ["UC09", "Xem kết quả trúng cử & Hòa phiếu", "X", "X", "X", "X", "BoardElection.getWinners()"],
+              ["UC10", "Xem hồ sơ ứng viên qua IPFS", "X", "X", "X", "X", "IPFS Dedicated Gateway"],
+              ["UC11", "Tạm dừng khẩn cấp (Pause)", "X", "-", "-", "-", "BoardElection.pause() / unpause()"]
+            ],
+            [10, 26, 10, 8, 12, 10, 24]
+          ),
+
+          createSubSectionTitle("1.5.2. Sơ đồ Tổng quát Hệ thống kèm Actors (Use Case & System Boundary Overview)"),
+          createBodyParagraph("Sơ đồ khối dưới đây thể hiện ranh giới hệ thống phân tán, các ca sử dụng cốt lõi, quan hệ <<include>> / <<extend>> và tương tác của 4 Actors:"),
+          createDiagramBox(
+            "HÌNH 1.1: SƠ ĐỒ TỔNG QUÁT HỆ THỐNG VÀ CÁC TÁC NHÂN (USE CASE OVERVIEW DIAGRAM)",
+`+---------------------------------------------------------------------------------------------------+
+|                         RANH GIỚI HỆ THỐNG BẦU HỘI ĐỒNG QUẢN TRỊ (SYSTEM BOUNDARY)                |
+|                                                                                                   |
+|   [ ACTOR: QUẢN TRỊ VIÊN ]                                                                        |
+|         |                                                                                         |
+|         +---> (UC01: Cấp phát Cổ phần ShareToken) <-----+ <<include>>: Tự động ủy quyền           |
+|         |                                               |              biểu quyết (_delegate)     |
+|         +---> (UC03: Tạo kỳ bầu cử mới)                 |                                         |
+|         |                                               |                                         |
+|         +---> (UC04: Thêm Ứng viên HĐQT) ---> <<include>> ---> (Upload Hồ sơ lên IPFS Pinata)     |
+|         |                                                                                         |
+|         +---> (UC05: Mở phiên Bầu cử) -------> <<include>> ---> (Chốt Snapshot Block quá khứ)     |
+|         |                                                                                         |
+|         +---> (UC08: Đóng phiên Bầu cử)                                                           |
+|         |                                                                                         |
+|         +---> (UC11: Tạm dừng Khẩn cấp) <-------------------------------------------------+       |
+|                                                                                           |       |
+|   [ ACTOR: CỔ ĐÔNG (VOTER) ]                                                              |       |
+|         |                                                                                 |       |
+|         +---> (UC06: Tra cứu Quyền biểu quyết Snapshot)                                   |       |
+|         |                                                                                 |       |
+|         +---> (UC07: Bỏ phiếu Bầu dồn) ------> <<include>> ---> (Kiểm tra mảng tăng dần)  |       |
+|         |                                 ---> <<include>> ---> (Chống Double Voting)     |       |
+|         |                                 ---> <<extend>>  ---> [Báo lỗi khi Tạm dừng] ---+       |
+|                                                                                                   |
+|   [ ACTOR: BAN KIỂM SOÁT ]                                                                        |
+|         |                                                                                         |
+|         +---> (Giám sát Danh sách Cổ đông tại Snapshot)                                           |
+|         |                                                                                         |
+|         +---> (Kiểm toán Thuật toán Selection Sort & Hòa phiếu)                                   |
+|                                                                                                   |
+|   [ ACTOR: KHÁCH CỘNG ĐỒNG ]                                                                      |
+|         |                                                                                         |
+|         +---> (UC09: Tra cứu Bảng vàng Trúng cử & Kết quả On-chain)                              |
+|         |                                                                                         |
+|         +---> (UC10: Xem Hồ sơ Lý lịch Ứng viên trên IPFS Gateway)                                |
++---------------------------------------------------------------------------------------------------+`
+          ),
+
+          createSectionTitle("1.6. Phân rã yêu cầu chức năng (FR) và phi chức năng (NFR)"),
+          createSubSectionTitle("1.6.1. Yêu cầu chức năng (Functional Requirements)"),
           createBulletItem("FR01 - Quản lý Cổ phần (ShareToken)", "Phát hành token cổ phần theo chuẩn ERC-20 kết hợp ERC20Votes. Decimals bắt buộc bằng 0 để đảm bảo mỗi token biểu diễn đúng 1 cổ phần. Tự động ủy quyền biểu quyết (_delegate) cho chính người nhận ngay khi mint hoặc chuyển nhượng."),
           createBulletItem("FR02 - Khởi tạo kỳ bầu cử", "Admin thiết lập tiêu đề đại hội và số lượng ghế HĐQT cần bầu (seats > 0). Hợp đồng sinh mã định danh duy nhất (electionId) và đặt trạng thái là Registration."),
           createBulletItem("FR03 - Đăng ký ứng viên & Upload IPFS", "Admin nạp thông tin ứng viên (họ tên và tệp hồ sơ lý lịch). Hệ thống backend tự động đẩy tệp lên Pinata IPFS, nhận về mã CID và ghi vào danh sách ứng viên của hợp đồng. Giới hạn tối đa MAX_CANDIDATES = 50 ứng viên."),
@@ -725,7 +834,7 @@ export async function buildMasterReport() {
           createBulletItem("FR08 - Kiểm phiếu tự động & Cảnh báo hòa phiếu", "Hàm getWinners() thực hiện thuật toán sắp xếp chọn (Selection Sort) trên bộ nhớ RAM để tìm ra K ứng viên có số phiếu cao nhất. Tự động bật cờ tied = true nếu ứng viên ở vị trí ghế cuối cùng có số phiếu bằng ứng viên kế tiếp."),
           createBulletItem("FR09 - Tra cứu & Công khai minh bạch", "Cung cấp các hàm view công khai để mọi người dùng tra cứu thông tin kỳ bầu, chi tiết từng ứng viên, số phiếu hiện tại và quyền biểu quyết cá nhân."),
 
-          createSubSectionTitle("1.5.2. Yêu cầu phi chức năng (Non-Functional Requirements)"),
+          createSubSectionTitle("1.6.2. Yêu cầu phi chức năng (Non-Functional Requirements)"),
           createBulletItem("NFR01 - Tính toàn vẹn và bất biến (Immutability)", "Dữ liệu phiếu bầu sau khi đã ghi vào blockchain không thể bị chỉnh sửa, xóa bỏ hoặc đảo ngược bởi bất kỳ ai, kể cả Admin tối cao."),
           createBulletItem("NFR02 - Tính bảo mật (Security)", "Triệt tiêu hoàn toàn các lỗ hổng smart contract phổ biến theo chuẩn SWC: Re-entrancy, Overflow, DoS gas limit, Flash Loan manipulation."),
           createBulletItem("NFR03 - Hiệu năng và Tiết kiệm chi phí Gas", "Tối ưu hóa các thao tác on-chain, hạn chế tối đa việc duyệt mảng trên storage; việc sắp xếp người trúng cử được thực hiện hoàn toàn trên memory."),
@@ -874,223 +983,384 @@ export async function buildMasterReport() {
         [*]`
           ),
 
-          createSectionTitle("2.5. Chi tiết các biểu đồ hoạt động (Activity Diagrams) cho 5 quy trình cốt lõi"),
-          createBodyParagraph("Nhằm đặc tả tường minh từng bước xử lý dữ liệu và các điểm rẽ nhánh điều kiện logic trong Smart Contract, 5 biểu đồ hoạt động dưới đây được xây dựng chi tiết cho toàn bộ quy trình:"),
+          createSectionTitle("2.5. Chi tiết 5 Biểu đồ hoạt động Swimlane chuẩn UML kèm mô tả và chốt an toàn"),
+          createBodyParagraph("Để bảo đảm tính rõ ràng và trực quan theo chuẩn công nghệ phần mềm, 5 biểu đồ hoạt động dưới đây được mô hình hóa theo dạng Biểu đồ phân làn (Swimlane Activity Diagram) phân tách rõ trách nhiệm giữa 3 thành phần: [ Tác nhân (Actor) | Giao diện Web dApp | Hợp đồng Smart Contract ]. Mỗi biểu đồ đều đi kèm bảng mô tả chi tiết từng bước và phân tích các chốt an toàn (Security Gates)."),
 
-          createSubSectionTitle("2.5.1. Hoạt động 1: Khởi tạo và Phân bổ Cổ phần (ShareToken Deployment & Minting)"),
+          // ACTIVITY DIAGRAM 1
+          createSubSectionTitle("2.5.1. Activity Diagram 1: Quy trình Phát hành cổ phần & Tự động ủy quyền (Mint & Auto-Delegation)"),
           createDiagramBox(
-            "BIỂU ĐỒ HOẠT ĐỘNG 1: CẤP PHÁT CỔ PHẦN & TỰ ĐỘNG ỦY QUYỀN BIỂU QUYẾT",
-`[ BẮT ĐẦU ]
-     |
-     v
-Admin gửi giao dịch mint(to, amount) kèm khóa ký
-     |
-     v
-< Kiểm tra người gọi có MINTER_ROLE không? >
-     |-- [KHÔNG] ---> Báo lỗi: AccessControlUnauthorizedAccount ---> [ REVERT ]
-     |-- [CÓ]
-     v
-Smart Contract ShareToken gọi nội bộ hàm _update(address(0), to, amount)
-     |
-     v
-< Kiểm tra delegates(to) == address(0)? (Lần đầu nhận token) >
-     |-- [ĐÚNG] ---> Gọi _delegate(to, to): Tự động ủy quyền cho chính mình
-     |-- [SAI]  ---> Giữ nguyên đại diện ủy quyền đã cấu hình
-     v
-Tạo Checkpoint ghi nhận số dư và quyền biểu quyết tại block hiện tại
-     |
-     v
-Cập nhật mapping balanceOf[to] += amount
-     |
-     v
-Phát sự kiện Transfer(0, to, amount) và DelegateChanged()
-     |
-     v
-[ KẾT THÚC THÀNH CÔNG ]`
+            "BIỂU ĐỒ HOẠT ĐỘNG 1: SWIMLANE PHÁT HÀNH CỔ PHẦN & TỰ ĐỘNG ỦY QUYỀN",
+`LÀN 1: QUẢN TRỊ VIÊN (ADMIN)  | LÀN 2: WEB FRONTEND / DAPP    | LÀN 3: SMART CONTRACT (SHARETOKEN)
+                              |                               |
+  (●) BẮT ĐẦU                 |                               |
+   |                          |                               |
+   v                          |                               |
+[Nhập địa chỉ ví cổ đông &    |                               |
+ số lượng cổ phần mint]       |                               |
+   |                          |                               |
+   +------------------------->|                               |
+                              | [Tạo giao dịch mint() &       |
+                              |  yêu cầu ví Admin ký]         |
+                              |   |                           |
+                              |   +-------------------------->|
+                              |                               | <Kiểm tra msg.sender có MINTER_ROLE?>
+                              |                               |   |-- [KHÔNG] ---> [Revert Unauthorized] ---> (X)
+                              |                               |   |-- [CÓ]
+                              |                               |   v
+                              |                               | [Thực thi hàm nội bộ _update(0, to, val)]
+                              |                               |   |
+                              |                               |   v
+                              |                               | <Kiểm tra delegates(to) == address(0)?>
+                              |                               |   |-- [ĐÚNG] -> [_delegate(to, to): Tự động ủy quyền]
+                              |                               |   |-- [SAI]  -> [Giữ nguyên đại diện đã chọn]
+                              |                               |   v
+                              |                               | [Ghi Checkpoint số dư & Quyền bầu lịch sử]
+                              |                               |   |
+                              |                               |   v
+                              |                               | [balanceOf[to] += amount]
+                              |                               |   |
+                              |                               |   v
+                              |                               | [Phát Event Transfer & DelegateChanged]
+                              |                               |   |
+                              |<------------------------------+---+
+                              | [Cập nhật số dư UI &          |
+                              |  thông báo thành công]        |
+   |<-------------------------+                               |
+   v                          |                               |
+[Nhận thông báo hoàn tất]     |                               |
+   |                          |                               |
+  (◎) KẾT THÚC                |                               |`
           ),
+          createBodyParagraph("Bảng đặc tả chi tiết các bước thực hiện Quy trình 1:"),
+          createDataTable(
+            ["Bước", "Thành Phần Thực Hiện", "Hành Động Cụ Thể", "Dữ Liệu Đầu Vào", "Dữ Liệu Đầu Ra", "Luồng Ngoại Lệ / Điều Kiện Revert"],
+            [
+              ["1.1", "Quản trị viên (Admin)", "Nhập form cấp phát cổ phần", "Địa chỉ ví nhận, số cổ phần amount", "Dữ liệu form Web", "Địa chỉ ví không hợp lệ (sai định dạng hex 40 ký tự)"],
+              ["1.2", "Web Frontend", "Tạo payload và yêu cầu ví Admin ký tx", "to, amount", "Giao dịch đã ký mã hóa", "Người dùng từ chối ký trên ví (User rejected)"],
+              ["1.3", "Smart Contract", "Kiểm tra quyền hạn MINTER_ROLE", "msg.sender", "Chấp thuận hoặc Revert", "Revert AccessControlUnauthorizedAccount nếu không phải Admin"],
+              ["1.4", "Smart Contract", "Kiểm tra trạng thái ủy quyền", "delegates(to)", "address(0) hoặc đại diện", "Không có"],
+              ["1.5", "Smart Contract", "Tự động kích hoạt ủy quyền nội bộ", "to, to", "Event DelegateChanged", "Không có"],
+              ["1.6", "Smart Contract", "Tạo Checkpoint ERC20Votes & Mint", "to, amount", "balanceOf[to], getVotes[to]", "Revert nếu tràn số uint256 (Solidity 0.8.24)"],
+              ["1.7", "Web Frontend", "Lắng nghe biên lai và cập nhật UI", "Tx Receipt, logs", "Giao diện cập nhật số dư mới", "Mạng RPC mất kết nối (tự động retry)"]
+            ],
+            [8, 16, 26, 18, 16, 16]
+          ),
+          createBodyParagraph("Phân tích Chốt an toàn (Security Gates) Quy trình 1:"),
+          createBulletItem("Gate 1 - Kiểm soát truy cập nghiêm ngặt", "Hàm mint() được bảo vệ bằng modifier onlyRole(MINTER_ROLE). Bất kỳ tài khoản người dùng hoặc hacker nào cố tình gọi hàm trực tiếp đều bị ngắt lập tức tại cổng opcode kiểm tra vai trò (TC03)."),
+          createBulletItem("Gate 2 - Đảm bảo tính nguyên thể cổ phần", "Hàm decimals() trả về 0. Mỗi đơn vị token đại diện cho đúng 1 cổ phần pháp lý, loại bỏ sai số do chia nhỏ số thập phân."),
+          createBulletItem("Gate 3 - Tự động hóa Checkpoint lịch sử", "Nhờ cơ chế _delegate(to, to) tự động trong hàm _update(), quyền biểu quyết được đồng bộ hóa tức thì cùng số dư token mà không phụ thuộc vào thao tác thủ công của người dùng (TC02)."),
 
-          createSubSectionTitle("2.5.2. Hoạt động 2: Đăng ký kỳ bầu cử và Nạp hồ sơ ứng viên lên IPFS"),
+          // ACTIVITY DIAGRAM 2
+          createSubSectionTitle("2.5.2. Activity Diagram 2: Quy trình Tạo kỳ bầu cử & Đăng ký ứng viên (Create Election & Candidate Registration)"),
           createDiagramBox(
-            "BIỂU ĐỒ HOẠT ĐỘNG 2: THIẾT LẬP KỲ BẦU CỬ VÀ ĐĂNG KÝ ỨNG VIÊN",
-`[ BẮT ĐẦU ]
-     |
-     v
-Admin gửi tx createElection(title, seats)
-     |
-     v
-< Kiểm tra seats > 0 và người gọi có ELECTION_ADMIN_ROLE? >
-     |-- [SAI] ---> Báo lỗi Seats must be > 0 hoặc Access Denied ---> [ REVERT ]
-     |-- [ĐÚNG]
-     v
-Tăng electionCount++, lưu electionId mới với status = Registration
-     |
-     v
-Admin chọn file hồ sơ (PDF/Ảnh) trên Frontend dApp
-     |
-     v
-Frontend gửi Base64 qua API Backend (/api/upload-pinata)
-     |
-     v
-Backend Server dùng PINATA_JWT pin tệp lên mạng IPFS
-     |
-     v
-Pinata trả về mã băm CID (ipfs://Qm...)
-     |
-     v
-Admin gửi tx addCandidate(electionId, name, cid)
-     |
-     v
-< Kiểm tra status == Registration và candidates.length < 50? >
-     |-- [SAI] ---> Báo lỗi Invalid status hoặc Too many candidates ---> [ REVERT ]
-     |-- [ĐÚNG]
-     v
-Lưu Candidate(name, cid, votes = 0) vào mảng candidates của kỳ bầu
-     |
-     v
-Phát sự kiện CandidateAdded(electionId, candidateId, name)
-     |
-     v
-[ KẾT THÚC THÀNH CÔNG ]`
+            "BIỂU ĐỒ HOẠT ĐỘNG 2: SWIMLANE TẠO KỲ BẦU CỬ VÀ ĐĂNG KÝ ỨNG VIÊN QUA IPFS",
+`LÀN 1: QUẢN TRỊ VIÊN (ADMIN)  | LÀN 2: WEB FRONTEND & SERVER  | LÀN 3: SMART CONTRACT (BOARDELECTION)
+                              |                               |
+  (●) BẮT ĐẦU                 |                               |
+   |                          |                               |
+   v                          |                               |
+[Nhập Tiêu đề & Số ghế HĐQT]  |                               |
+   |                          |                               |
+   +------------------------->|                               |
+                              | [Gửi tx createElection()]     |
+                              |   |                           |
+                              |   +-------------------------->|
+                              |                               | <Kiểm tra seats > 0 && Admin Role?>
+                              |                               |   |-- [KHÔNG] ---> [Revert Lỗi] ---> (X)
+                              |                               |   |-- [CÓ]
+                              |                               |   v
+                              |                               | [Tạo Election: status = Registration]
+                              |                               |   |
+                              |<------------------------------+---+
+                              | [Thông báo tạo kỳ bầu thành công]
+   |<-------------------------+
+   v
+[Chọn file hồ sơ ứng viên]
+   |
+   +------------------------->|
+                              | [POST /api/upload-pinata]     |
+                              |   |                           |
+                              | [Server pin file lên IPFS Cloud]|
+                              |   |                           |
+                              | [Nhận mã băm CID: ipfs://Qm...]|
+                              |   |                           |
+                              | [Gửi tx addCandidate(name, CID)]
+                              |   |
+                              |   +-------------------------->|
+                              |                               | <Kiểm tra status == Registration &&
+                              |                               |  candidates.length < MAX_CANDIDATES?>
+                              |                               |   |-- [KHÔNG] ---> [Revert Lỗi] ---> (X)
+                              |                               |   |-- [CÓ]
+                              |                               |   v
+                              |                               | [Lưu Candidate(name, cid, 0)]
+                              |                               | [Phát Event CandidateAdded]
+                              |                               |   |
+                              |<------------------------------+---+
+                              | [Hiển thị thẻ ứng viên trên UI]
+   |<-------------------------+
+   v
+[Hoàn tất chuẩn bị ứng viên]
+   |
+  (◎) KẾT THÚC`
           ),
+          createBodyParagraph("Bảng đặc tả chi tiết các bước thực hiện Quy trình 2:"),
+          createDataTable(
+            ["Bước", "Thành Phần Thực Hiện", "Hành Động Cụ Thể", "Dữ Liệu Đầu Vào", "Dữ Liệu Đầu Ra", "Luồng Ngoại Lệ / Điều Kiện Revert"],
+            [
+              ["2.1", "Quản trị viên (Admin)", "Nhập tiêu đề đại hội & số ghế cần bầu", "title, seats", "Dữ liệu form Web", "Số ghế seats <= 0 bị chặn ngay trên form"],
+              ["2.2", "Smart Contract", "Kiểm tra tham số và quyền Admin", "title, seats, msg.sender", "electionId mới", "Revert nếu seats = 0 hoặc thiếu ELECTION_ADMIN_ROLE (TC06, TC07)"],
+              ["2.3", "Quản trị viên (Admin)", "Tải lên tệp hồ sơ lý lịch ứng viên", "Tệp PDF / Ảnh chứng chỉ", "Tệp nhị phân Base64", "Tệp vượt quá kích thước 10MB bị chặn tại client"],
+              ["2.4", "Backend Web Server", "Pin tệp lên IPFS qua Pinata Cloud", "Tệp tin, PINATA_JWT", "Mã IPFS CID (Qm...)", "Lỗi kết nối Pinata API (server tự động thử lại)"],
+              ["2.5", "Smart Contract", "Ghi danh ứng viên vào kỳ bầu cử", "electionId, name, CID", "Event CandidateAdded", "Revert nếu status != Registration hoặc quá 50 ứng viên (TC12, TC30)"],
+              ["2.6", "Web Frontend", "Hiển thị danh sách ứng viên kèm link IPFS", "Danh sách ứng viên", "Thẻ ứng viên trực quan", "Không có"]
+            ],
+            [8, 16, 26, 18, 16, 16]
+          ),
+          createBodyParagraph("Phân tích Chốt an toàn (Security Gates) Quy trình 2:"),
+          createBulletItem("Gate 1 - Kiểm soát trạng thái vòng đời (inStatus)", "Hàm addCandidate() bắt buộc kỳ bầu cử phải đang ở trạng thái Registration. Ngay khi phiên bỏ phiếu đã mở, không ai có thể đưa thêm ứng viên vào danh sách (TC12)."),
+          createBulletItem("Gate 2 - Chống tấn công nghẽn Gas khối (MAX_CANDIDATES = 50)", "Hợp đồng áp đặt giới hạn cứng tối đa 50 ứng viên. Quy định này bảo đảm thuật toán kiểm phiếu on-chain không bao giờ duyệt mảng quá dài dẫn đến vượt giới hạn Block Gas Limit của mạng Ethereum (TC30)."),
+          createBulletItem("Gate 3 - Tính toàn vẹn nội dung hồ sơ (IPFS CID)", "Hồ sơ ứng viên được định danh bằng mã băm nội dung CID. Bất kỳ sự thay đổi nào trong tệp lý lịch sau này đều dẫn đến sai lệch mã băm, giúp cổ đông phát hiện gian lận ngay lập tức."),
 
-          createSubSectionTitle("2.5.3. Hoạt động 3: Mở phiên bỏ phiếu và Chốt Snapshot Block"),
+          // ACTIVITY DIAGRAM 3
+          createSubSectionTitle("2.5.3. Activity Diagram 3: Quy trình Mở phiên bầu cử & Chốt Snapshot Block (Start Voting & Snapshot)"),
           createDiagramBox(
-            "BIỂU ĐỒ HOẠT ĐỘNG 3: MỞ PHIÊN BẦU CỬ & CHỐT CHECKPOINT LỊCH SỬ",
-`[ BẮT ĐẦU ]
-     |
-     v
-Admin gửi tx startVoting(electionId, duration)
-     |
-     v
-< Kiểm tra hợp lệ: status == Registration && duration > 0 && admin role? >
-     |-- [SAI] ---> Báo lỗi điều kiện tiên quyết ---> [ REVERT ]
-     |-- [ĐÚNG]
-     v
-< Kiểm tra số ứng viên: candidates.length >= seats? >
-     |-- [SAI] ---> Báo lỗi: Not enough candidates ---> [ REVERT ]
-     |-- [ĐÚNG]
-     v
-Tính toán và chốt: snapshotBlock = block.number - 1
-     |
-     v
-Tính toán thời hạn kết thúc: endTime = block.timestamp + duration
-     |
-     v
-Cập nhật trạng thái: status = Status.Voting
-     |
-     v
-Phát sự kiện VotingStarted(electionId, snapshotBlock, endTime)
-     |
-     v
-Khóa vĩnh viễn danh sách ứng viên (Không thể thêm/bớt ứng viên)
-     |
-     v
-[ KẾT THÚC: PHIÊN BỎ PHIẾU ĐÃ MỞ ]`
+            "BIỂU ĐỒ HOẠT ĐỘNG 3: SWIMLANE MỞ PHIÊN BẦU CỬ VÀ ĐÓNG BĂNG QUYỀN BIỂU QUYẾT",
+`LÀN 1: QUẢN TRỊ VIÊN (ADMIN)  | LÀN 2: WEB FRONTEND / DAPP    | LÀN 3: SMART CONTRACT (BOARDELECTION)
+                              |                               |
+  (●) BẮT ĐẦU                 |                               |
+   |                          |                               |
+   v                          |                               |
+[Thiết lập thời gian duration]|                               |
+[Nhấn "Mở phiên bỏ phiếu"]    |                               |
+   |                          |                               |
+   +------------------------->|                               |
+                              | [Tạo tx startVoting(id, dur)] |
+                              |   |                           |
+                              |   +-------------------------->|
+                              |                               | <1. Kiểm tra Admin Role & whenNotPaused?>
+                              |                               |   |-- [SAI] ---> [Revert Lỗi] ---> (X)
+                              |                               |   |-- [ĐÚNG]
+                              |                               |   v
+                              |                               | <2. Kiểm tra status == Registration?>
+                              |                               |   |-- [SAI] ---> [Revert Lỗi] ---> (X)
+                              |                               |   |-- [ĐÚNG]
+                              |                               |   v
+                              |                               | <3. Kiểm tra candidates.length >= seats?>
+                              |                               |   |-- [SAI] ---> [Revert "Not enough candidates"] -> (X)
+                              |                               |   |-- [ĐÚNG]
+                              |                               |   v
+                              |                               | <4. Kiểm tra duration > 0?>
+                              |                               |   |-- [SAI] ---> [Revert "Duration must be > 0"] ---> (X)
+                              |                               |   |-- [ĐÚNG]
+                              |                               |   v
+                              |                               | [CHỐT: snapshotBlock = block.number - 1]
+                              |                               | [TÍNH: endTime = block.timestamp + duration]
+                              |                               | [ĐỔI: status = Status.Voting]
+                              |                               | [Phát Event VotingStarted]
+                              |                               |   |
+                              |<------------------------------+---+
+                              | [Khởi động Đồng hồ đếm ngược  |
+                              |  & mở khóa giao diện Bỏ phiếu]|
+   |<-------------------------+                               |
+   v                          |                               |
+[Theo dõi phiên bỏ phiếu]     |                               |
+   |                          |                               |
+  (◎) KẾT THÚC                |                               |`
           ),
+          createBodyParagraph("Bảng đặc tả chi tiết các bước thực hiện Quy trình 3:"),
+          createDataTable(
+            ["Bước", "Thành Phần Thực Hiện", "Hành Động Cụ Thể", "Dữ Liệu Đầu Vào", "Dữ Liệu Đầu Ra", "Luồng Ngoại Lệ / Điều Kiện Revert"],
+            [
+              ["3.1", "Quản trị viên (Admin)", "Thiết lập thời lượng phiên bầu (duration)", "Thời gian (giây), ví dụ: 3600", "Lệnh mở phiên", "Duration <= 0 bị chặn trên UI"],
+              ["3.2", "Smart Contract", "Kiểm tra tính hợp lệ về số lượng ứng viên", "candidates.length, seats", "Chấp thuận hoặc Revert", "Revert 'Not enough candidates' nếu số ứng viên < số ghế (TC10)"],
+              ["3.3", "Smart Contract", "Chốt số khối snapshot lịch sử", "block.number", "snapshotBlock = block.number - 1", "Không có"],
+              ["3.4", "Smart Contract", "Thiết lập mốc kết thúc phiên", "block.timestamp, duration", "endTime", "Không có"],
+              ["3.5", "Smart Contract", "Chuyển trạng thái kỳ bầu cử", "Status.Voting", "Event VotingStarted", "Không có"],
+              ["3.6", "Web Frontend", "Kích hoạt đồng hồ đếm ngược thời gian thực", "endTime", "Giao diện Voting mở khóa", "Đồng bộ thời gian lệch giữa máy trạm và blockchain"]
+            ],
+            [8, 16, 26, 18, 16, 16]
+          ),
+          createBodyParagraph("Phân tích Chốt an toàn (Security Gates) Quy trình 3:"),
+          createBulletItem("Gate 1 - Ràng buộc ứng viên tối thiểu (candidates >= seats)", "Không thể mở phiên bầu cử nếu số lượng ứng viên ít hơn số ghế cần bầu. Điều này ngăn chặn tình huống kỳ bầu cử bị vô hiệu hoặc thiếu sự cạnh tranh dân chủ (TC10)."),
+          createBulletItem("Gate 2 - Chốt Snapshot quá khứ (block.number - 1)", "Hàm getPastVotes() của ERC20Votes yêu cầu khối truy vấn phải đã được đào hoàn tất. Bằng việc chốt tại block.number - 1, hệ thống đóng băng toàn bộ quyền biểu quyết của cổ đông, miễn nhiễm hoàn toàn với các cuộc tấn công vay nhanh (Flash Loan) hoặc mua bán cổ phần tức thời trong phiên (TC11, TC19, TC20)."),
 
-          createSubSectionTitle("2.5.4. Hoạt động 4: Bỏ phiếu bầu dồn On-chain (Cumulative Voting Execution)"),
+          // ACTIVITY DIAGRAM 4
+          createSubSectionTitle("2.5.4. Activity Diagram 4: Quy trình Bỏ phiếu bầu dồn On-chain (Cumulative Voting Execution)"),
           createDiagramBox(
-            "BIỂU ĐỒ HOẠT ĐỘNG 4: THỰC THI BỎ PHIẾU BẦU DỒN VÀ KIỂM TRA BẢO MẬT",
-`[ BẮT ĐẦU ]
-     |
-     v
-Cổ đông kết nối ví, gửi tx vote(electionId, candidateIds[], amounts[])
-     |
-     v
-< 1. Hệ thống có đang bị tạm dừng khẩn cấp không (whenNotPaused)? >
-     |-- [ĐANG TẠM DỪNG] ---> Revert EnforcedPause
-     |-- [BÌNH THƯỜNG]
-     v
-< 2. Kiểm tra trạng thái kỳ bầu cử có phải Voting không? >
-     |-- [SAI] ---> Revert Invalid election status
-     |-- [ĐÚNG]
-     v
-< 3. Kiểm tra thời hạn: block.timestamp <= endTime? >
-     |-- [HẾT HẠN] ---> Revert Voting ended
-     |-- [CÒN HẠN]
-     v
-< 4. Kiểm tra cử tri: !hasVoted[msg.sender]? >
-     |-- [ĐÃ BẦU TRƯỚC ĐÓ] ---> Revert Already voted (Chống Double Voting)
-     |-- [CHƯA BẦU]
-     v
-< 5. Kiểm tra kích thước mảng: candidateIds.length == amounts.length > 0? >
-     |-- [SAI] ---> Revert Invalid input
-     |-- [ĐÚNG]
-     v
-Truy vấn Smart Contract ShareToken:
-shares = shareToken.getPastVotes(msg.sender, snapshotBlock)
-maxVotes = shares * seats
-     |
-     v
-< 6. Cử tri có quyền biểu quyết không: maxVotes > 0? >
-     |-- [KHÔNG CÓ CỔ PHẦN TẠI SNAPSHOT] ---> Revert No voting power
-     |-- [HỢP LỆ]
-     v
-[EFFECTS]: Đánh dấu hasVoted[msg.sender] = true (Checks-Effects-Interactions)
-     |
-     v
-Khởi tạo total = 0. Bắt đầu vòng lặp duyệt qua từng ứng viên i:
-     |
-     +---> < candidateIds[i] < candidates.length? >
-     |          |-- [SAI] ---> Revert Candidate not found
-     |          |-- [ĐÚNG]
-     |     < i == 0 || candidateIds[i] > candidateIds[i - 1]? >
-     |          |-- [SAI: TRÙNG LẶP HOẶC KHÔNG TĂNG DẦN] ---> Revert Ids must be ascending
-     |          |-- [ĐÚNG]
-     |     Cộng dồn: total += amounts[i]
-     |     Cập nhật số phiếu ứng viên: candidates[candidateIds[i]].votes += amounts[i]
-     +--- Lặp cho đến hết mảng candidateIds
-     |
-     v
-< 7. Kiểm tra hạn mức dồn phiếu: total <= maxVotes? >
-     |-- [VƯỢT QUYỀN BIỂU QUYẾT] ---> Revert Exceeds voting power
-     |-- [HỢP LỆ]
-     v
-Phát sự kiện VoteCast(electionId, msg.sender, total)
-     |
-     v
-[ KẾT THÚC: BỎ PHIẾU THÀNH CÔNG ]`
+            "BIỂU ĐỒ HOẠT ĐỘNG 4: SWIMLANE BỎ PHIẾU BẦU DỒN VÀ KIỂM TRA BẢO MẬT ĐA LỚP",
+`LÀN 1: CỔ ĐÔNG (VOTER)        | LÀN 2: WEB FRONTEND / DAPP    | LÀN 3: SMART CONTRACT (BOARDELECTION)
+                              |                               |
+  (●) BẮT ĐẦU                 |                               |
+   |                          |                               |
+   v                          |                               |
+[Kết nối ví Web3 / Quick]     |                               |
+   |                          |                               |
+   +------------------------->|                               |
+                              | [Gọi votingPowerOf(id, voter)]|
+                              |   |                           |
+                              |   +-------------------------->|
+                              |                               | [shares = getPastVotes(voter, snapshot)]
+                              |                               | [maxVotes = shares * seats]
+                              |                               |   |
+                              |<------------------------------+---+
+                              | [Hiển thị Tổng số phiếu tối đa]|
+   |<-------------------------+                               |
+   v                          |                               |
+[Điều chỉnh phân bổ phiếu     |                               |
+ cho các ứng viên mong muốn]  |                               |
+[Nhấn "Ký gửi Phiếu bầu"]     |                               |
+   |                          |                               |
+   +------------------------->|                               |
+                              | [Kiểm tra tổng <= maxVotes UI]|
+                              | [Sắp xếp mảng IDs tăng dần]   |
+                              | [Gửi tx vote(candidateIds, amounts)]
+                              |   |                           |
+                              |   +-------------------------->|
+                              |                               | <1. whenNotPaused && status == Voting?>
+                              |                               |   |-- [SAI] ---> [Revert Lỗi] ---> (X)
+                              |                               |   |-- [ĐÚNG]
+                              |                               |   v
+                              |                               | <2. block.timestamp <= endTime?>
+                              |                               |   |-- [HẾT HẠN] -> [Revert "Voting ended"] -> (X)
+                              |                               |   |-- [CÒN HẠN]
+                              |                               |   v
+                              |                               | <3. !hasVoted[msg.sender]?>
+                              |                               |   |-- [ĐÃ BẦU] --> [Revert "Already voted"] -> (X)
+                              |                               |   |-- [CHƯA BẦU]
+                              |                               |   v
+                              |                               | <4. candidateIds.len == amounts.len > 0?>
+                              |                               |   |-- [SAI] -----> [Revert "Invalid input"] -> (X)
+                              |                               |   |-- [ĐÚNG]
+                              |                               |   v
+                              |                               | <5. maxVotes > 0?>
+                              |                               |   |-- [KHÔNG CỔ PHẦN] -> [Revert "No voting power"] -> (X)
+                              |                               |   |-- [HỢP LỆ]
+                              |                               |   v
+                              |                               | [EFFECT: hasVoted[msg.sender] = true]
+                              |                               |   |
+                              |                               | [Vòng lặp duyệt từng ứng viên i:]
+                              |                               |   |
+                              |                               |   +---> <candidateIds[i] < candidates.length?>
+                              |                               |   |        |-- [SAI] -> [Revert "Not found"] -> (X)
+                              |                               |   |        |-- [ĐÚNG]
+                              |                               |   |     <i == 0 || candidateIds[i] > candidateIds[i-1]?>
+                              |                               |   |        |-- [SAI] -> [Revert "Ids must be ascending"] -> (X)
+                              |                               |   |        |-- [ĐÚNG]
+                              |                               |   |     [total += amounts[i]]
+                              |                               |   |     [candidates[id].votes += amounts[i]]
+                              |                               |   +--- Lặp hết mảng
+                              |                               |   |
+                              |                               |   v
+                              |                               | <6. total <= maxVotes?>
+                              |                               |   |-- [VƯỢT QUYỀN] -> [Revert "Exceeds voting power"] -> (X)
+                              |                               |   |-- [HỢP LỆ]
+                              |                               |   v
+                              |                               | [Phát Event VoteCast(id, voter, total)]
+                              |                               |   |
+                              |<------------------------------+---+
+                              | [Thông báo Bỏ phiếu thành công|
+                              |  & khóa form, lưu biên lai Tx]|
+   |<-------------------------+                               |
+   v                          |                               |
+[Xem biên lai xác nhận]       |                               |
+   |                          |                               |
+  (◎) KẾT THÚC                |                               |`
           ),
+          createBodyParagraph("Bảng đặc tả chi tiết các bước thực hiện Quy trình 4:"),
+          createDataTable(
+            ["Bước", "Thành Phần Thực Hiện", "Hành Động Cụ Thể", "Dữ Liệu Đầu Vào", "Dữ Liệu Đầu Ra", "Luồng Ngoại Lệ / Điều Kiện Revert"],
+            [
+              ["4.1", "Cổ đông (Voter)", "Kết nối ví và truy cập trang bỏ phiếu", "Địa chỉ ví", "Thông tin cử tri", "Chưa kết nối ví Web3"],
+              ["4.2", "Smart Contract", "Tính toán hạn mức biểu quyết snapshot", "electionId, voter", "maxVotes = shares * seats", "maxVotes = 0 nếu cổ phần mua sau snapshot"],
+              ["4.3", "Cổ đông (Voter)", "Phân bổ phiếu dồn cho các ứng viên", "v_{i,j} cho từng ứng viên", "Mảng candidateIds, amounts", "Tổng phiếu vượt quá maxVotes bị chặn trên UI"],
+              ["4.4", "Smart Contract", "Kiểm tra tính nguyên vẹn thời gian và trạng thái", "timestamp, status", "Chấp thuận hoặc Revert", "Revert 'Voting ended' hoặc 'Invalid election status' (TC21, TC22)"],
+              ["4.5", "Smart Contract", "Kiểm tra phòng chống bỏ phiếu lặp", "hasVoted[msg.sender]", "Chấp thuận hoặc Revert", "Revert 'Already voted' nếu đã từng bỏ phiếu (TC14)"],
+              ["4.6", "Smart Contract", "Ghi nhận trạng thái bỏ phiếu (CEI Pattern)", "msg.sender", "hasVoted = true", "Không có"],
+              ["4.7", "Smart Contract", "Kiểm tra thứ tự tăng dần nghiêm ngặt", "candidateIds[i]", "Chấp thuận hoặc Revert", "Revert 'Ids must be ascending' nếu gửi lặp ID ứng viên (TC17)"],
+              ["4.8", "Smart Contract", "Cộng dồn phiếu & Kiểm tra tổng hạn mức", "total, maxVotes", "Event VoteCast", "Revert 'Exceeds voting power' nếu total > maxVotes (TC16)"],
+              ["4.9", "Web Frontend", "Hiển thị biên lai giao dịch on-chain", "Tx Receipt Hash", "Biên lai bỏ phiếu", "Không có"]
+            ],
+            [8, 16, 26, 18, 16, 16]
+          ),
+          createBodyParagraph("Phân tích Chốt an toàn (Security Gates) Quy trình 4:"),
+          createBulletItem("Gate 1 - Mẫu thiết kế Checks-Effects-Interactions (CEI)", "Biến e.hasVoted[msg.sender] = true được cập nhật ngay lập tức trước khi duyệt vòng lặp cộng dồn phiếu và trước bất kỳ lời gọi ngoài nào. Thiết kế này kết hợp cùng modifier nonReentrant triệt tiêu hoàn toàn nguy cơ tấn công tái nhập (Reentrancy) hoặc gọi đúp trong cùng transaction (TC14, TC23)."),
+          createBulletItem("Gate 2 - Thuật toán chống nhân bản ứng viên (Strictly Ascending Array)", "Quy tắc require(i == 0 || candidateIds[i] > candidateIds[i - 1], 'Ids must be ascending') loại bỏ triệt để hành vi cố tình gửi mảng chứa nhiều phần tử trùng lặp (ví dụ: [1, 1, 1]) nhằm lừa dồn phiếu nhiều lần cho cùng một ứng viên (TC17)."),
+          createBulletItem("Gate 3 - Khóa hạn mức biểu quyết chặt chẽ", "Tổng số phiếu dồn total bắt buộc phải ≤ maxVotes. Bất kỳ sự gian lận dồn vượt dù chỉ 1 phiếu đều bị hợp đồng rollback toàn bộ giao dịch ngay tức khắc (TC16)."),
 
-          createSubSectionTitle("2.5.5. Hoạt động 5: Đóng phiên, Kiểm phiếu và Phát hiện hòa phiếu (Tie Detection)"),
+          // ACTIVITY DIAGRAM 5
+          createSubSectionTitle("2.5.5. Activity Diagram 5: Quy trình Đóng phiên & Kiểm phiếu tự động xác định người trúng cử (Close Election & Selection Sort)"),
           createDiagramBox(
-            "BIỂU ĐỒ HOẠT ĐỘNG 5: ĐÓNG PHIÊN, TÍNH TOÁN KẾT QUẢ VÀ XỬ LÝ ĐỒNG PHIẾU",
-`[ BẮT ĐẦU ]
-     |
-     v
-Admin gửi tx closeElection(electionId)
-     |
-     v
-< Kiểm tra: block.timestamp > endTime && admin role? >
-     |-- [SAI] ---> Revert Voting not ended hoặc Unauthorized
-     |-- [ĐÚNG]
-     v
-Chuyển trạng thái sang Status.Closed, phát sự kiện ElectionClosed(electionId)
-     |
-     v
-Người dùng / Frontend gọi hàm view getWinners(electionId)
-     |
-     v
-Khởi tạo mảng chỉ số order[0..n-1] trong bộ nhớ RAM (Memory)
-     |
-     v
-Thực hiện thuật toán Selection Sort trên Memory (sắp xếp giảm dần theo số phiếu)
-     |
-     v
-Trích xuất Top K ứng viên đầu tiên: winners[0..seats-1] = order[0..seats-1]
-     |
-     v
-< Kiểm tra đồng phiếu: n > seats && candidates[order[seats-1]].votes == candidates[order[seats]].votes? >
-     |-- [ĐÚNG: CÓ ĐỒNG PHIẾU TẠI RANH GIỚI GHẾ CUỐI]
-     |       Gán tied = true (Cảnh báo triệu tập đại hội bầu lại ghế cuối)
-     |-- [SAI: PHÂN ĐỊNH RÕ RÀNG]
-     |       Gán tied = false (Kết quả trúng cử hợp lệ tuyệt đối)
-     v
-Trả về (winners[], tied) cho giao diện Web dApp
-     |
-     v
-[ KẾT THÚC: HOÀN TẤT KIỂM PHIẾU ]`
+            "BIỂU ĐỒ HOẠT ĐỘNG 5: SWIMLANE ĐÓNG PHIÊN VÀ KIỂM PHIẾU XÁC ĐỊNH TRÚNG CỬ",
+`LÀN 1: QUẢN TRỊ VIÊN / KHÁCH  | LÀN 2: WEB FRONTEND / DAPP    | LÀN 3: SMART CONTRACT (BOARDELECTION)
+                              |                               |
+  (●) BẮT ĐẦU                 |                               |
+   |                          |                               |
+   v                          |                               |
+[Theo dõi hết giờ đếm ngược]  |                               |
+[Admin nhấn "Đóng phiên bầu"] |                               |
+   |                          |                               |
+   +------------------------->|                               |
+                              | [Tạo tx closeElection(id)]    |
+                              |   |                           |
+                              |   +-------------------------->|
+                              |                               | <Kiểm tra block.timestamp > endTime && Admin?>
+                              |                               |   |-- [CHƯA HẾT HẠN] -> [Revert "Voting not ended"] -> (X)
+                              |                               |   |-- [HỢP LỆ]
+                              |                               |   v
+                              |                               | [status = Status.Closed]
+                              |                               | [Phát Event ElectionClosed(electionId)]
+                              |                               |   |
+                              |<------------------------------+---+
+                              | [Khóa hoàn toàn giao dịch vote|
+                              |  và tự động gọi getWinners()] |
+                              |   |                           |
+                              |   +-------------------------->|
+                              |                               | <Kiểm tra status == Status.Closed?>
+                              |                               |   |-- [SAI] ---> [Revert Lỗi] ---> (X)
+                              |                               |   |-- [ĐÚNG]
+                              |                               |   v
+                              |                               | [Khởi tạo mảng chỉ số order[0..n-1] trong RAM]
+                              |                               | [Thực thi Selection Sort giảm dần theo số phiếu]
+                              |                               | [Trích xuất Top K ứng viên: winners[0..seats-1]]
+                              |                               |   |
+                              |                               |   v
+                              |                               | <Kiểm tra hòa phiếu ghế cuối:
+                              |                               |  n > seats && votes[seats-1] == votes[seats]?>
+                              |                               |   |-- [ĐÚNG] -> [Gán tied = true (Cảnh báo hòa)]
+                              |                               |   |-- [SAI]  -> [Gán tied = false (Thắng tuyệt đối)]
+                              |                               |   v
+                              |                               | [Trả về kết quả (winners[], tied)]
+                              |                               |   |
+                              |<------------------------------+---+
+                              | [Vẽ biểu đồ phân bổ phiếu bầu |
+                              |  Hiển thị Bảng vàng HĐQT      |
+                              |  Cảnh báo trạng thái tied]    |
+   |<-------------------------+                               |
+   v                          |                               |
+[Xem kết quả trúng cử và      |                               |
+ biên bản kiểm phiếu công khai|                               |
+ trên Sepolia Etherscan]       |                               |
+   |                          |                               |
+  (◎) KẾT THÚC                |                               |`
           ),
+          createBodyParagraph("Bảng đặc tả chi tiết các bước thực hiện Quy trình 5:"),
+          createDataTable(
+            ["Bước", "Thành Phần Thực Hiện", "Hành Động Cụ Thể", "Dữ Liệu Đầu Vào", "Dữ Liệu Đầu Ra", "Luồng Ngoại Lệ / Điều Kiện Revert"],
+            [
+              ["5.1", "Quản trị viên (Admin)", "Gửi giao dịch đóng phiên bầu cử", "electionId", "Lệnh đóng phiên", "Không có"],
+              ["5.2", "Smart Contract", "Kiểm tra điều kiện thời gian và quyền hạn", "block.timestamp, endTime", "status = Closed", "Revert 'Voting not ended' nếu đóng trước hạn (TC24)"],
+              ["5.3", "Người dùng / Frontend", "Gọi hàm view truy vấn kết quả", "electionId", "Dữ liệu kết quả", "Revert 'Invalid election status' nếu gọi khi chưa đóng phiên (TC25)"],
+              ["5.4", "Smart Contract", "Thực hiện thuật toán Selection Sort trên RAM", "Mảng candidates[].votes", "Mảng chỉ số order[] đã sắp xếp", "Không có (chạy trong memory, không tốn gas)"],
+              ["5.5", "Smart Contract", "Kiểm tra điều kiện đồng phiếu tại ghế cuối", "votes[seats-1], votes[seats]", "Cờ tied (boolean)", "Không có"],
+              ["5.6", "Smart Contract", "Trích xuất danh sách trúng cử chính thức", "order[0..seats-1]", "Mảng winners[]", "Không có"],
+              ["5.7", "Web Frontend", "Vẽ biểu đồ kết quả và hiển thị vinh danh HĐQT", "winners[], tied", "Giao diện Bảng vàng HĐQT", "Cảnh báo màu vàng nổi bật nếu tied = true"]
+            ],
+            [8, 16, 26, 18, 16, 16]
+          ),
+          createBodyParagraph("Phân tích Chốt an toàn (Security Gates) Quy trình 5:"),
+          createBulletItem("Gate 1 - Khóa hàm đóng phiên trước thời hạn", "Admin không thể đóng phiên tùy tiện khi chưa hết giờ quy định. Điều này bảo vệ quyền bỏ phiếu của những cổ đông tham gia sát giờ G (TC24)."),
+          createBulletItem("Gate 2 - Bảo mật kết quả kiểm phiếu trước khi kết thúc", "Hàm getWinners() có modifier inStatus(Closed). Không một ai có thể xem kết quả xếp hạng chính thức khi phiên bầu cử vẫn đang diễn ra, loại bỏ tâm lý đám đông hoặc việc điều chỉnh chiến lược bỏ phiếu không lành mạnh (TC25)."),
+          createBulletItem("Gate 3 - Giải thuật phát hiện hòa phiếu tự động (Tie Detection)", "Khi xảy ra đồng phiếu tại ranh giới ghế trúng cử cuối cùng, hệ thống không tự ý chọn ngẫu nhiên mà bật cờ tied = true. Điều này đảm bảo tính thượng tôn pháp luật để Đại hội đồng Cổ đông tổ chức biểu quyết vòng hai theo đúng Điều lệ công ty (TC27)."),
 
           createSectionTitle("2.6. Thiết kế mô hình lớp và phân quyền Smart Contract (Class Diagram)"),
           createBodyParagraph("Hệ thống áp dụng mô hình phân quyền dựa trên vai trò (Role-Based Access Control - RBAC) kế thừa từ OpenZeppelin AccessControl. Sơ đồ lớp dưới đây thể hiện mối quan hệ kế thừa và tương tác hàm giữa các hợp đồng:"),

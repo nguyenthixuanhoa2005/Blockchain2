@@ -181,6 +181,9 @@ window.addEventListener("DOMContentLoaded", async () => {
   // Nạp danh bạ ví công ty sẵn sàng
   fetchCompanyWallets();
 
+  // Khởi tạo Sidebar bảng điều khiển quản trị viên (resizable & collapsible)
+  initAdminSidebar();
+
   // Mặc định hiển thị Màn hình Đăng Nhập
   showLoginScreen();
 });
@@ -541,10 +544,12 @@ function renderRoleScreen(role, balance) {
   }
 
   const maxVotesBox = document.getElementById("maxVotesStatBox");
+  const shareTokenBox = document.getElementById("shareTokenStatBox");
 
   if (role === "admin") {
     document.getElementById("screenAdmin").classList.add("active");
     if (maxVotesBox) maxVotesBox.style.display = "none";
+    if (shareTokenBox) shareTokenBox.style.display = "none";
     if (currentAccountInfo.isSuperAdmin) {
       pill.className = "role-pill super-admin";
       pill.textContent = "👑 Quản Trị Tối Cao (Super Admin)";
@@ -557,6 +562,7 @@ function renderRoleScreen(role, balance) {
   } else if (role === "voter") {
     document.getElementById("screenVoter").classList.add("active");
     if (maxVotesBox) maxVotesBox.style.display = "";
+    if (shareTokenBox) shareTokenBox.style.display = "";
     pill.className = "role-pill voter";
     pill.textContent = `🗳️ Cổ Đông — ${balance} CP`;
     setText("currentRole", `Vai trò: Cổ Đông (${balance} cổ phần) — Được cấp phiếu bầu và có quyền bỏ phiếu biểu quyết`);
@@ -564,6 +570,7 @@ function renderRoleScreen(role, balance) {
     // Ban kiểm soát / Kiểm toán viên (Auditor)
     document.getElementById("screenGuest").classList.add("active");
     if (maxVotesBox) maxVotesBox.style.display = "none";
+    if (shareTokenBox) shareTokenBox.style.display = "";
     pill.className = "role-pill auditor";
     pill.textContent = "🔍 Ban Kiểm Soát / BKS";
     setText("currentRole", "Vai trò: Ban Kiểm Soát — Giám sát độc lập tính minh bạch của các cuộc bầu cử và danh bạ ví công ty");
@@ -704,6 +711,13 @@ async function loadAllElections() {
     isPaused = await electionContract.paused().catch(() => false);
 
     setText("totalElections", count);
+    const sidebarTotal = document.getElementById("sidebarTotalElections");
+    if (sidebarTotal) sidebarTotal.textContent = count;
+    const sidebarSys = document.getElementById("sidebarSystemStatus");
+    if (sidebarSys) {
+      sidebarSys.textContent = isPaused ? "🛑 Tạm Dừng" : "● Hoạt động";
+      sidebarSys.style.color = isPaused ? "#ef4444" : "#10b981";
+    }
 
     allElections = [];
     if (count === 0) {
@@ -1340,17 +1354,28 @@ async function updateAccountCard() {
   if (!currentAccountInfo) return;
   document.getElementById("currentAddress").textContent = currentAccountInfo.address;
 
+  // Cập nhật thông tin profile trên Sidebar Admin
+  const sidebarAdminName = document.getElementById("sidebarAdminName");
+  if (sidebarAdminName) sidebarAdminName.textContent = currentAccountInfo.name || "Quản Trị Viên";
+  const sidebarAdminRole = document.getElementById("sidebarAdminRole");
+  if (sidebarAdminRole) sidebarAdminRole.textContent = currentAccountInfo.isSuperAdmin ? "Quản Trị Tối Cao" : "Quản Trị Viên";
+
   const diffNoteEl = document.getElementById("snapshotDiffNote");
   if (diffNoteEl) diffNoteEl.style.display = "none";
 
   const maxVotesBox = document.getElementById("maxVotesStatBox");
+  const shareTokenBox = document.getElementById("shareTokenStatBox");
 
-  // Quản trị viên (Admin) chỉ điều hành, không có quyền bỏ phiếu => Ẩn hoàn toàn khối Phiếu bầu tối đa
+  // Quản trị viên (Admin) chỉ điều hành, không có quyền bỏ phiếu => Ẩn hoàn toàn khối Phiếu bầu tối đa và khối Số cổ phần
   if (currentAccountInfo.resolvedRole === "admin" || currentAccountInfo.isSuperAdmin) {
     if (maxVotesBox) maxVotesBox.style.display = "none";
+    if (shareTokenBox) shareTokenBox.style.display = "none";
     setText("currentShares", "0 CP (Admin)");
     return;
   }
+
+  // Cổ đông / Khách: Hiện lại khối cổ phần nếu trước đó bị ẩn bởi admin
+  if (shareTokenBox) shareTokenBox.style.display = "";
 
   // Khách (Guest / Ban kiểm soát)
   if (currentAccountInfo.isGuest) {
@@ -3906,10 +3931,10 @@ function renderCancelChecklist() {
     }
   });
 
-  // Hiển thị các kỳ chưa kết thúc hoặc kỳ đã bị hủy vĩnh viễn
-  const eligibleList = allElections.filter(e => e.status !== STATUS_CONTRACT.CLOSED || cancelEidSet.has(e.id));
+  // Chỉ hiển thị các kỳ chưa kết thúc và chưa bị hủy vĩnh viễn
+  const eligibleList = allElections.filter(e => e.status !== STATUS_CONTRACT.CLOSED && !cancelEidSet.has(e.id));
   if (eligibleList.length === 0) {
-    container.innerHTML = `<div style="padding:15px; text-align:center; color:var(--text-muted); font-size:12px;">Hiện không có cuộc bầu cử nào khả dụng để hủy bỏ.</div>`;
+    container.innerHTML = `<div style="padding:15px; text-align:center; color:var(--text-muted); font-size:12px;">Hiện không có cuộc bầu cử nào khả dụng để hủy bỏ (các kỳ đã hoàn tất hoặc đã hủy vĩnh viễn).</div>`;
     return;
   }
 
@@ -3981,7 +4006,12 @@ function openCancelElectionModal() {
   const presetSel = document.getElementById("modalCancelReasonPreset");
   const textarea = document.getElementById("modalCancelReasonText");
   if (presetSel && textarea) {
-    textarea.value = presetSel.value;
+    if (presetSel.value === "custom") {
+      textarea.style.display = "block";
+    } else {
+      textarea.style.display = "none";
+      textarea.value = presetSel.value;
+    }
   }
 
   const modal = document.getElementById("modalCancelElection");
@@ -3997,9 +4027,12 @@ function onCancelReasonPresetChange(val) {
   const textarea = document.getElementById("modalCancelReasonText");
   if (!textarea) return;
   if (val === "custom") {
+    textarea.style.display = "block";
     textarea.value = "";
+    textarea.placeholder = "Nhập chi tiết lý do hủy/dừng để giải trình với cổ đông...";
     textarea.focus();
   } else {
+    textarea.style.display = "none";
     textarea.value = val;
   }
 }
@@ -4015,7 +4048,15 @@ async function adminConfirmCancelElection() {
     return;
   }
 
-  const reason = (document.getElementById("modalCancelReasonText")?.value || "").trim();
+  const presetSel = document.getElementById("modalCancelReasonPreset");
+  const textarea = document.getElementById("modalCancelReasonText");
+  let reason = "";
+  if (presetSel && presetSel.value !== "custom") {
+    reason = (presetSel.value || "").trim();
+  } else if (textarea) {
+    reason = (textarea.value || "").trim();
+  }
+
   if (!reason) {
     showToast("Vui lòng cung cấp lý do hủy bỏ vĩnh viễn cuộc bầu cử!", "warning");
     return;
@@ -4360,9 +4401,21 @@ function parseErrorMessage(err) {
 function switchTab(tabId, btn) {
   const parentSection = btn.closest(".role-screen") || document;
   parentSection.querySelectorAll(".tab-content").forEach(el => el.classList.remove("active"));
-  btn.closest(".tabs").querySelectorAll(".tab-btn").forEach(el => el.classList.remove("active"));
-  document.getElementById(tabId).classList.add("active");
+  
+  const tabsContainer = btn.closest(".tabs") || btn.closest(".admin-sidebar-nav") || parentSection;
+  tabsContainer.querySelectorAll(".tab-btn, .admin-nav-btn").forEach(el => el.classList.remove("active"));
+  
+  const targetTab = document.getElementById(tabId);
+  if (targetTab) targetTab.classList.add("active");
   btn.classList.add("active");
+
+  const breadcrumbEl = document.getElementById("adminActiveTabBreadcrumb");
+  if (breadcrumbEl) {
+    if (tabId === "adminPanelTab") breadcrumbEl.innerHTML = "⚙️ Quản Trị &amp; Điều Hành Cuộc Bầu Cử";
+    if (tabId === "adminWalletsTab") breadcrumbEl.innerHTML = "🏢 Danh Sách Ví &amp; Cổ Phần Nội Bộ Công Ty";
+    if (tabId === "adminResultsTab") breadcrumbEl.innerHTML = "📊 Bảng Xếp Hạng Kết Quả &amp; Giám Sát";
+    if (tabId === "adminLogsTab") breadcrumbEl.innerHTML = "📜 Nhật Ký Sự Kiện Blockchain On-chain";
+  }
 
   if (tabId === "adminPanelTab") {
     renderAdminUnifiedElectionList();
@@ -4380,6 +4433,109 @@ function switchTab(tabId, btn) {
   if (tabId === "adminResultsTab") { loadResults(); renderAllElectionsResults("allElectionsListAdmin"); }
   if (tabId === "adminWalletsTab") {
     fetchCompanyWallets();
+  }
+}
+
+// ============================================================
+// ADMIN SIDEBAR: THU NHỎ & KÉO RÃN ĐỘ RỘNG (RESIZABLE & COLLAPSIBLE)
+// ============================================================
+function initAdminSidebar() {
+  const sidebar = document.getElementById("adminSidebar");
+  const resizer = document.getElementById("adminSidebarResizer");
+  const toggleBtn = document.getElementById("adminSidebarToggleBtn");
+  const toggleIcon = document.getElementById("adminSidebarToggleIcon");
+  if (!sidebar) return;
+
+  // Khôi phục trạng thái thu nhỏ / độ rộng từ localStorage
+  const savedWidth = localStorage.getItem("admin_sidebar_width");
+  const isCollapsed = localStorage.getItem("admin_sidebar_collapsed") === "1";
+
+  if (isCollapsed) {
+    sidebar.classList.add("collapsed");
+    sidebar.style.width = "68px";
+    if (toggleIcon) toggleIcon.textContent = "▶";
+    if (toggleBtn) toggleBtn.title = "Mở rộng bảng điều khiển";
+  } else if (savedWidth && Number(savedWidth) >= 180 && Number(savedWidth) <= 520) {
+    sidebar.style.width = `${savedWidth}px`;
+    if (toggleIcon) toggleIcon.textContent = "◀";
+  }
+
+  // Khởi động đồng hồ thời gian thực
+  const clockEl = document.getElementById("adminLiveClock");
+  if (clockEl) {
+    const updateClock = () => {
+      clockEl.textContent = new Date().toLocaleTimeString("vi-VN");
+    };
+    updateClock();
+    setInterval(updateClock, 1000);
+  }
+
+  if (!resizer) return;
+
+  // Xử lý kéo thả chuột thay đổi độ rộng (Drag-to-resize)
+  let isResizing = false;
+  let startX = 0;
+  let startWidth = 280;
+
+  resizer.addEventListener("mousedown", (e) => {
+    isResizing = true;
+    startX = e.clientX;
+    startWidth = sidebar.getBoundingClientRect().width;
+    document.body.classList.add("admin-sidebar-resizing");
+    e.preventDefault();
+  });
+
+  window.addEventListener("mousemove", (e) => {
+    if (!isResizing) return;
+    const diff = e.clientX - startX;
+    let newWidth = startWidth + diff;
+
+    if (newWidth < 140) {
+      // Tự động thu nhỏ khi kéo quá hẹp
+      sidebar.classList.add("collapsed");
+      sidebar.style.width = "68px";
+      if (toggleIcon) toggleIcon.textContent = "▶";
+      if (toggleBtn) toggleBtn.title = "Mở rộng bảng điều khiển";
+      localStorage.setItem("admin_sidebar_collapsed", "1");
+    } else {
+      // Mở rộng và giới hạn trong khoảng 200px - 520px
+      sidebar.classList.remove("collapsed");
+      if (newWidth < 200) newWidth = 200;
+      if (newWidth > 520) newWidth = 520;
+      sidebar.style.width = `${newWidth}px`;
+      if (toggleIcon) toggleIcon.textContent = "◀";
+      if (toggleBtn) toggleBtn.title = "Thu nhỏ bảng điều khiển";
+      localStorage.setItem("admin_sidebar_collapsed", "0");
+      localStorage.setItem("admin_sidebar_width", newWidth);
+    }
+  });
+
+  window.addEventListener("mouseup", () => {
+    if (isResizing) {
+      isResizing = false;
+      document.body.classList.remove("admin-sidebar-resizing");
+    }
+  });
+}
+
+function toggleAdminSidebar() {
+  const sidebar = document.getElementById("adminSidebar");
+  const toggleIcon = document.getElementById("adminSidebarToggleIcon");
+  const toggleBtn = document.getElementById("adminSidebarToggleBtn");
+  if (!sidebar) return;
+
+  const isCollapsed = sidebar.classList.toggle("collapsed");
+  if (isCollapsed) {
+    sidebar.style.width = "68px";
+    if (toggleIcon) toggleIcon.textContent = "▶";
+    if (toggleBtn) toggleBtn.title = "Mở rộng bảng điều khiển";
+    localStorage.setItem("admin_sidebar_collapsed", "1");
+  } else {
+    const savedWidth = localStorage.getItem("admin_sidebar_width") || "280";
+    sidebar.style.width = `${savedWidth}px`;
+    if (toggleIcon) toggleIcon.textContent = "◀";
+    if (toggleBtn) toggleBtn.title = "Thu nhỏ bảng điều khiển";
+    localStorage.setItem("admin_sidebar_collapsed", "0");
   }
 }
 
