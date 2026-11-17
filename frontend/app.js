@@ -212,23 +212,25 @@ function setupGlobalMetaMaskListeners() {
       const newAddr = newAccounts[0];
       const isSuper = (newAddr.toLowerCase() === SUPER_ADMIN_ADDRESS.toLowerCase());
 
-      // Nếu đang trong giao diện App, tự động nạp lại thông tin theo ví mới
-      const screenApp = document.getElementById("screenApp");
-      const isAppActive = screenApp && screenApp.style.display !== "none";
+      // Đóng modal từ chối truy cập nếu trước đó đang hiển thị
+      const deniedModal = document.getElementById("modalAccessDenied");
+      if (deniedModal) deniedModal.style.display = "none";
 
-      if (isAppActive && currentAccountInfo && !currentAccountInfo.isGuest) {
-        showToast(`MetaMask đã chuyển sang ví: ${newAddr.substring(0, 6)}...${newAddr.substring(38)}`, "primary");
-        provider = new ethers.BrowserProvider(window.ethereum);
+      showToast(`MetaMask đã chuyển sang ví: ${newAddr.substring(0, 6)}...${newAddr.substring(38)}`, "primary");
+      provider = new ethers.BrowserProvider(window.ethereum);
+      try {
+        currentSigner = await provider.getSigner(newAddr);
+      } catch (e) {
         currentSigner = await provider.getSigner();
-        currentAccountInfo = {
-          name: isSuper ? "Chủ tịch HĐQT / Quản trị viên tối cao" : `MetaMask (${newAddr.substring(0, 6)}...${newAddr.substring(38)})`,
-          address: newAddr,
-          isGuest: false,
-          isSuperAdmin: isSuper,
-          isMetaMask: true
-        };
-        await initContractsAndRole();
       }
+      currentAccountInfo = {
+        name: isSuper ? "Chủ tịch HĐQT / Quản trị viên tối cao" : `MetaMask (${newAddr.substring(0, 6)}...${newAddr.substring(38)})`,
+        address: newAddr,
+        isGuest: false,
+        isSuperAdmin: isSuper,
+        isMetaMask: true
+      };
+      await initContractsAndRole();
     } else {
       // Người dùng ngắt toàn bộ kết nối trên MetaMask
       logout();
@@ -240,7 +242,11 @@ function setupGlobalMetaMaskListeners() {
     await checkCurrentNetwork();
     if (currentAccountInfo && !currentAccountInfo.isGuest) {
       provider = new ethers.BrowserProvider(window.ethereum);
-      currentSigner = await provider.getSigner();
+      try {
+        currentSigner = await provider.getSigner(currentAccountInfo.address);
+      } catch (e) {
+        currentSigner = await provider.getSigner();
+      }
       await initContractsAndRole();
     }
   });
@@ -303,7 +309,12 @@ async function loginWithMetaMask(forceSelect = false) {
     }
 
     provider = new ethers.BrowserProvider(window.ethereum);
-    currentSigner = await provider.getSigner();
+    const chosenAccount = (accounts && accounts.length > 0) ? accounts[0] : undefined;
+    try {
+      currentSigner = await provider.getSigner(chosenAccount);
+    } catch (e) {
+      currentSigner = await provider.getSigner();
+    }
     const addr = await currentSigner.getAddress();
 
     const isSuperAdmin = (addr.toLowerCase() === SUPER_ADMIN_ADDRESS.toLowerCase());
@@ -374,6 +385,12 @@ async function loginAsGuest() {
 // 4. Đăng xuất (Logout)
 function logout(showNotice = true) {
   clearAllCountdowns();
+  if (electionContract) {
+    try { electionContract.removeAllListeners(); } catch (e) {}
+  }
+  if (tokenContract) {
+    try { tokenContract.removeAllListeners(); } catch (e) {}
+  }
   currentSigner = null;
   currentAccountInfo = null;
   currentElectionId = null;
@@ -382,6 +399,8 @@ function logout(showNotice = true) {
   tokenContract = null;
   electionContract = null;
   window._forceSelectAccount = true;
+  const deniedModal = document.getElementById("modalAccessDenied");
+  if (deniedModal) deniedModal.style.display = "none";
   showLoginScreen();
   if (showNotice) {
     showToast("Đã đăng xuất khỏi tài khoản.", "primary");
@@ -393,6 +412,14 @@ function logout(showNotice = true) {
 // ============================================================
 async function initContractsAndRole() {
   try {
+    // Dọn dẹp triệt để các bộ lắng nghe sự kiện của hợp đồng cũ trước khi tạo instance mới
+    if (electionContract) {
+      try { electionContract.removeAllListeners(); } catch (e) {}
+    }
+    if (tokenContract) {
+      try { tokenContract.removeAllListeners(); } catch (e) {}
+    }
+
     tokenContract = new ethers.Contract(
       window.APP_CONFIG.tokenAddress,
       window.APP_CONFIG.tokenAbi,
@@ -406,25 +433,40 @@ async function initContractsAndRole() {
 
     setupEventListeners();
 
-    // Kiểm tra quyền từ Smart Contract thực tế & ví Super Admin
+    // 1. Luôn đồng bộ danh bạ ví công ty mới nhất từ Backend/LocalStorage
+    await fetchCompanyWallets();
+
+    // 2. Xác thực tài khoản với danh bạ ví nội bộ công ty
     const address = currentAccountInfo.address;
     const isSuperAdmin = (address && address.toLowerCase() === SUPER_ADMIN_ADDRESS.toLowerCase());
-    const ADMIN_ROLE = ethers.id("ELECTION_ADMIN_ROLE");
-    const DEFAULT_ADMIN = ethers.ZeroHash;
+    const companyEntry = companyWallets.find(
+      (w) => w.address && w.address.toLowerCase() === address.toLowerCase()
+    );
 
-    let isAdmin = isSuperAdmin;
+    // 3. KIỂM SOÁT BẢO MẬT: NẾU VÍ KHÔNG CÓ TRONG DANH SÁCH NỘI BỘ VÀ KHÔNG PHẢI SUPER ADMIN
+    if (!isSuperAdmin && !companyEntry && !currentAccountInfo.isGuest) {
+      console.warn(`[Quyền Truy Cập] Ví ${address} chưa có trong danh sách cổ đông công ty!`);
+      const screenApp = document.getElementById("screenApp");
+      if (screenApp) screenApp.style.display = "none";
+      const screenLogin = document.getElementById("screenLogin");
+      if (screenLogin) screenLogin.style.display = "none";
+
+      showAccessDeniedModal(address);
+      hideLoadingOverlay();
+      return;
+    }
+
+    // Đóng modal Từ Chối Truy Cập nếu trước đó mở và ví này hợp lệ
+    const deniedModal = document.getElementById("modalAccessDenied");
+    if (deniedModal) deniedModal.style.display = "none";
+
     let balance = 0n;
 
     if (!currentAccountInfo.isGuest) {
-      const [adminCheck, defaultCheck, balCheck, pausedCheck] = await Promise.all([
-        electionContract.hasRole(ADMIN_ROLE, address).catch(() => false),
-        electionContract.hasRole(DEFAULT_ADMIN, address).catch(() => false),
+      const [balCheck, pausedCheck] = await Promise.all([
         tokenContract.balanceOf(address).catch(() => 0n),
         electionContract.paused().catch(() => false)
       ]);
-      if (adminCheck || defaultCheck || isSuperAdmin) {
-        isAdmin = true;
-      }
       balance = balCheck;
       isPaused = pausedCheck;
     } else {
@@ -433,25 +475,14 @@ async function initContractsAndRole() {
 
     const balNum = Number(balance);
 
-    // Đối soát với danh bạ ví nội bộ công ty
-    let companyEntry = companyWallets.find(
-      (w) => w.address && w.address.toLowerCase() === address.toLowerCase()
-    );
-    if (!companyEntry && companyWallets.length === 0) {
-      await fetchCompanyWallets();
-      companyEntry = companyWallets.find(
-        (w) => w.address && w.address.toLowerCase() === address.toLowerCase()
-      );
-    }
-
-    // Xác định vai trò nội bộ (chỉ gồm Admin và Cổ đông biểu quyết):
-    // 1. Admin: isSuperAdmin, contract admin hoặc role 'admin' trong danh bạ
-    // 2. Voter: Cổ đông biểu quyết
+    // 4. XÁC ĐỊNH VAI TRÒ NỘI BỘ:
+    // - Super Admin HOẶC role 'admin' trong danh bạ công ty => Admin
+    // - Bất kỳ thành viên nào có role 'voter' trong danh bạ => Cổ đông biểu quyết (Voter)
     let resolvedRole = "voter";
-    if (isAdmin || (companyEntry && companyEntry.role === "admin")) {
+    if (isSuperAdmin || (companyEntry && companyEntry.role === "admin")) {
       resolvedRole = "admin";
     } else {
-      resolvedRole = "voter"; // Mặc định là Cổ đông biểu quyết
+      resolvedRole = "voter";
     }
 
     if (companyEntry && companyEntry.name) {
@@ -550,17 +581,23 @@ function getElectionPhase(election, paused) {
   const isPostponed = eid ? localStorage.getItem(`postponed_election_${eid}`) === "true" : false;
   const isElectionPaused = eid ? localStorage.getItem(`paused_election_${eid}`) === "true" : false;
 
-  // 0. Nếu kỳ bị Hủy / Dừng hẳn do nghi vấn gian lận
+  // 0. Nếu kỳ bị Hủy bỏ Vĩnh viễn do nghi vấn gian lận / sai phạm quy chế
   const cancelAnnouncements = getCachedAnnouncements();
   const cancelItem = eid ? cancelAnnouncements.find(a => Number(a.electionId) === Number(eid)) : null;
-  if (cancelItem) {
+  const isCancelledByStorage = eid ? localStorage.getItem(`cancelled_election_${eid}`) === "true" : false;
+
+  if (cancelItem || isCancelledByStorage) {
+    const reasonText = cancelItem?.reason || localStorage.getItem(`cancelled_reason_${eid}`) || "Phát hiện nghi vấn bất thường hoặc vi phạm quy chế bầu cử";
+    const authorText = cancelItem?.author || "Ban Quản Trị";
+    const timeText = cancelItem?.createdAt ? new Date(cancelItem.createdAt).toLocaleString('vi-VN') : "vừa xong";
     return {
-      label: 'Đã hủy / Dừng hẳn',
+      label: 'Đã hủy vĩnh viễn',
+      isCancelled: true,
       badgeClass: 'badge-danger',
       cssClass: 'phase-paused',
       infoClass: 'paused',
       icon: '🛑',
-      desc: `Kỳ bầu cử này đã bị HỦY/DỪNG HẲN: "${escapeHtml(cancelItem.reason)}". Quyết định bởi: ${escapeHtml(cancelItem.author)} lúc ${new Date(cancelItem.createdAt).toLocaleString('vi-VN')}.`
+      desc: `Kỳ bầu cử này đã bị HỦY BỎ VĨNH VIỄN: "${escapeHtml(reasonText)}". Quyết định bởi: ${escapeHtml(authorText)} lúc ${timeText} (Không thể khôi phục).`
     };
   }
 
@@ -771,24 +808,33 @@ async function loadSingleElection(id) {
 }
 
 function updateActiveElectionCount() {
-  const activeCount = allElections.filter(e => e.status === STATUS_CONTRACT.VOTING && !isPaused).length;
+  const activeCount = allElections.filter(e => {
+    const ph = getElectionPhase(e, isPaused);
+    return ph.label === "Đang diễn ra" && !isPaused;
+  }).length;
   setText("activeElectionCount", activeCount > 0 ? `${activeCount} đang diễn ra` : "0 phiên đang diễn ra");
 }
 
 // ============================================================
 // POPULATE DROPDOWNS
 // ============================================================
+let currentResultsElectionId = null;
+
 function populateAdminSelector() {
   const sel = document.getElementById("adminElectionSelect");
   const candSel = document.getElementById("candidateElectionSelect");
-  if (!sel && !candSel) return;
+  const resultsSel = document.getElementById("adminResultsElectionSelect");
+  if (!sel && !candSel && !resultsSel) return;
   const prev = sel ? sel.value : "";
+  const prevResults = resultsSel ? resultsSel.value : "";
   if (sel) sel.innerHTML = "";
   if (candSel) candSel.innerHTML = "";
+  if (resultsSel) resultsSel.innerHTML = "";
 
   if (allElections.length === 0) {
     if (sel) sel.innerHTML = '<option value="">-- Chưa có cuộc bầu cử nào --</option>';
     if (candSel) candSel.innerHTML = '<option value="">-- Chưa có cuộc bầu cử nào --</option>';
+    if (resultsSel) resultsSel.innerHTML = '<option value="">-- Chưa có cuộc bầu cử nào --</option>';
     return;
   }
   allElections.slice().reverse().forEach(e => {
@@ -806,6 +852,12 @@ function populateAdminSelector() {
       opt2.textContent = text;
       candSel.appendChild(opt2);
     }
+    if (resultsSel) {
+      const opt3 = document.createElement("option");
+      opt3.value = e.id;
+      opt3.textContent = text;
+      resultsSel.appendChild(opt3);
+    }
   });
 
   const selectedVal = prev && allElections.find(x => x.id === Number(prev))
@@ -814,6 +866,24 @@ function populateAdminSelector() {
 
   if (sel && selectedVal) sel.value = selectedVal;
   if (candSel && selectedVal) candSel.value = selectedVal;
+
+  // Với bảng xếp hạng kết quả: Ưu tiên giữ kỳ đang chọn, hoặc kỳ đang diễn ra, hoặc kỳ có nhiều ứng viên/phiếu nhất
+  const defaultResultsId = prevResults && allElections.find(x => x.id === Number(prevResults))
+    ? prevResults
+    : (currentResultsElectionId && allElections.find(x => x.id === currentResultsElectionId)
+        ? String(currentResultsElectionId)
+        : (currentElectionId ? String(currentElectionId) : String(allElections[allElections.length - 1].id)));
+
+  if (resultsSel && defaultResultsId) {
+    resultsSel.value = defaultResultsId;
+    currentResultsElectionId = Number(defaultResultsId);
+  }
+}
+
+function onAdminResultsElectionChange(val) {
+  if (!val) return;
+  currentResultsElectionId = Number(val);
+  loadResults(currentResultsElectionId);
 }
 
 // Đồng bộ cuộc bầu cử từ Form 4 (Thêm ứng viên)
@@ -829,18 +899,23 @@ function populateVoterSelector() {
   if (!sel) return;
   const prev = sel.value;
   sel.innerHTML = "";
-  const votableElections = allElections.filter(e => e.status === STATUS_CONTRACT.VOTING && !isPaused);
-  if (votableElections.length === 0) {
-    sel.innerHTML = '<option value="">-- Hiện không có cuộc bầu cử nào đang diễn ra --</option>';
+
+  if (allElections.length === 0) {
+    sel.innerHTML = '<option value="">-- Hiện chưa có cuộc bầu cử nào --</option>';
     return;
   }
-  allElections.forEach(e => {
-    const isVotable = e.status === STATUS_CONTRACT.VOTING && !isPaused;
+
+  allElections.slice().reverse().forEach(e => {
+    const phase = getElectionPhase(e, isPaused);
+    const isCancelled = phase.isCancelled || phase.label === 'Đã hủy vĩnh viễn';
+    const isVotable = !isCancelled && !isPaused && e.status === STATUS_CONTRACT.VOTING && !localStorage.getItem(`paused_election_${e.id}`);
+    const statusText = isVotable ? " [Đang mở bỏ phiếu]" : ` [${phase.label}]`;
     const opt = document.createElement("option");
     opt.value = e.id;
-    opt.textContent = `#${e.id} — ${e.title}${isVotable ? " [Đang mở]" : " [" + getElectionPhase(e, isPaused).label + "]"}`;
+    opt.textContent = `#${e.id} — ${e.title}${statusText}`;
     sel.appendChild(opt);
   });
+
   if (prev && allElections.find(x => x.id === Number(prev))) {
     sel.value = prev;
   } else if (voterCurrentElectionId) {
@@ -970,6 +1045,20 @@ function updateCountdown(countdownId, endTimeId, election) {
 
     const isPostponed = localStorage.getItem(`postponed_election_${liveElection.id}`) === "true";
     const isElectionPaused = localStorage.getItem(`paused_election_${liveElection.id}`) === "true";
+    const isCancelled = localStorage.getItem(`cancelled_election_${liveElection.id}`) === "true" ||
+      getCachedAnnouncements().some(a => Number(a.electionId) === Number(liveElection.id));
+
+    // 00. Trường hợp: Kỳ bị Hủy bỏ Vĩnh viễn
+    if (isCancelled) {
+      if (el) {
+        el.textContent = "🛑 Đã hủy vĩnh viễn";
+        el.className = "stat-value countdown-urgent";
+      }
+      if (endEl) {
+        endEl.textContent = "Ban tổ chức đã quyết định hủy bỏ vĩnh viễn kỳ bầu cử này (Không thể khôi phục)";
+      }
+      return;
+    }
 
     // 0a. Trường hợp: Kỳ chưa diễn ra bị Admin tạm hoãn
     if (isPostponed && liveElection.status === STATUS_CONTRACT.REGISTRATION) {
@@ -1403,6 +1492,26 @@ function updateAdminPreflightChecklist(status, paused, election) {
 
   if (!preflightBox || !election) return;
 
+  const phase = getElectionPhase(election, paused);
+  const isCancelled = phase.isCancelled || phase.label === 'Đã hủy vĩnh viễn';
+
+  if (isCancelled) {
+    preflightBox.style.display = "block";
+    if (badge) {
+      badge.className = "badge badge-danger";
+      badge.textContent = "🛑 Đã hủy vĩnh viễn";
+    }
+    if (btnStart) {
+      btnStart.disabled = true;
+      btnStart.style.opacity = "0.5";
+      btnStart.innerHTML = "🛑 Cuộc Bầu Cử Đã Bị Hủy Bỏ Vĩnh Viễn";
+    }
+    if (notice) {
+      notice.innerHTML = `⚠️ <strong>Kỳ này đã bị hủy bỏ vĩnh viễn:</strong> ${escapeHtml(phase.desc)}`;
+    }
+    return;
+  }
+
   // Nếu phiên đã mở hoặc đã kết thúc
   if (status >= STATUS_CONTRACT.VOTING) {
     preflightBox.style.display = "block";
@@ -1629,7 +1738,22 @@ async function loadCandidatesAndVoting(election) {
   const voteDesc   = document.getElementById("voterVoteDesc");
   const receiptBox = document.getElementById("voterVoteReceiptBox");
 
-  if (hasVoted) {
+  const isCancelled = phase.isCancelled || phase.label === 'Đã hủy vĩnh viễn';
+
+  if (isCancelled) {
+    if (votedBadge) { votedBadge.textContent = "🛑 Đã hủy vĩnh viễn"; votedBadge.className = "badge badge-danger"; }
+    if (submitBtn)  { submitBtn.disabled = true; submitBtn.innerHTML = "🛑 Cuộc Bầu Cử Đã Bị Hủy Bỏ Vĩnh Viễn"; }
+    if (receiptBox) { receiptBox.style.display = "none"; }
+    if (blockedBox) {
+      blockedBox.style.display = "flex";
+      blockedBox.className = "status-info-box paused";
+      const blockedTitle = document.getElementById("voterBlockedTitle");
+      const blockedDesc  = document.getElementById("voterBlockedDesc");
+      if (blockedTitle) blockedTitle.textContent = "🛑 Cuộc bầu cử đã bị hủy bỏ vĩnh viễn";
+      if (blockedDesc)  blockedDesc.textContent  = phase.desc;
+    }
+    if (voteDesc) voteDesc.style.display = "none";
+  } else if (hasVoted) {
     if (votedBadge) { votedBadge.textContent = "✅ Đã bỏ phiếu"; votedBadge.className = "badge badge-success"; }
     if (submitBtn)  { submitBtn.disabled = true; submitBtn.innerHTML = "✅ Bạn Đã Hoàn Thành Bỏ Phiếu"; }
     if (blockedBox) { blockedBox.style.display = "none"; }
@@ -1997,24 +2121,50 @@ function copyToClipboard(text) {
 // ============================================================
 // KẾT QUẢ VÀ BẢNG XẾP HẠNG (RESULTS)
 // ============================================================
-async function loadResults() {
-  const eid = currentElectionId || voterCurrentElectionId;
+async function loadResults(forcedEid) {
+  const sel = document.getElementById("adminResultsElectionSelect");
+  let eid = forcedEid || currentResultsElectionId;
+  if (!eid && sel && sel.value) {
+    eid = Number(sel.value);
+  }
+  if (!eid) {
+    // Ưu tiên kỳ đang diễn ra hoặc kỳ có ID nhỏ nhất nếu chưa chọn
+    const activeEl = allElections.find(e => e.status === STATUS_CONTRACT.VOTING);
+    eid = activeEl ? activeEl.id : (currentElectionId || voterCurrentElectionId || (allElections.length > 0 ? allElections[0].id : null));
+  }
   if (!eid) return;
 
-  const election = allElections.find(e => e.id === eid);
+  currentResultsElectionId = Number(eid);
+  if (sel && sel.value !== String(eid)) {
+    sel.value = String(eid);
+  }
+
+  const election = allElections.find(e => e.id === Number(eid)) || await loadSingleElection(Number(eid));
   if (!election) return;
+
+  const phase = getElectionPhase(election, isPaused);
+
+  // Cập nhật Header thông tin kỳ bầu cử ở trên bảng xếp hạng
+  setText("adminResultsElectionTitle", `#${election.id} — ${election.title}`);
+  const badgeEl = document.getElementById("adminResultsElectionBadge");
+  if (badgeEl) {
+    badgeEl.innerHTML = `<span class="badge ${phase.badgeClass}">${phase.icon} ${phase.label}</span>`;
+  }
+  const endStr = election.endTime > 0 ? new Date(election.endTime * 1000).toLocaleString("vi-VN") : "Ngay khi mở";
+  const snapStr = election.snapshotBlock > 0 ? `Block #${election.snapshotBlock}` : "Chưa chốt snapshot";
+  setText("adminResultsElectionMeta", `Ghế cần bầu: ${election.seats} ghế • Ứng viên: ${election.candidateCount} người • Snapshot: ${snapStr} • Hạn chót: ${endStr}`);
 
   const tbody = document.getElementById("resultsTableBody");
   if (!tbody) return;
 
   if (election.candidateCount === 0) {
-    tbody.innerHTML = `<tr><td colspan="6" style="text-align:center;color:var(--text-muted);padding:20px;">Chưa có ứng viên nào.</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="6" style="text-align:center;color:var(--text-muted);padding:20px;">Chưa có ứng viên nào cho kỳ #${election.id}.</td></tr>`;
     return;
   }
 
   let all = [], totalAllVotes = 0;
   for (let i = 0; i < election.candidateCount; i++) {
-    const c = await electionContract.getCandidate(eid, i);
+    const c = await electionContract.getCandidate(election.id, i);
     const v = Number(c[2]);
     totalAllVotes += v;
     all.push({ id: i, name: c[0], profileCid: c[1], votes: v });
@@ -2023,7 +2173,7 @@ async function loadResults() {
   let winners = [], isTied = false;
   if (election.status === STATUS_CONTRACT.CLOSED) {
     try {
-      const res = await electionContract.getWinners(eid);
+      const res = await electionContract.getWinners(election.id);
       winners = res[0].map(Number);
       isTied  = res[1];
     } catch {}
@@ -2164,7 +2314,12 @@ async function renderAllElectionsResults(containerId) {
               Cuộc bầu cử #${election.id} • ${election.seats} ghế HĐQT • Kết thúc: ${endTimeStr}
             </div>
           </div>
-          <span class="badge ${phase.badgeClass}" style="font-size:13px;padding:5px 14px;">${phase.label}</span>
+          <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+            <button type="button" class="btn btn-outline btn-sm" onclick="onAdminResultsElectionChange(${election.id}); const topEl = document.getElementById('adminResultsElectionHeader'); if(topEl) topEl.scrollIntoView({behavior:'smooth'});" style="font-size:12px;font-weight:700;border-color:#3b82f6;color:#2563eb;">
+              📊 Xem Chi Tiết Bảng Điểm Kỳ #${election.id}
+            </button>
+            <span class="badge ${phase.badgeClass}" style="font-size:13px;padding:5px 14px;">${phase.label}</span>
+          </div>
         </div>
         ${resultHtml}
       </div>
@@ -2189,16 +2344,30 @@ async function renderAdminUnifiedElectionList() {
   const container = document.getElementById("adminUnifiedElectionList");
   if (!container) return;
 
-  // Cập nhật số liệu các bộ lọc
+  // Cập nhật số liệu các bộ lọc chuẩn xác theo phase
   const total = allElections.length;
-  const countUpcoming = allElections.filter(e => e.status === STATUS_CONTRACT.REGISTRATION).length;
-  const countActive = allElections.filter(e => e.status === STATUS_CONTRACT.VOTING && !isPaused).length;
-  const countClosed = allElections.filter(e => e.status === STATUS_CONTRACT.CLOSED || (e.endTime > 0 && Math.floor(Date.now()/1000) >= e.endTime)).length;
+  const countCancelled = allElections.filter(e => {
+    const ph = getElectionPhase(e, isPaused);
+    return ph.isCancelled || ph.label === 'Đã hủy vĩnh viễn';
+  }).length;
+  const countUpcoming = allElections.filter(e => {
+    const ph = getElectionPhase(e, isPaused);
+    return ph.label === 'Sắp diễn ra' || ph.label.includes('Tạm hoãn');
+  }).length;
+  const countActive = allElections.filter(e => {
+    const ph = getElectionPhase(e, isPaused);
+    return ph.label === 'Đang diễn ra' || ph.label === 'Tạm dừng bỏ phiếu';
+  }).length;
+  const countClosed = allElections.filter(e => {
+    const ph = getElectionPhase(e, isPaused);
+    return ph.label === 'Đã kết thúc';
+  }).length;
 
   setText("countFilterAll", total);
   setText("countFilterUpcoming", countUpcoming);
   setText("countFilterActive", countActive);
   setText("countFilterClosed", countClosed);
+  setText("countFilterCancelled", countCancelled);
   setText("adminElectionCountBadge", `${total} cuộc bầu cử`);
 
   const globalHint = document.getElementById("adminGlobalPauseStatusHint");
@@ -2235,11 +2404,25 @@ async function renderAdminUnifiedElectionList() {
   // Lọc theo currentAdminFilter
   let filtered = [...allElections].reverse();
   if (currentAdminFilter === "upcoming") {
-    filtered = filtered.filter(e => e.status === STATUS_CONTRACT.REGISTRATION);
+    filtered = filtered.filter(e => {
+      const ph = getElectionPhase(e, isPaused);
+      return ph.label === 'Sắp diễn ra' || ph.label.includes('Tạm hoãn');
+    });
   } else if (currentAdminFilter === "active") {
-    filtered = filtered.filter(e => e.status === STATUS_CONTRACT.VOTING && !isPaused);
+    filtered = filtered.filter(e => {
+      const ph = getElectionPhase(e, isPaused);
+      return ph.label === 'Đang diễn ra' || ph.label === 'Tạm dừng bỏ phiếu';
+    });
   } else if (currentAdminFilter === "closed") {
-    filtered = filtered.filter(e => e.status === STATUS_CONTRACT.CLOSED || (e.endTime > 0 && Math.floor(Date.now()/1000) >= e.endTime));
+    filtered = filtered.filter(e => {
+      const ph = getElectionPhase(e, isPaused);
+      return ph.label === 'Đã kết thúc';
+    });
+  } else if (currentAdminFilter === "cancelled") {
+    filtered = filtered.filter(e => {
+      const ph = getElectionPhase(e, isPaused);
+      return ph.isCancelled || ph.label === 'Đã hủy vĩnh viễn';
+    });
   }
 
   if (filtered.length === 0) {
@@ -2254,9 +2437,10 @@ async function renderAdminUnifiedElectionList() {
   const itemsHtml = [];
   for (const e of filtered) {
     const phase = getElectionPhase(e, isPaused);
-    const isUpcoming = e.status === STATUS_CONTRACT.REGISTRATION;
-    const isActive = e.status === STATUS_CONTRACT.VOTING && !isPaused;
-    const isClosed = e.status === STATUS_CONTRACT.CLOSED || (e.endTime > 0 && Math.floor(Date.now()/1000) >= e.endTime);
+    const isCancelled = phase.isCancelled || phase.label === 'Đã hủy vĩnh viễn';
+    const isUpcoming = !isCancelled && e.status === STATUS_CONTRACT.REGISTRATION;
+    const isActive = !isCancelled && e.status === STATUS_CONTRACT.VOTING && !isPaused;
+    const isClosed = !isCancelled && (e.status === STATUS_CONTRACT.CLOSED || (e.endTime > 0 && Math.floor(Date.now()/1000) >= e.endTime));
 
     const candCount = Number(e.candidateCount) || 0;
     const seats = Number(e.seats) || 1;
@@ -2293,7 +2477,15 @@ async function renderAdminUnifiedElectionList() {
 
     // 1. Phân vùng Action theo trạng thái
     let actionAreaHtml = "";
-    if (isUpcoming) {
+    if (isCancelled) {
+      actionAreaHtml = `
+        <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
+          <span style="font-size:12px; font-weight:700; color:#e11d48; background:#fff1f2; padding:5px 12px; border-radius:6px; border:1.5px solid #fecdd3; display:inline-flex; align-items:center; gap:6px;">
+            🛑 Kỳ đã bị hủy bỏ vĩnh viễn (Không thể khôi phục)
+          </span>
+        </div>
+      `;
+    } else if (isUpcoming) {
       actionAreaHtml = `
         <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
           <button type="button" class="btn btn-outline btn-sm" onclick="openAddCandidateModal(${e.id})" style="border-color:#3b82f6; color:#2563eb; background:#eff6ff; font-weight:700;">
@@ -2325,7 +2517,30 @@ async function renderAdminUnifiedElectionList() {
 
     // 2. Render danh sách ứng viên / kết quả
     let detailsHtml = "";
-    if (isUpcoming) {
+    if (isCancelled) {
+      const cancelAnn = getCachedAnnouncements();
+      const cancelItem = cancelAnn.find(a => Number(a.electionId) === Number(e.id));
+      const reasonText = cancelItem?.reason || localStorage.getItem(`cancelled_reason_${e.id}`) || "Phát hiện nghi vấn bất thường hoặc vi phạm quy chế";
+      const authorText = cancelItem?.author || "Ban Quản Trị";
+      const timeText = cancelItem?.createdAt ? new Date(cancelItem.createdAt).toLocaleString('vi-VN') : "Gần đây";
+
+      detailsHtml = `
+        <div style="margin-top:12px; padding:14px 18px; background:linear-gradient(135deg, #fff1f2 0%, #ffe4e6 100%); border:1.5px solid #f43f5e; border-radius:10px; box-shadow:0 2px 8px rgba(225,29,72,0.08);">
+          <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px;">
+            <strong style="color:#9f1239; font-size:14px; display:flex; align-items:center; gap:8px;">
+              <span style="font-size:18px;">🛑</span> QUYẾT ĐỊNH HỦY BỎ VĨNH VIỄN KỲ BẦU CỬ ON-CHAIN
+            </strong>
+            <span style="font-size:12px; color:#be123c; font-weight:600;">Thời gian: ${timeText} • Bởi: ${escapeHtml(authorText)}</span>
+          </div>
+          <div style="font-size:13px; color:#881337; margin-top:8px; line-height:1.6; background:#fff; padding:10px 14px; border-radius:6px; border:1px solid #fecdd3;">
+            👉 <strong>Lý do giải trình:</strong> ${escapeHtml(reasonText)}
+          </div>
+          <div style="font-size:12px; color:#9f1239; margin-top:8px; display:flex; align-items:center; gap:6px;">
+            <span>⚠️ <strong>Lưu ý:</strong> Quyết định hủy bỏ này có hiệu lực <strong>VĨNH VIỄN</strong> và không thể khôi phục. Toàn bộ hoạt động bỏ phiếu và kết quả của kỳ này đã bị vô hiệu hóa hoàn toàn.</span>
+          </div>
+        </div>
+      `;
+    } else if (isUpcoming) {
       // Hiển thị danh sách ứng viên đã nạp
       if (candList.length === 0) {
         detailsHtml = `
@@ -2669,27 +2884,54 @@ function debouncedLoadAllElections() {
   }, 400);
 }
 
+const processedEventKeys = new Set();
+
 function setupEventListeners() {
+  if (!electionContract) return;
   try {
     electionContract.removeAllListeners();
 
-    electionContract.on("VoteCast", (electionId, voter, totalVotes) => {
+    electionContract.on("VoteCast", (electionId, voter, totalVotes, event) => {
+      const eventKey = event?.log ? `${event.log.transactionHash}_${event.log.index}` : `VoteCast_${electionId}_${voter}_${totalVotes}`;
+      if (processedEventKeys.has(eventKey)) return;
+      processedEventKeys.add(eventKey);
+
       addLog(`📢 VoteCast: Cổ đông ${String(voter).substring(0,10)}... đã bỏ ${totalVotes} phiếu (Kỳ #${electionId})`);
       debouncedLoadAllElections();
     });
-    electionContract.on("CandidateAdded", (electionId, candidateId, name) => {
+
+    electionContract.on("CandidateAdded", (electionId, candidateId, name, event) => {
+      const eventKey = event?.log ? `${event.log.transactionHash}_${event.log.index}` : `CandidateAdded_${electionId}_${candidateId}_${name}`;
+      if (processedEventKeys.has(eventKey)) return;
+      processedEventKeys.add(eventKey);
+
       addLog(`📢 CandidateAdded: Thêm ứng viên #${candidateId} "${name}" vào Kỳ #${electionId}`);
       debouncedLoadAllElections();
     });
-    electionContract.on("ElectionCreated", (electionId, title, seats) => {
+
+    electionContract.on("ElectionCreated", (electionId, title, seats, event) => {
+      const eventKey = event?.log ? `${event.log.transactionHash}_${event.log.index}` : `ElectionCreated_${electionId}_${title}_${seats}`;
+      if (processedEventKeys.has(eventKey)) return;
+      processedEventKeys.add(eventKey);
+
       addLog(`📢 ElectionCreated: Khởi tạo cuộc bầu cử #${electionId} "${title}" (${seats} ghế)`);
       debouncedLoadAllElections();
     });
-    electionContract.on("VotingStarted", (electionId, snapshotBlock, endTime) => {
+
+    electionContract.on("VotingStarted", (electionId, snapshotBlock, endTime, event) => {
+      const eventKey = event?.log ? `${event.log.transactionHash}_${event.log.index}` : `VotingStarted_${electionId}_${snapshotBlock}`;
+      if (processedEventKeys.has(eventKey)) return;
+      processedEventKeys.add(eventKey);
+
       addLog(`📢 VotingStarted: Mở phiên Kỳ #${electionId} tại snapshot block ${snapshotBlock}`);
       debouncedLoadAllElections();
     });
-    electionContract.on("ElectionClosed", (electionId) => {
+
+    electionContract.on("ElectionClosed", (electionId, event) => {
+      const eventKey = event?.log ? `${event.log.transactionHash}_${event.log.index}` : `ElectionClosed_${electionId}`;
+      if (processedEventKeys.has(eventKey)) return;
+      processedEventKeys.add(eventKey);
+
       addLog(`📢 ElectionClosed: Kỳ #${electionId} đã kết thúc và chốt kết quả.`);
       debouncedLoadAllElections();
     });
@@ -3106,7 +3348,14 @@ function renderUpcomingChecklist() {
   const container = document.getElementById("upcomingChecklistContainer");
   if (!container) return;
 
-  const upcomingList = allElections.filter(e => Number(e.status) === STATUS_CONTRACT.REGISTRATION);
+  const cancelAnnouncements = getCachedAnnouncements();
+  const cancelEidSet = new Set(cancelAnnouncements.map(a => Number(a.electionId)));
+  allElections.forEach(e => {
+    if (localStorage.getItem(`cancelled_election_${e.id}`) === "true") cancelEidSet.add(e.id);
+  });
+
+  // Lọc chỉ những kỳ Registration chưa bị Admin hủy / dừng hẳn
+  const upcomingList = allElections.filter(e => Number(e.status) === STATUS_CONTRACT.REGISTRATION && !cancelEidSet.has(e.id));
   if (upcomingList.length === 0) {
     container.innerHTML = `<div style="padding:15px; text-align:center; color:var(--text-muted); font-size:12px;">Hiện không có cuộc bầu cử nào chưa diễn ra.</div>`;
     return;
@@ -3148,7 +3397,7 @@ function adminSelectAllUpcoming(selectAll) {
   checkboxes.forEach(chk => { chk.checked = selectAll; });
 }
 
-function adminApplyUpcomingPostpone(postpone) {
+async function adminApplyUpcomingPostpone(postpone) {
   if (!assertAdmin()) return;
   const checkboxes = document.querySelectorAll("#upcomingChecklistContainer .upcoming-chk:checked");
   if (checkboxes.length === 0) {
@@ -3173,7 +3422,7 @@ function adminApplyUpcomingPostpone(postpone) {
     addLog(`Admin khôi phục tiếp tục lịch trình: [${selectedIds.join(", ")}]`);
   }
 
-  loadAllElections();
+  await refreshAllScreensAfterLifecycleChange();
 }
 
 // ============================================================
@@ -3183,7 +3432,14 @@ function renderActiveChecklist() {
   const container = document.getElementById("activeChecklistContainer");
   if (!container) return;
 
-  const activeList = allElections.filter(e => Number(e.status) === STATUS_CONTRACT.VOTING);
+  const cancelAnnouncements = getCachedAnnouncements();
+  const cancelEidSet = new Set(cancelAnnouncements.map(a => Number(a.electionId)));
+  allElections.forEach(e => {
+    if (localStorage.getItem(`cancelled_election_${e.id}`) === "true") cancelEidSet.add(e.id);
+  });
+
+  // Lọc chỉ những kỳ Voting chưa bị Admin hủy / dừng hẳn
+  const activeList = allElections.filter(e => Number(e.status) === STATUS_CONTRACT.VOTING && !cancelEidSet.has(e.id));
   if (activeList.length === 0) {
     container.innerHTML = `<div style="padding:15px; text-align:center; color:var(--text-muted); font-size:12px;">Hiện không có cuộc bầu cử nào đang diễn ra.</div>`;
     return;
@@ -3225,7 +3481,7 @@ function adminSelectAllActive(selectAll) {
   checkboxes.forEach(chk => { chk.checked = selectAll; });
 }
 
-function adminApplyActivePause(pause) {
+async function adminApplyActivePause(pause) {
   if (!assertAdmin()) return;
   const checkboxes = document.querySelectorAll("#activeChecklistContainer .active-chk:checked");
   if (checkboxes.length === 0) {
@@ -3250,18 +3506,39 @@ function adminApplyActivePause(pause) {
     addLog(`Admin mở lại bỏ phiếu kỳ: [${selectedIds.join(", ")}]`);
   }
 
-  loadAllElections();
+  await refreshAllScreensAfterLifecycleChange();
 }
 
 // ============================================================
 // HỦY / DỪNG HẲN KỲ BẦU CỬ DO NGHI VẤN GIAN LẬN / SAI PHẠM
 // ============================================================
 function getCachedAnnouncements() {
+  let list = [];
   try {
-    return JSON.parse(localStorage.getItem("election_announcements_cache") || "[]");
+    list = JSON.parse(localStorage.getItem("election_announcements_cache") || "[]");
+    if (!Array.isArray(list)) list = [];
   } catch {
-    return [];
+    list = [];
   }
+
+  // Luôn đồng bộ với các cờ cancelled_election_* trong localStorage
+  allElections.forEach(e => {
+    if (localStorage.getItem(`cancelled_election_${e.id}`) === "true") {
+      const exists = list.some(a => Number(a.electionId) === Number(e.id));
+      if (!exists) {
+        list.push({
+          electionId: e.id,
+          title: e.title || `Cuộc bầu cử #${e.id}`,
+          actionType: "CANCEL",
+          reason: localStorage.getItem(`cancelled_reason_${e.id}`) || "Phát hiện nghi vấn bất thường hoặc vi phạm quy chế bầu cử",
+          author: "Ban Quản Trị",
+          createdAt: new Date().toISOString()
+        });
+      }
+    }
+  });
+
+  return list;
 }
 
 async function fetchAnnouncements() {
@@ -3286,38 +3563,44 @@ function renderCancelChecklist() {
 
   const cancelAnnouncements = getCachedAnnouncements();
   const cancelEidSet = new Set(cancelAnnouncements.map(a => Number(a.electionId)));
+  allElections.forEach(e => {
+    if (localStorage.getItem(`cancelled_election_${e.id}`) === "true") {
+      cancelEidSet.add(e.id);
+    }
+  });
 
-  // Cho phép chọn các kỳ chưa kết thúc hoặc kỳ đã bị hủy
+  // Hiển thị các kỳ chưa kết thúc hoặc kỳ đã bị hủy vĩnh viễn
   const eligibleList = allElections.filter(e => e.status !== STATUS_CONTRACT.CLOSED || cancelEidSet.has(e.id));
   if (eligibleList.length === 0) {
-    container.innerHTML = `<div style="padding:15px; text-align:center; color:var(--text-muted); font-size:12px;">Hiện không có cuộc bầu cử nào khả dụng để hủy/dừng.</div>`;
+    container.innerHTML = `<div style="padding:15px; text-align:center; color:var(--text-muted); font-size:12px;">Hiện không có cuộc bầu cử nào khả dụng để hủy bỏ.</div>`;
     return;
   }
 
   const prevChecked = new Set(
-    Array.from(container.querySelectorAll(".cancel-chk:checked")).map(el => Number(el.value))
+    Array.from(container.querySelectorAll(".cancel-chk:checked:not([disabled])")).map(el => Number(el.value))
   );
 
   container.innerHTML = eligibleList.slice().reverse().map(e => {
     const isCancelled = cancelEidSet.has(e.id);
     const cancelItem = cancelAnnouncements.find(a => Number(a.electionId) === Number(e.id));
+    const cancelReason = cancelItem?.reason || localStorage.getItem(`cancelled_reason_${e.id}`) || 'Đã hủy vĩnh viễn';
 
     const badgeHtml = isCancelled
-      ? `<span class="badge badge-danger" style="font-weight:700;">🛑 Đã hủy / Dừng hẳn</span>`
+      ? `<span class="badge badge-danger" style="font-weight:700;">🛑 Đã hủy vĩnh viễn</span>`
       : `<span class="badge ${e.status === STATUS_CONTRACT.VOTING ? 'badge-success' : 'badge-warning'}" style="font-size:11px;">
            ${e.status === STATUS_CONTRACT.VOTING ? 'Đang bỏ phiếu' : 'Sắp diễn ra'}
          </span>`;
 
-    const isChecked = prevChecked.has(e.id) || (!isCancelled && e.id === currentElectionId);
+    const isChecked = !isCancelled && (prevChecked.has(e.id) || e.id === currentElectionId);
 
     return `
-      <label style="display:flex; align-items:center; justify-content:space-between; padding:10px 12px; border-bottom:1px solid #fee2e2; cursor:pointer; user-select:none; transition:background 0.2s; background:${isCancelled ? '#fff1f2' : '#fff'}; border-radius:6px; margin-bottom:4px;" onmouseover="this.style.background='#ffe4e6'" onmouseout="this.style.background='${isCancelled ? '#fff1f2' : '#fff'}'">
+      <label style="display:flex; align-items:center; justify-content:space-between; padding:10px 12px; border-bottom:1px solid #fee2e2; cursor:${isCancelled ? 'not-allowed' : 'pointer'}; user-select:none; transition:background 0.2s; background:${isCancelled ? '#fff1f2' : '#fff'}; border-radius:6px; margin-bottom:4px;" ${!isCancelled ? 'onmouseover="this.style.background=\'#ffe4e6\'" onmouseout="this.style.background=\'#fff\'"' : ''}>
         <div style="display:flex; align-items:center; gap:10px;">
-          <input type="checkbox" class="cancel-chk" value="${e.id}" data-cancelled="${isCancelled ? '1' : '0'}" ${isChecked ? "checked" : ""} style="width:16px; height:16px; cursor:pointer; accent-color:#e11d48;">
+          <input type="checkbox" class="cancel-chk" value="${e.id}" data-cancelled="${isCancelled ? '1' : '0'}" ${isCancelled ? "disabled" : (isChecked ? "checked" : "")} style="width:16px; height:16px; cursor:${isCancelled ? 'not-allowed' : 'pointer'}; accent-color:#e11d48; ${isCancelled ? 'opacity:0.35;' : ''}">
           <div>
             <div style="font-weight:700; font-size:13px; color:#1e293b;">#${e.id} — ${escapeHtml(e.title)}</div>
             <div style="font-size:11.5px; color:${isCancelled ? '#be123c' : 'var(--text-muted)'}; margin-top:2px;">
-              ${isCancelled ? `🛑 Lý do: ${escapeHtml(cancelItem?.reason || 'Đã hủy')}` : `${e.seats} ghế • ${e.candidateCount} ứng viên`}
+              ${isCancelled ? `🛑 Đã dừng hẳn vĩnh viễn: ${escapeHtml(cancelReason)}` : `${e.seats} ghế • ${e.candidateCount} ứng viên`}
             </div>
           </div>
         </div>
@@ -3328,15 +3611,15 @@ function renderCancelChecklist() {
 }
 
 function adminSelectAllCancelable(selectAll) {
-  const checkboxes = document.querySelectorAll("#cancelChecklistContainer .cancel-chk");
+  const checkboxes = document.querySelectorAll("#cancelChecklistContainer .cancel-chk:not([disabled])");
   checkboxes.forEach(chk => { chk.checked = selectAll; });
 }
 
 function openCancelElectionModal() {
   if (!assertAdmin()) return;
-  const checkboxes = document.querySelectorAll("#cancelChecklistContainer .cancel-chk:checked");
+  const checkboxes = document.querySelectorAll("#cancelChecklistContainer .cancel-chk:checked:not([disabled])");
   if (checkboxes.length === 0) {
-    showToast("Vui lòng tích chọn ít nhất một cuộc bầu cử trong danh sách!", "warning");
+    showToast("Vui lòng tích chọn ít nhất một cuộc bầu cử chưa bị hủy để tiến hành hủy bỏ vĩnh viễn!", "warning");
     return;
   }
 
@@ -3386,72 +3669,116 @@ function onCancelReasonPresetChange(val) {
 
 async function adminConfirmCancelElection() {
   if (!assertAdmin()) return;
-  const checkboxes = document.querySelectorAll("#cancelChecklistContainer .cancel-chk:checked");
-  if (checkboxes.length === 0) return;
+  const checkboxes = document.querySelectorAll("#cancelChecklistContainer .cancel-chk:checked:not([disabled])");
+  if (checkboxes.length === 0) {
+    showToast("Vui lòng tích chọn cuộc bầu cử chưa bị hủy!", "warning");
+    return;
+  }
 
   const reason = (document.getElementById("modalCancelReasonText")?.value || "").trim();
   if (!reason) {
-    showToast("Vui lòng cung cấp lý do hủy / dừng cuộc bầu cử!", "warning");
+    showToast("Vui lòng cung cấp lý do hủy bỏ vĩnh viễn cuộc bầu cử!", "warning");
     return;
   }
 
   const selectedIds = Array.from(checkboxes).map(chk => Number(chk.value));
-  showToast(`Đang phát thông báo dừng và hủy ${selectedIds.length} kỳ bầu cử...`, "primary");
+
+  // Cảnh báo hủy vĩnh viễn không thể khôi phục
+  const confirmCancel = confirm(
+    `🛑 CẢNH BÁO: XÁC NHẬN HỦY BỎ VĨNH VIỄN ${selectedIds.length} KỲ BẦU CỬ!\n\n` +
+    `⚠️ QUYẾT ĐỊNH NÀY LÀ VĨNH VIỄN VÀ KHÔNG THỂ KHÔI PHỤC!\n` +
+    `Toàn bộ hoạt động bỏ phiếu của kỳ này sẽ dừng hẳn, các phiếu bầu nếu có sẽ bị vô hiệu hóa hoàn toàn.\n\n` +
+    `Lý do: "${reason}"\n\n` +
+    `Bạn có chắc chắn 100% muốn hủy bỏ vĩnh viễn không?`
+  );
+  if (!confirmCancel) return;
+
+  showToast(`Đang phát thông báo dừng và hủy vĩnh viễn ${selectedIds.length} kỳ bầu cử...`, "primary");
+
+  const authorName = currentAccountInfo?.name || currentAccountInfo?.address || "Admin";
+  const nowIso = new Date().toISOString();
+
+  // 1. Cập nhật localStorage ngay lập tức để đồng bộ giao diện tức thì
+  let announcements = [];
+  try {
+    announcements = JSON.parse(localStorage.getItem("election_announcements_cache") || "[]");
+    if (!Array.isArray(announcements)) announcements = [];
+  } catch {
+    announcements = [];
+  }
 
   for (const id of selectedIds) {
     const election = allElections.find(e => e.id === id);
-    // Lưu vào backend REST API
-    try {
-      await fetch("/api/announcements", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          electionId: id,
-          title: election?.title || `Cuộc bầu cử #${id}`,
-          actionType: "CANCEL",
-          reason: reason,
-          author: currentAccountInfo?.name || currentAccountInfo?.address || "Admin"
-        })
-      });
-    } catch (e) {
-      console.warn("Backend announcement post failed:", e);
+    const title = election?.title || `Cuộc bầu cử #${id}`;
+
+    localStorage.setItem(`cancelled_election_${id}`, "true");
+    localStorage.setItem(`cancelled_reason_${id}`, reason);
+    localStorage.setItem(`paused_election_${id}`, "true");
+
+    const existingIdx = announcements.findIndex(a => Number(a.electionId) === Number(id));
+    const newAnn = {
+      electionId: id,
+      title: title,
+      actionType: "CANCEL",
+      reason: reason,
+      author: authorName,
+      createdAt: nowIso
+    };
+    if (existingIdx >= 0) {
+      announcements[existingIdx] = newAnn;
+    } else {
+      announcements.unshift(newAnn);
     }
 
-    // Đánh dấu dừng bỏ phiếu trong cache
-    localStorage.setItem(`cancelled_election_${id}`, "true");
-    localStorage.setItem(`paused_election_${id}`, "true");
-    addLog(`🛑 ADMIN HỦY/DỪNG KỲ #${id}: "${reason}"`);
+    addLog(`🛑 ADMIN HỦY VĨNH VIỄN KỲ #${id}: "${reason}"`);
+
+    // Lưu vào backend REST API (chạy bất đồng bộ)
+    try {
+      fetch("/api/announcements", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(newAnn)
+      }).catch(e => console.warn("Backend announcement post failed:", e));
+    } catch {}
   }
+
+  localStorage.setItem("election_announcements_cache", JSON.stringify(announcements));
 
   closeCancelElectionModal();
-  await fetchAnnouncements();
-  showToast(`🛑 Đã hủy và phát thông báo dừng ${selectedIds.length} kỳ bầu cử đến toàn bộ thành viên!`, "success");
-  await loadAllElections();
-  renderVoterAlertBanner();
+  showToast(`🛑 Đã hủy bỏ vĩnh viễn ${selectedIds.length} kỳ bầu cử và phát thông báo đến toàn bộ thành viên!`, "success");
+
+  await refreshAllScreensAfterLifecycleChange();
 }
 
-async function adminRestoreCancelledElections() {
-  if (!assertAdmin()) return;
-  const checkboxes = document.querySelectorAll("#cancelChecklistContainer .cancel-chk:checked");
-  if (checkboxes.length === 0) {
-    showToast("Vui lòng tích chọn kỳ bầu cử đã hủy để khôi phục!", "warning");
-    return;
+function adminRestoreCancelledElections() {
+  showToast("Quy chế bầu cử quy định: Quyết định hủy bỏ kỳ bầu cử là vĩnh viễn, không thể khôi phục!", "warning");
+}
+
+function adminQuickRestoreCancelled(id) {
+  showToast("Quy chế bầu cử quy định: Quyết định hủy bỏ kỳ bầu cử là vĩnh viễn, không thể khôi phục!", "warning");
+}
+
+async function refreshAllScreensAfterLifecycleChange() {
+  populateAdminSelector();
+  populateVoterSelector();
+
+  if (currentElectionId !== null) {
+    await adminSelectElection(currentElectionId);
+  }
+  if (voterCurrentElectionId !== null) {
+    await voterSelectElection(voterCurrentElectionId);
   }
 
-  const selectedIds = Array.from(checkboxes).map(chk => Number(chk.value));
-  for (const id of selectedIds) {
-    try {
-      await fetch(`/api/announcements/${id}`, { method: "DELETE" });
-    } catch {}
-    localStorage.removeItem(`cancelled_election_${id}`);
-    localStorage.removeItem(`paused_election_${id}`);
-    addLog(`↩️ Admin khôi phục lại kỳ bầu cử #${id}`);
-  }
-
-  await fetchAnnouncements();
-  showToast(`✅ Đã khôi phục lại ${selectedIds.length} kỳ bầu cử!`, "success");
-  await loadAllElections();
+  await renderAdminUnifiedElectionList();
+  renderUpcomingChecklist();
+  renderActiveChecklist();
+  renderCancelChecklist();
   renderVoterAlertBanner();
+
+  renderAllElectionsResults('voterAllElections');
+  renderAllElectionsResults('guestAllElections');
+  renderAllElectionsResults('allElectionsListAdmin');
+  updateActiveElectionCount();
 }
 
 function renderVoterAlertBanner() {
@@ -3472,7 +3799,7 @@ function renderVoterAlertBanner() {
       <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px;">
         <div style="font-weight:800; font-size:14px; color:#9f1239; display:flex; align-items:center; gap:8px;">
           <span style="font-size:18px;">🛑</span>
-          <span>THÔNG BÁO KHẨN CẤP: DỪNG / HỦY KỲ BẦU CỬ #${a.electionId}</span>
+          <span>THÔNG BÁO KHẨN CẤP: HỦY BỎ VĨNH VIỄN KỲ BẦU CỬ #${a.electionId}</span>
         </div>
         <span style="font-size:11.5px; color:#be123c; font-weight:600;">
           ${new Date(a.createdAt).toLocaleString('vi-VN')}
@@ -3484,7 +3811,7 @@ function renderVoterAlertBanner() {
       <div style="font-size:11.5px; color:#be123c; margin-top:6px; display:flex; align-items:center; gap:6px;">
         <span>👤 Quyết định bởi Ban Quản Trị / BKS: <strong>${escapeHtml(a.author)}</strong></span>
         <span>•</span>
-        <span>Toàn bộ hoạt động bỏ phiếu của kỳ này đã được tạm dừng bảo vệ cử tri.</span>
+        <span>Quyết định hủy bỏ là VĨNH VIỄN (không thể khôi phục). Toàn bộ hoạt động bỏ phiếu và kết quả của kỳ này đã bị vô hiệu hóa.</span>
       </div>
     </div>
   `).join("");
@@ -3555,6 +3882,7 @@ function switchTab(tabId, btn) {
   if (tabId === "voterVotingTab" && voterCurrentElectionId) {
     voterSelectElection(voterCurrentElectionId);
   }
+  if (tabId === "voterTransferTab") populateTransferForm();
   if (tabId === "voterHistoryTab") loadVoteHistory();
   if (tabId === "voterResultsTab") renderAllElectionsResults("voterAllElections");
   if (tabId === "guestResultsTab") renderAllElectionsResults("guestAllElections");
@@ -3567,7 +3895,18 @@ function switchTab(tabId, btn) {
 // ============================================================
 // GHI NHẬT KÝ (LOGS - CHỈ DÀNH CHO ADMIN)
 // ============================================================
+let lastLogText = "";
+let lastLogTime = 0;
+
 function addLog(text) {
+  const now = Date.now();
+  // Khử trùng lặp: Nếu thông điệp giống hệt thông điệp vừa được ghi trong vòng 1.5 giây thì bỏ qua
+  if (text === lastLogText && (now - lastLogTime) < 1500) {
+    return;
+  }
+  lastLogText = text;
+  lastLogTime = now;
+
   const time = new Date().toLocaleTimeString("vi-VN");
   const container = document.getElementById("logsContainer");
   if (!container) return;
@@ -3629,37 +3968,47 @@ const DEFAULT_COMPANY_WALLETS = [
     shares: 0,
     notes: "Quản trị viên tối cao hệ thống (Super Admin)",
     createdAt: "2026-01-01T00:00:00.000Z",
-    updatedAt: "2026-01-01T00:00:00.000Z"
+    updatedAt: "2026-11-17T15:32:52.251Z"
   },
   {
-    address: "0x70997970C51812dc3A010C7d01b50e0d17dc79C8",
-    name: "Trần Thị Lan",
-    title: "Cổ đông Thành viên",
+    address: "0x97dDAB73649438b3a6bfE791B184d7F2aE7D31D4",
+    name: "Alicu",
+    title: "Thành viên công ty",
+    role: "voter",
+    shares: 200,
+    notes: "Cổ đông đã nhận 200 CP trên Blockchain",
+    createdAt: "2026-11-17T12:36:07.454Z",
+    updatedAt: "2026-11-17T15:08:27.075Z"
+  },
+  {
+    address: "0xEC724825a8d91B1C7Fbc39720eaF56D51c28f7Ea",
+    name: "Bob",
+    title: "Thành viên công ty",
+    role: "voter",
+    shares: 0,
+    notes: "",
+    createdAt: "2026-11-17T15:55:47.023Z",
+    updatedAt: "2026-11-17T15:55:47.023Z"
+  },
+  {
+    address: "0x2F57B4651768a844eBa1053316DEA6dE2131C26D",
+    name: "Sophia The First",
+    title: "Thành viên công ty",
     role: "voter",
     shares: 50,
-    notes: "Cổ đông tham gia biểu quyết HĐQT",
-    createdAt: "2026-01-01T00:00:00.000Z",
-    updatedAt: "2026-01-01T00:00:00.000Z"
+    notes: "bố là chủ tịch",
+    createdAt: "2026-11-17T16:04:52.782Z",
+    updatedAt: "2026-11-17T16:05:16.788Z"
   },
   {
-    address: "0x3C44CdDdB6a900fa2b585dd299e03d12FA4293BC",
-    name: "Nguyễn Văn Hùng",
-    title: "Cổ đông Sáng lập",
+    address: "0xabbC81db44b1B05033C6AEa9321c544A51C7AE19",
+    name: "Ungvien",
+    title: "Thành viên công ty",
     role: "voter",
-    shares: 80,
-    notes: "Cổ đông chiến lược dài hạn",
-    createdAt: "2026-01-01T00:00:00.000Z",
-    updatedAt: "2026-01-01T00:00:00.000Z"
-  },
-  {
-    address: "0x90F79bf6EB2c4f870365E785982E1f101E93b906",
-    name: "Lê Thị Mai",
-    title: "Cổ đông Thành viên",
-    role: "voter",
-    shares: 35,
-    notes: "Cổ đông tham gia biểu quyết HĐQT",
-    createdAt: "2026-01-01T00:00:00.000Z",
-    updatedAt: "2026-01-01T00:00:00.000Z"
+    shares: 0,
+    notes: "",
+    createdAt: "2026-11-17T21:21:03.463Z",
+    updatedAt: "2026-11-17T21:21:03.463Z"
   }
 ];
 
@@ -4396,5 +4745,202 @@ async function executeRoleAction(grant = true) {
     showToast("Lỗi phân quyền: " + parseErrorMessage(err), "danger");
   } finally {
     hideLoadingOverlay();
+  }
+}
+
+// ============================================================
+// CHUYỂN NHƯỢNG CỔ PHẦN NỘI BỘ (TRANSFER SHARETOKEN)
+// ============================================================
+let pendingTransferData = null;
+
+function populateTransferForm() {
+  const availEl = document.getElementById("transferAvailableShares");
+  const balNum = Number(currentAccountInfo?.balance || 0);
+  if (availEl) availEl.textContent = `${balNum.toLocaleString()} CP`;
+
+  const sel = document.getElementById("transferRecipientSelect");
+  if (!sel) return;
+
+  const currentAddr = (currentAccountInfo?.address || "").toLowerCase();
+  // Lọc chỉ những ví nội bộ công ty (trừ ví của chính mình và ví Admin)
+  const recipients = companyWallets.filter(w => {
+    if (!w.address) return false;
+    const isSelf = w.address.toLowerCase() === currentAddr;
+    const isAdmin = (w.role === "admin");
+    return !isSelf && !isAdmin;
+  });
+
+  if (recipients.length === 0) {
+    sel.innerHTML = `<option value="">-- Chưa có cổ đông nội bộ nào khả dụng trong danh bạ --</option>`;
+    return;
+  }
+
+  sel.innerHTML = `<option value="">-- Chọn thành viên nhận cổ phần (${recipients.length} cổ đông) --</option>` +
+    recipients.map(w => {
+      const short = `${w.address.substring(0, 6)}...${w.address.substring(38)}`;
+      const sh = (w.onChainBalance !== undefined) ? w.onChainBalance : (Number(w.shares) || 0);
+      return `<option value="${w.address}">${escapeHtml(w.name || 'Cổ đông')} (${sh} CP) [${short}] - ${escapeHtml(w.title || 'Cổ đông')}</option>`;
+    }).join("");
+
+  const infoBox = document.getElementById("transferRecipientInfo");
+  if (infoBox) infoBox.style.display = "none";
+}
+
+function onTransferRecipientChange(addr) {
+  const infoBox = document.getElementById("transferRecipientInfo");
+  if (!infoBox) return;
+  if (!addr) {
+    infoBox.style.display = "none";
+    return;
+  }
+  const w = companyWallets.find(item => item.address && item.address.toLowerCase() === addr.toLowerCase());
+  if (w) {
+    infoBox.style.display = "block";
+    infoBox.innerHTML = `
+      <span>✓ <strong>Đã chọn:</strong> ${escapeHtml(w.name)} (${escapeHtml(w.title || 'Cổ đông biểu quyết')})</span><br>
+      <span style="font-family:monospace; font-size:11px;">Địa chỉ on-chain: ${w.address}</span>
+    `;
+  } else {
+    infoBox.style.display = "none";
+  }
+}
+
+function setTransferMaxShares() {
+  const balNum = Number(currentAccountInfo?.balance || 0);
+  const input = document.getElementById("transferAmountInput");
+  if (input) input.value = balNum;
+}
+
+function openTransferConfirmModal() {
+  const recipientAddr = document.getElementById("transferRecipientSelect")?.value;
+  const amountVal = Number(document.getElementById("transferAmountInput")?.value || 0);
+  const note = (document.getElementById("transferNoteInput")?.value || "").trim();
+  const currentBal = Number(currentAccountInfo?.balance || 0);
+
+  if (!recipientAddr) {
+    showToast("Vui lòng chọn cổ đông nhận chuyển nhượng từ danh bạ ví nội bộ!", "warning");
+    return;
+  }
+
+  // Xác thực người nhận phải nằm trong danh bạ ví nội bộ
+  const recipient = companyWallets.find(w => w.address && w.address.toLowerCase() === recipientAddr.toLowerCase());
+  if (!recipient) {
+    showToast("Người nhận không nằm trong danh bạ ví nội bộ công ty! Quy chế chỉ cho phép chuyển nhượng nội bộ.", "danger");
+    return;
+  }
+
+  if (recipient.role === "admin") {
+    showToast("Không thể chuyển nhượng cổ phần cho ví Quản trị viên (Admin không nắm giữ CP)! ", "danger");
+    return;
+  }
+
+  if (amountVal <= 0) {
+    showToast("Số cổ phần chuyển nhượng phải lớn hơn 0!", "warning");
+    return;
+  }
+
+  if (amountVal > currentBal) {
+    showToast(`Số dư không đủ! Bạn chỉ có ${currentBal} CP, không thể chuyển ${amountVal} CP.`, "danger");
+    return;
+  }
+
+  // Điền dữ liệu vào modal xác nhận
+  pendingTransferData = {
+    to: recipient.address,
+    recipientName: recipient.name || "Cổ đông",
+    amount: amountVal,
+    note: note,
+    remaining: currentBal - amountVal
+  };
+
+  setText("modalTransferSenderName", currentAccountInfo?.name || "Bạn");
+  setText("modalTransferSenderAddr", currentAccountInfo?.address || "0x...");
+  setText("modalTransferRecipientName", recipient.name || "Cổ đông nội bộ");
+  setText("modalTransferRecipientAddr", recipient.address);
+  setText("modalTransferAmount", `${amountVal.toLocaleString()} CP`);
+  setText("modalTransferRemaining", `${(currentBal - amountVal).toLocaleString()} CP`);
+
+  const modal = document.getElementById("modalTransferConfirm");
+  if (modal) modal.style.display = "flex";
+}
+
+function closeTransferConfirmModal() {
+  const modal = document.getElementById("modalTransferConfirm");
+  if (modal) modal.style.display = "none";
+  pendingTransferData = null;
+}
+
+async function executeTransferShares() {
+  if (!pendingTransferData) return;
+  const { to, recipientName, amount } = pendingTransferData;
+
+  const btn = document.getElementById("btnExecuteTransfer");
+  if (btn) {
+    btn.disabled = true;
+    btn.innerHTML = "⏳ Đang gửi giao dịch ký lên Blockchain...";
+  }
+
+  try {
+    showToast(`Đang ký giao dịch chuyển nhượng ${amount} CP cho ${recipientName}...`, "primary");
+    const tx = await tokenContract.transfer(to, amount);
+    addLog(`Đang gửi tx chuyển nhượng ${amount} CP tới ${to} (Tx: ${tx.hash})`);
+
+    await tx.wait(1);
+    showToast(`✅ Chuyển nhượng thành công ${amount} CP cho ${recipientName}!`, "success");
+    addLog(`Giao dịch chuyển nhượng thành công (Tx: ${tx.hash})`);
+
+    // Đồng bộ số dư mới trong cơ sở dữ liệu backend
+    const senderAddr = currentAccountInfo.address.toLowerCase();
+    const recipientAddr = to.toLowerCase();
+
+    const senderIdx = companyWallets.findIndex(w => w.address && w.address.toLowerCase() === senderAddr);
+    if (senderIdx >= 0) {
+      companyWallets[senderIdx].shares = Math.max(0, (Number(companyWallets[senderIdx].shares) || 0) - amount);
+      companyWallets[senderIdx].onChainBalance = companyWallets[senderIdx].shares;
+      try {
+        fetch(`/api/company-wallets/${ethers.getAddress(senderAddr)}`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ shares: companyWallets[senderIdx].shares })
+        }).catch(() => {});
+      } catch {}
+    }
+
+    const recIdx = companyWallets.findIndex(w => w.address && w.address.toLowerCase() === recipientAddr);
+    if (recIdx >= 0) {
+      companyWallets[recIdx].shares = (Number(companyWallets[recIdx].shares) || 0) + amount;
+      companyWallets[recIdx].onChainBalance = companyWallets[recIdx].shares;
+      try {
+        fetch(`/api/company-wallets/${ethers.getAddress(recipientAddr)}`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ shares: companyWallets[recIdx].shares })
+        }).catch(() => {});
+      } catch {}
+    }
+
+    localStorage.setItem("company_wallets_cache", JSON.stringify(companyWallets));
+
+    closeTransferConfirmModal();
+
+    // Reset form
+    const amtInput = document.getElementById("transferAmountInput");
+    if (amtInput) amtInput.value = "";
+    const noteInput = document.getElementById("transferNoteInput");
+    if (noteInput) noteInput.value = "";
+
+    // Nạp lại thông tin tài khoản và form chuyển nhượng
+    currentAccountInfo.balance = Math.max(0, currentAccountInfo.balance - amount);
+    await updateAccountCard();
+    populateTransferForm();
+    await loadAllElections();
+  } catch (err) {
+    console.error("Lỗi chuyển nhượng cổ phần:", err);
+    showToast("Chuyển nhượng thất bại: " + parseErrorMessage(err), "danger");
+  } finally {
+    if (btn) {
+      btn.disabled = false;
+      btn.innerHTML = "✓ Ký &amp; Chuyển Cổ Phần";
+    }
   }
 }

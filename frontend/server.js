@@ -298,7 +298,7 @@ const server = http.createServer(async (req, res) => {
     try {
       const targetEid = Number(decodeURIComponent(reqUrl.replace("/api/announcements/", "")).trim());
       let list = getAnnouncements();
-      list = list.filter(a => a.electionId !== targetEid && a.id !== targetEid);
+      list = list.filter(a => Number(a.electionId) !== targetEid && Number(a.id) !== targetEid);
       saveAnnouncements(list);
       return sendJson(200, { success: true, message: "Đã hủy quyết định dừng kỳ bầu cử" });
     } catch (err) {

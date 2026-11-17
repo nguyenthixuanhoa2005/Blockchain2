@@ -38,5 +38,15 @@
     "notes": "bố là chủ tịch",
     "createdAt": "2026-11-17T16:04:52.782Z",
     "updatedAt": "2026-11-17T16:05:16.788Z"
+  },
+  {
+    "address": "0xabbC81db44b1B05033C6AEa9321c544A51C7AE19",
+    "name": "Ungvien",
+    "title": "Thành viên công ty",
+    "role": "voter",
+    "shares": 0,
+    "notes": "",
+    "createdAt": "2026-11-17T21:21:03.463Z",
+    "updatedAt": "2026-11-17T21:21:03.463Z"
   }
 ]

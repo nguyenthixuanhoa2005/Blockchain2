@@ -213,6 +213,10 @@
                 <span>✅ Đã kết thúc</span>
                 <span class="filter-chip-count" id="countFilterClosed">0</span>
               </button>
+              <button type="button" class="filter-chip" onclick="setAdminElectionFilter('cancelled', this)">
+                <span>🛑 Đã hủy vĩnh viễn</span>
+                <span class="filter-chip-count" id="countFilterCancelled">0</span>
+              </button>
             </div>
 
             <!-- DANH SÁCH RENDER ĐỘNG CÁC CUỘC BẦU CỬ -->
@@ -302,17 +306,14 @@
                   </div>
                 </div>
                 <p style="font-size:12px; color:#9f1239; margin-bottom:10px;">
-                  Hủy bỏ kỳ bầu cử do nghi vấn gian lận/sai phạm, đóng băng kết quả &amp; gửi thông báo đến toàn bộ ví công ty.
+                  Hủy bỏ kỳ bầu cử do nghi vấn gian lận/sai phạm, vô hiệu hóa kết quả &amp; gửi thông báo đến toàn bộ ví công ty. <strong>Lưu ý: Hủy bỏ là VĨNH VIỄN, không thể khôi phục!</strong>
                 </p>
                 <div id="cancelChecklistContainer" style="flex:1; max-height:170px; min-height:100px; overflow-y:auto; border:1px solid #fecdd3; border-radius:8px; background:#fff; margin-bottom:12px; padding:6px;">
                   <div style="padding:15px; text-align:center; color:var(--text-muted); font-size:12px;">⏳ Đang nạp danh sách từ Smart Contract...</div>
                 </div>
-                <div style="display:flex; gap:8px;">
-                  <button type="button" class="btn btn-danger btn-sm" style="flex:1; font-weight:700;" onclick="openCancelElectionModal()">
-                    🛑 Hủy / Dừng Hẳn Kỳ Đã Chọn
-                  </button>
-                  <button type="button" class="btn btn-outline btn-sm" style="flex:0.6; font-weight:600; border-color:#fda4af; color:#be123c;" onclick="adminRestoreCancelledElections()" title="Hủy quyết định dừng và khôi phục lại kỳ bầu cử">
-                    ↩️ Khôi Phục
+                <div>
+                  <button type="button" class="btn btn-danger btn-sm" style="width:100%; font-weight:700;" onclick="openCancelElectionModal()">
+                    🛑 Hủy Bỏ Vĩnh Viễn Kỳ Đã Chọn (Không Thể Hoàn Tác)
                   </button>
                 </div>
               </div>
@@ -432,11 +433,33 @@
 
         <!-- Tab 1.3: Kết quả -->
         <section id="adminResultsTab" class="tab-content">
-          <div class="card">
-            <div class="card-title">
-              <span>📊 Bảng Xếp Hạng Kết Quả Bầu Cử</span>
-              <button class="btn btn-outline btn-sm" onclick="loadResults()">🔄 Cập nhật</button>
+          <div class="card" style="margin-bottom: 20px;">
+            <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px; margin-bottom:14px;">
+              <div>
+                <h3 style="margin:0; font-size:16.5px; font-weight:800; color:#0f172a; display:flex; align-items:center; gap:8px;">
+                  <span>📊</span> Bảng Xếp Hạng Kết Quả Bầu Cử
+                </h3>
+                <div style="font-size:12px; color:var(--text-muted); margin-top:2px;">
+                  Theo dõi số phiếu &amp; ứng viên dẫn đầu / trúng cử theo từng kỳ bầu cử trên Blockchain
+                </div>
+              </div>
+              <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
+                <label style="font-size:13px; font-weight:700; color:#334155; white-space:nowrap;">Kỳ bầu cử:</label>
+                <select id="adminResultsElectionSelect" class="form-select" style="min-width:250px; font-weight:600;" onchange="onAdminResultsElectionChange(this.value)">
+                  <option value="">-- Đang nạp danh sách kỳ bầu cử --</option>
+                </select>
+                <button type="button" class="btn btn-outline btn-sm" onclick="loadResults()" title="Tải lại kết quả">🔄 Cập nhật</button>
+              </div>
             </div>
+
+            <div id="adminResultsElectionHeader" style="padding:12px 16px; background:#f8fafc; border:1px solid #e2e8f0; border-radius:8px; margin-bottom:14px; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px;">
+              <div>
+                <strong id="adminResultsElectionTitle" style="font-size:15px; color:#1e293b;">--</strong>
+                <div id="adminResultsElectionMeta" style="font-size:12px; color:var(--text-muted); margin-top:3px;">--</div>
+              </div>
+              <div id="adminResultsElectionBadge"></div>
+            </div>
+
             <div id="tiedWarningBox" class="tied-warning">
               ⚠️ CẢNH BÁO: Phát hiện đồng phiếu (Tied) ở vị trí ghế cuối cùng! Cần xử lý theo điều lệ.
             </div>
@@ -498,6 +521,7 @@
 
         <div class="tabs">
           <button class="tab-btn active" onclick="switchTab('voterVotingTab', this)">🗳️ Bỏ Phiếu</button>
+          <button class="tab-btn" onclick="switchTab('voterTransferTab', this)">💸 Chuyển Nhượng Cổ Phần</button>
           <button class="tab-btn" onclick="switchTab('voterResultsTab', this)">📊 Xem Cuộc Bầu Cử &amp; Kết Quả</button>
           <button class="tab-btn" onclick="switchTab('voterHistoryTab', this)">📋 Xác Nhận &amp; Lịch Sử Bỏ Phiếu Của Tôi</button>
         </div>
@@ -610,6 +634,63 @@
                 🗳️ Ký &amp; Gửi Phiếu Bầu Lên Blockchain
               </button>
             </div>
+          </div>
+        </section>
+
+        <!-- Tab 2.2: Chuyển nhượng cổ phần nội bộ -->
+        <section id="voterTransferTab" class="tab-content">
+          <div class="card" style="max-width: 800px; margin: 0 auto;">
+            <div class="card-title">
+              <div style="display:flex; align-items:center; gap:8px;">
+                <span>💸</span>
+                <span>Chuyển Nhượng Cổ Phần Nội Bộ Công Ty (ERC-20 ShareToken)</span>
+              </div>
+            </div>
+
+            <div style="padding: 12px 16px; background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 8px; font-size: 13px; color: #1e40af; line-height: 1.5; margin-bottom: 20px;">
+              💡 <strong>Quy chế chuyển nhượng nội bộ &amp; Cơ chế Snapshot On-Chain:</strong><br>
+              • Theo quy định nội bộ, bạn <strong>chỉ được chuyển nhượng cho các ví đã được Admin xác thực danh bạ công ty</strong>.<br>
+              • <strong>Cơ chế Snapshot bảo vệ:</strong> Các kỳ bầu cử đã mở phiên trước thời điểm chuyển nhượng sẽ bảo lưu quyền biểu quyết của chủ sở hữu tại block mở phiên. Người nhận sẽ có đầy đủ quyền biểu quyết ở tất cả các kỳ bầu cử mở sau thời điểm nhận cổ phần.
+            </div>
+
+            <div style="display:flex; align-items:center; justify-content:space-between; padding:14px 18px; background:#f8fafc; border:1px solid #e2e8f0; border-radius:10px; margin-bottom:20px;">
+              <div>
+                <div style="font-size:12px; color:var(--text-muted);">Số dư cổ phần khả dụng của bạn:</div>
+                <div style="font-size:22px; font-weight:800; color:#1d4ed8;" id="transferAvailableShares">0 CP</div>
+              </div>
+              <div style="text-align:right;">
+                <div style="font-size:12px; color:var(--text-muted);">Loại tài sản:</div>
+                <div style="font-weight:700; color:#0f172a;">ShareToken (Decimals: 0)</div>
+              </div>
+            </div>
+
+            <form id="formTransferShares" onsubmit="event.preventDefault(); openTransferConfirmModal();">
+              <div class="form-group" style="margin-bottom:18px;">
+                <label class="form-label" style="font-weight:700;">1. Chọn người nhận chuyển nhượng (Danh bạ ví nội bộ) (*):</label>
+                <select id="transferRecipientSelect" class="form-select" onchange="onTransferRecipientChange(this.value)" required>
+                  <option value="">-- Chọn thành viên nhận cổ phần --</option>
+                </select>
+                <div id="transferRecipientInfo" style="display:none; font-size:12px; color:#15803d; margin-top:6px; background:#f0fdf4; padding:6px 10px; border-radius:6px; border:1px solid #bbf7d0;"></div>
+              </div>
+
+              <div class="form-group" style="margin-bottom:18px;">
+                <label class="form-label" style="font-weight:700;">2. Số cổ phần muốn chuyển nhượng (*):</label>
+                <div style="position:relative;">
+                  <input type="number" id="transferAmountInput" class="form-input" min="1" step="1" placeholder="Nhập số cổ phần (VD: 50)" required style="padding-right:70px; font-size:16px; font-weight:700;">
+                  <button type="button" class="btn btn-outline btn-sm" onclick="setTransferMaxShares()" style="position:absolute; right:8px; top:50%; transform:translateY(-50%); font-size:11px; padding:3px 8px;">Tối đa</button>
+                </div>
+                <div style="font-size:12px; color:var(--text-muted); margin-top:4px;">1 Token = 1 Cổ phần biểu quyết nguyên vẹn.</div>
+              </div>
+
+              <div class="form-group" style="margin-bottom:20px;">
+                <label class="form-label" style="font-weight:700;">3. Ghi chú giao dịch chuyển nhượng (Tùy chọn):</label>
+                <input type="text" id="transferNoteInput" class="form-input" placeholder="VD: Chuyển nhượng theo hợp đồng chuyển nhượng số 01/2026/HĐCN...">
+              </div>
+
+              <button type="submit" id="btnOpenTransferModal" class="btn btn-primary" style="width:100%; padding:12px; font-size:15px; font-weight:700; box-shadow:0 4px 14px rgba(37,99,235,0.3);">
+                💸 Tiếp Tục: Kiểm Tra &amp; Xác Nhận Chuyển Nhượng
+              </button>
+            </form>
           </div>
         </section>
 
@@ -826,24 +907,46 @@
     </div>
   </div>
 
-  <!-- Modal Từ Chối Truy Cập (Ví Ngoài Công Ty) -->
-  <div id="modalAccessDenied" class="modal-overlay" style="display: none;">
-    <div class="modal-content" style="max-width: 520px; text-align: center; border-top: 5px solid #ef4444;">
-      <div style="font-size: 52px; margin-bottom: 12px;">🚫</div>
-      <h3 style="color: #b91c1c; margin-bottom: 8px; font-size: 20px;">TỪ CHỐI TRUY CẬP (ACCESS DENIED)</h3>
-      <p style="font-size: 14px; color: #475569; line-height: 1.6; margin-bottom: 14px;">
-        Địa chỉ ví của bạn không thuộc danh bạ nội bộ công ty và không nắm giữ cổ phần biểu quyết:
-      </p>
-      <div id="deniedWalletAddress" style="padding: 10px 14px; background: #f1f5f9; border-radius: 6px; font-family: monospace; font-size: 13px; font-weight: 700; color: #0f172a; word-break: break-all; margin-bottom: 16px; border: 1px solid #cbd5e1;">
-        0x...
+  <!-- Modal Từ Chối Truy Cập (Ví Ngoài Danh Sách Cổ Đông Công Ty) -->
+  <div id="modalAccessDenied" class="modal-backdrop" style="display: none;">
+    <div class="modal-dialog" style="max-width: 520px; text-align: center;">
+      <div class="modal-header" style="background: linear-gradient(135deg, #fef2f2 0%, #fee2e2 100%); border-bottom: 1px solid #fecdd3;">
+        <div style="display: flex; align-items: center; gap: 8px;">
+          <span style="font-size: 20px;">🚫</span>
+          <h3 style="color: #991b1b; margin: 0; font-size: 16px;">Chưa Có Trong Danh Sách Cổ Đông</h3>
+        </div>
       </div>
-      <div style="padding: 12px 14px; background: #fef2f2; border: 1px solid #fee2e2; border-radius: 8px; font-size: 13px; color: #991b1b; text-align: left; margin-bottom: 20px; line-height: 1.5;">
-        🔒 <strong>Cổng thông tin nội bộ bảo mật:</strong> Hệ thống chỉ phục vụ các thành viên HĐQT, Cổ đông và Ban kiểm soát công ty. Vui lòng liên hệ Quản trị viên tối cao để được cấp quyền vào danh bạ:
-        <div style="margin-top: 6px; font-family: monospace; font-weight: 700; color: #7f1d1d;">0xeD9D3BE4A094B9cb82f864f793F4F96098323F66</div>
+      <div class="modal-body" style="padding: 24px 22px;">
+        <div style="font-size: 48px; margin-bottom: 12px;">⚠️</div>
+        <h4 style="color: #991b1b; font-size: 17px; font-weight: 700; margin-bottom: 8px;">
+          Chưa Có Trong Danh Sách Cổ Đông
+        </h4>
+        <p style="font-size: 13.5px; color: #475569; line-height: 1.6; margin-bottom: 16px;">
+          Địa chỉ ví kết nối của bạn hiện <strong>chưa có trong danh sách cổ đông nội bộ công ty</strong>. Yêu cầu liên hệ Quản trị viên (Admin) để được hỗ trợ và cấp quyền tham gia biểu quyết.
+        </p>
+
+        <div style="background: #f8fafc; border: 1px solid #cbd5e1; border-radius: 8px; padding: 12px 14px; margin-bottom: 16px; text-align: left;">
+          <div style="font-size: 11.5px; color: #64748b; font-weight: 600; text-transform: uppercase; margin-bottom: 4px;">
+            Địa chỉ ví kết nối của bạn:
+          </div>
+          <div id="deniedWalletAddress" style="font-family: monospace; font-size: 13px; font-weight: 700; color: #0f172a; word-break: break-all;">
+            0x...
+          </div>
+        </div>
+
+        <div style="padding: 12px 14px; background: #fff1f2; border: 1px solid #fecdd3; border-radius: 8px; font-size: 12.5px; color: #9f1239; text-align: left; line-height: 1.5;">
+          🔒 <strong>Thông tin liên hệ Quản trị viên tối cao (Super Admin):</strong>
+          <div style="margin-top: 4px; font-family: monospace; font-weight: 700; color: #881337; word-break: break-all;">
+            0xeD9D3BE4A094B9cb82f864f793F4F96098323F66
+          </div>
+        </div>
       </div>
-      <div style="display: flex; gap: 10px;">
-        <button type="button" class="btn btn-primary" onclick="closeAccessDeniedModal()" style="flex: 1;">
-          Quay Về Đăng Nhập
+      <div class="modal-footer" style="background: #f8fafc; padding: 14px 20px; display: flex; gap: 10px;">
+        <button type="button" class="btn btn-outline" onclick="loginWithMetaMask(true)" style="flex: 1; justify-content: center; font-weight: 600;">
+          🔄 Đổi Ví Khác (MetaMask)
+        </button>
+        <button type="button" class="btn btn-danger" onclick="closeAccessDeniedModal()" style="flex: 1; justify-content: center; font-weight: 600;">
+          🚪 Đăng Xuất
         </button>
       </div>
     </div>
@@ -1069,18 +1172,19 @@
       <div class="modal-header" style="background: linear-gradient(135deg, #fff1f2 0%, #ffe4e6 100%); border-bottom: 1px solid #fecdd3;">
         <div>
           <h3 style="margin: 0; font-size: 16.5px; color: #9f1239; display: flex; align-items: center; gap: 8px;">
-            <span>🛑</span> Quyết Định Hủy / Dừng Hẳn Cuộc Bầu Cử
+            <span>🛑</span> Quyết Định Hủy Bỏ Vĩnh Viễn Cuộc Bầu Cử
           </h3>
           <div style="font-size: 12px; color: #be123c; margin-top: 3px;">
-            Hành động khẩn cấp: Đóng băng kết quả &amp; Phát thông báo đến toàn bộ ví cổ đông công ty
+            Hành động khẩn cấp: Vô hiệu hóa kết quả, hủy quyền biểu quyết &amp; Phát thông báo đến toàn bộ ví công ty
           </div>
         </div>
         <button type="button" class="modal-close-btn" onclick="closeCancelElectionModal()">&times;</button>
       </div>
 
       <div class="modal-body" style="padding: 20px 22px;">
-        <div style="padding: 12px 14px; background: #fff5f5; border: 1px solid #fed7d7; border-radius: 8px; font-size: 12.5px; color: #9b2c2c; line-height: 1.5; margin-bottom: 16px;">
-          ⚠️ <strong>LƯU Ý QUAN TRỌNG:</strong> Việc hủy/dừng hẳn kỳ bầu cử sẽ khóa hoàn toàn chức năng bỏ phiếu của cử tri. Toàn bộ cổ đông sẽ nhận được thông báo giải trình nguyên nhân này trực tiếp trên giao diện của họ.
+        <div style="padding: 12px 14px; background: #fff1f2; border: 1.5px solid #f43f5e; border-radius: 8px; font-size: 12.5px; color: #9f1239; line-height: 1.5; margin-bottom: 16px;">
+          ⚠️ <strong>CẢNH BÁO NGUY HIỂM — KHÔNG THỂ KHÔI PHỤC:</strong><br>
+          Quyết định hủy bỏ này có hiệu lực <strong>VĨNH VIỄN</strong> và không thể hoàn tác hay khôi phục lại. Toàn bộ phiếu bầu của kỳ này sẽ bị vô hiệu hóa pháp lý hoàn toàn. Cổ đông sẽ nhận được thông báo giải trình trực tiếp trên giao diện của họ.
         </div>
 
         <div class="form-group" style="margin-bottom: 14px;">
@@ -1109,10 +1213,71 @@
 
       <div class="modal-footer" style="background: #fff1f2; padding: 12px 20px; display: flex; gap: 10px;">
         <button type="button" class="btn btn-outline" onclick="closeCancelElectionModal()" style="flex: 1;">
-          Hủy Bỏ
+          ✕ Hủy Bỏ Thao Tác
         </button>
         <button type="button" class="btn btn-danger" onclick="adminConfirmCancelElection()" style="flex: 1.5; font-weight: 700; background: #e11d48; border-color: #be123c;">
-          🛑 Xác Nhận Hủy &amp; Phát Thông Báo
+          🛑 Xác Nhận Hủy Vĩnh Viễn &amp; Phát Thông Báo
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- =====================================================
+       MODAL 8: XÁC NHẬN CHUYỂN NHƯỢNG CỔ PHẦN NỘI BỘ
+       ===================================================== -->
+  <div id="modalTransferConfirm" class="modal-backdrop" style="display: none;" onclick="if(event.target===this) closeTransferConfirmModal()">
+    <div class="modal-dialog" style="max-width: 520px;">
+      <div class="modal-header" style="background: linear-gradient(135deg, #eff6ff 0%, #f8fafc 100%); border-bottom: 1px solid #bfdbfe;">
+        <div>
+          <h3 style="margin: 0; font-size: 16.5px; color: #1e3a8a; display: flex; align-items: center; gap: 8px;">
+            <span>💸</span> Xác Nhận Chuyển Nhượng Cổ Phần
+          </h3>
+          <div style="font-size: 12px; color: var(--text-muted); margin-top: 3px;">
+            Giao dịch chuyển quyền sở hữu On-chain qua Smart Contract
+          </div>
+        </div>
+        <button type="button" class="modal-close-btn" onclick="closeTransferConfirmModal()">&times;</button>
+      </div>
+
+      <div class="modal-body" style="padding: 20px 22px;">
+        <div style="display: flex; flex-direction: column; gap: 12px;">
+          <!-- Thông tin người gửi & người nhận -->
+          <div style="display: flex; align-items: center; justify-content: space-between; padding: 12px 16px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px;">
+            <div style="text-align: left;">
+              <div style="font-size: 11px; color: var(--text-muted);">Bên chuyển nhượng (Bạn):</div>
+              <div id="modalTransferSenderName" style="font-weight: 700; font-size: 13.5px; color: #1e293b;">--</div>
+              <div id="modalTransferSenderAddr" style="font-size: 11px; font-family: monospace; color: var(--text-muted);">0x...</div>
+            </div>
+            <div style="font-size: 22px; color: #3b82f6;">➔</div>
+            <div style="text-align: right;">
+              <div style="font-size: 11px; color: var(--text-muted);">Bên nhận chuyển nhượng:</div>
+              <div id="modalTransferRecipientName" style="font-weight: 700; font-size: 13.5px; color: #15803d;">--</div>
+              <div id="modalTransferRecipientAddr" style="font-size: 11px; font-family: monospace; color: var(--text-muted);">0x...</div>
+            </div>
+          </div>
+
+          <!-- Chi tiết số lượng -->
+          <div style="text-align: center; padding: 14px; background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 10px;">
+            <div style="font-size: 12px; color: #1d4ed8; font-weight: 600;">Số lượng cổ phần chuyển giao:</div>
+            <div id="modalTransferAmount" style="font-size: 28px; font-weight: 800; color: #1e40af; margin: 4px 0;">0 CP</div>
+            <div style="font-size: 12px; color: #475569;">
+              Số dư còn lại sau khi chuyển: <strong id="modalTransferRemaining">0 CP</strong>
+            </div>
+          </div>
+
+          <!-- Cảnh báo Snapshot -->
+          <div style="padding: 10px 14px; background: #fffbeb; border: 1px solid #fde68a; border-radius: 8px; font-size: 12px; color: #92400e; line-height: 1.4;">
+            📌 <strong>Quy tắc Snapshot On-Chain:</strong> Số cổ phần này sẽ không làm thay đổi quyền biểu quyết ở các kỳ bầu cử đã mở phiên trước đây (đã chốt snapshot). Người nhận sẽ được ghi nhận và có quyền vote ở các kỳ mở sau giao dịch này.
+          </div>
+        </div>
+      </div>
+
+      <div class="modal-footer" style="background: #f8fafc; padding: 12px 20px; display: flex; gap: 10px;">
+        <button type="button" class="btn btn-outline" onclick="closeTransferConfirmModal()" style="flex: 1;">
+          ✕ Hủy Bỏ
+        </button>
+        <button type="button" id="btnExecuteTransfer" class="btn btn-primary" onclick="executeTransferShares()" style="flex: 1.5; font-weight: 700;">
+          ✓ Ký &amp; Chuyển Cổ Phần
         </button>
       </div>
     </div>
