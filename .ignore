@@ -1,0 +1,49 @@
+# ============================================================
+# .ignore (Tương đương .gitignore - chống để lọt API keys & secrets)
+# ============================================================
+
+# SECRETS & API KEYS
+.env
+.env.*
+.env.local
+!.env.example
+*.pem
+*.key
+*.p12
+*.pfx
+*.keystore
+secrets/
+private/
+credentials/
+*secret*
+*credential*
+*pinata_key*
+*pinata_jwt*
+api_key*
+apiKey*
+
+# DEPENDENCIES
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# BUILDS & ARTIFACTS
+artifacts/
+cache/
+types/
+typechain-types/
+dist/
+build/
+coverage/
+
+# OS & EDITORS
+.DS_Store
+Thumbs.db
+Desktop.ini
+.vscode/
+!.vscode/extensions.json
+.idea/
+*.log
+tmp/
+temp/

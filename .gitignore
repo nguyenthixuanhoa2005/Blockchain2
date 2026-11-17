@@ -1,0 +1,131 @@
+# ============================================================
+# .gitignore - HỆ THỐNG BẦU HỘI ĐỒNG QUẢN TRỊ (BLOCKCHAIN)
+# ============================================================
+
+# ------------------------------------------------------------
+# 1. BẢO MẬT & API KEYS / SECRETS (QUAN TRỌNG NHẤT)
+# ------------------------------------------------------------
+.env
+.env.*
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+!.env.example
+
+# Private keys, certificates, keystores
+*.pem
+*.key
+*.p12
+*.pfx
+*.keystore
+id_rsa*
+id_ed25519*
+
+# Thư mục & tệp chứa secret
+secrets/
+private/
+credentials/
+*secret*
+*credential*
+*pinata_key*
+*pinata_jwt*
+api_key*
+apiKey*
+
+# ------------------------------------------------------------
+# 2. DEPENDENCIES & PACKAGE MANAGERS
+# ------------------------------------------------------------
+node_modules/
+.pnp/
+.pnp.*
+.yarn/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+
+# ------------------------------------------------------------
+# 3. SMART CONTRACT COMPILATION & BUILD OUTPUT
+# ------------------------------------------------------------
+# Hardhat artifacts & cache
+artifacts/
+cache/
+typechain/
+typechain-types/
+types/
+
+# Hardhat Ignition deployment journals (nếu chứa sensitive data mạng testnet/mainnet)
+ignition/deployments/chain-31337/
+ignition/deployments/localhost/
+
+# Build & bundle output
+dist/
+build/
+out/
+bundle/
+
+# ------------------------------------------------------------
+# 4. TEST & COVERAGE & GAS REPORTS
+# ------------------------------------------------------------
+coverage/
+coverage.json
+lcov.info
+.gas-snapshot
+snapshots/
+gas-report.txt
+
+# ------------------------------------------------------------
+# 5. LOGS & TEMPORARY FILES
+# ------------------------------------------------------------
+*.log
+logs/
+pids/
+*.pid
+*.seed
+*.pid.lock
+tmp/
+temp/
+.tmp/
+.cache/
+
+# ------------------------------------------------------------
+# 6. HỆ ĐIỀU HÀNH & TRÌNH SOẠN THẢO (OS & IDE)
+# ------------------------------------------------------------
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+._*
+
+# Windows
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+
+# Linux
+*~
+
+# Visual Studio Code
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.json
+*.code-workspace
+
+# JetBrains
+.idea/
+*.iml
+*.ipr
+*.iws
+
+# Vim / Emacs
+*.swp
+*.swo
+*~
+\#*\#
+
+# ------------------------------------------------------------
+# 7. TYPESCRIPT & SUBMODULES
+# ------------------------------------------------------------
+*.tsbuildinfo
