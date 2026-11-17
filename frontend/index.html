@@ -1,0 +1,715 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Hệ Thống Bỏ Phiếu Bầu HĐQT - Blockchain</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+  <!-- Loading Overlay -->
+  <div id="roleLoadingOverlay">
+    <div class="spinner"></div>
+    <p id="loadingOverlayText">Đang xác thực thông tin ví và quyền hạn trên Blockchain...</p>
+  </div>
+
+  <!-- =====================================================
+       MÀN HÌNH 1: ĐĂNG NHẬP / CHỌN VÍ (LOGIN SCREEN)
+       ===================================================== -->
+  <div id="screenLogin" class="login-wrapper">
+    <div class="login-card">
+      <div class="login-header">
+        <div class="login-icon">🏛️</div>
+        <h2>HỆ THỐNG BẦU HỘI ĐỒNG QUẢN TRỊ</h2>
+        <p>Bỏ phiếu bầu dồn (Cumulative Voting) trên nền tảng Blockchain Ethereum</p>
+      </div>
+
+      <div class="login-body">
+        <label class="login-label">Chọn phương thức kết nối &amp; Đăng nhập:</label>
+        
+        <!-- Nút bấm đăng nhập MetaMask chính quy -->
+        <button class="btn btn-metamask" onclick="loginWithMetaMask()">
+          <img src="https://upload.wikimedia.org/wikipedia/commons/3/36/MetaMask_Fox.svg" alt="MetaMask" width="26" height="26">
+          <span>Kết Nối Ví MetaMask (Trình duyệt)</span>
+        </button>
+
+        <div class="login-divider">
+          <span>HOẶC ĐĂNG NHẬP NHANH VÍ DEMO</span>
+        </div>
+
+        <!-- Các nút đăng nhập trực tiếp theo từng vai trò cụ thể -->
+        <div class="account-grid">
+          <div class="account-card" onclick="loginWithAccount(0)">
+            <div class="acc-badge admin">⚙️ Quản Trị Viên (Admin)</div>
+            <div class="acc-name">Ban Tổ Chức / Quản Trị</div>
+            <div class="acc-addr">0xf39F...2266</div>
+            <div class="acc-desc">Toàn quyền: Tạo kỳ, cấp phiếu, thêm ứng viên, mở/đóng phiên</div>
+            <button class="btn btn-sm btn-primary" style="margin-top:8px; width:100%;">Đăng Nhập Ví Admin</button>
+          </div>
+
+          <div class="account-card" onclick="loginWithAccount(1)">
+            <div class="acc-badge voter">🗳️ Cổ Đông Alice (50%)</div>
+            <div class="acc-name">Cổ Đông Lớn: 60 CP</div>
+            <div class="acc-addr">0x7099...79C8</div>
+            <div class="acc-desc">Quyền biểu quyết: 180 phiếu bầu (3 ghế)</div>
+            <button class="btn btn-sm btn-success" style="margin-top:8px; width:100%;">Đăng Nhập Ví Alice</button>
+          </div>
+
+          <div class="account-card" onclick="loginWithAccount(2)">
+            <div class="acc-badge voter">🗳️ Cổ Đông Bob (20.8%)</div>
+            <div class="acc-name">Cổ Đông Nhỏ: 25 CP</div>
+            <div class="acc-addr">0x3C44...93BC</div>
+            <div class="acc-desc">Quyền biểu quyết: 75 phiếu bầu (3 ghế)</div>
+            <button class="btn btn-sm btn-success" style="margin-top:8px; width:100%;">Đăng Nhập Ví Bob</button>
+          </div>
+
+          <div class="account-card" onclick="loginWithAccount(3)">
+            <div class="acc-badge voter">🗳️ Cổ Đông Carol (29.2%)</div>
+            <div class="acc-name">Cổ Đông Nhỏ: 35 CP</div>
+            <div class="acc-addr">0x90F7...b906</div>
+            <div class="acc-desc">Quyền biểu quyết: 105 phiếu bầu (3 ghế)</div>
+            <button class="btn btn-sm btn-success" style="margin-top:8px; width:100%;">Đăng Nhập Ví Carol</button>
+          </div>
+        </div>
+
+        <div style="margin-top: 14px; text-align: center;">
+          <button class="btn btn-outline" style="width: 100%;" onclick="loginAsGuest()">
+            👤 Đăng Nhập Với Tư Cách Khách (Chỉ xem công khai, không cần ví)
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- =====================================================
+       MÀN HÌNH 2: NỘI DUNG ỨNG DỤNG SAU KHI ĐĂNG NHẬP (dAPP APP)
+       ===================================================== -->
+  <div id="screenApp" style="display: none;">
+    <!-- HEADER -->
+    <header class="header">
+      <div class="header-container">
+        <div class="header-title">
+          <h1>🏛️ HỆ THỐNG BỎ PHIẾU BẦU HỘI ĐỒNG QUẢN TRỊ</h1>
+          <p>Bỏ phiếu bầu dồn (Cumulative Voting) • Smart Contract Ethereum</p>
+        </div>
+        <div class="wallet-box">
+          <div style="display: flex; flex-direction: column; align-items: flex-end;">
+            <div id="rolePill" class="role-pill guest">👤 Khách</div>
+            <div id="headerWalletAddress" style="font-size: 11px; font-family: monospace; color: #bfdbfe; margin-top: 3px;">0x...</div>
+          </div>
+          <!-- Nút Đăng Xuất -->
+          <button class="btn btn-danger btn-sm" onclick="logout()" title="Thoát ví và quay về màn hình đăng nhập">
+            🚪 Đăng Xuất
+          </button>
+        </div>
+      </div>
+    </header>
+
+    <!-- MAIN CONTAINER -->
+    <main class="container">
+
+      <!-- Thẻ thông tin ví & cổ phần đang đăng nhập -->
+      <div class="card" style="margin-bottom: 18px;">
+        <div class="grid-4">
+          <div class="stat-box">
+            <div class="stat-label">Địa chỉ ví đang kết nối</div>
+            <div class="stat-value" id="currentAddress" style="font-size:12px;word-break:break-all;font-family:monospace;">0x...</div>
+            <div class="stat-desc" id="currentRole">Vai trò: Đang xác thực...</div>
+          </div>
+          <div class="stat-box">
+            <div class="stat-label">Số cổ phần sở hữu (ShareToken)</div>
+            <div class="stat-value" id="currentShares">0 CP</div>
+            <div class="stat-desc">1 Token = 1 Cổ phần (Decimals = 0)</div>
+          </div>
+          <div class="stat-box stat-box-primary">
+            <div class="stat-label">Phiếu bầu tối đa (Bầu dồn)</div>
+            <div class="stat-value" id="currentMaxVotes">0 Phiếu</div>
+            <div class="stat-desc" id="formulaDesc">= Số cổ phần × Số ghế HĐQT</div>
+          </div>
+          <div class="stat-box">
+            <div class="stat-label">Tổng cuộc bầu cử</div>
+            <div class="stat-value" id="totalElections">0</div>
+            <div class="stat-desc" id="activeElectionCount">Đang tải...</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- =====================================================
+           PHÂN QUYỀN MÀN HÌNH 1: QUẢN TRỊ VIÊN (ADMIN DASHBOARD)
+           ===================================================== -->
+      <div id="screenAdmin" class="role-screen">
+        <div class="screen-hero">
+          <div class="hero-icon">⚙️</div>
+          <div>
+            <h2>Bảng Điều Khiển Quản Trị Viên</h2>
+            <p>Toàn quyền quản lý: tạo cuộc bầu cử, cấp phát cổ phần, thêm ứng viên, điều khiển vòng đời bỏ phiếu.</p>
+          </div>
+        </div>
+
+        <div class="tabs">
+          <button class="tab-btn active" onclick="switchTab('adminPanelTab', this)">⚙️ Quản Trị Cuộc Bầu Cử</button>
+          <button class="tab-btn" onclick="switchTab('adminResultsTab', this)">📊 Kết Quả &amp; Giám Sát</button>
+          <button class="tab-btn" onclick="switchTab('adminLogsTab', this)">📜 Nhật Ký Giao Dịch</button>
+        </div>
+
+        <!-- Tab 1.1: Quản trị -->
+        <section id="adminPanelTab" class="tab-content active">
+          <!-- 1. Tạo cuộc bầu cử mới -->
+          <div class="card">
+            <div class="card-title">➕ 1. Tạo Cuộc Bầu Cử Mới</div>
+            <div class="grid-2">
+              <div class="form-group">
+                <label class="form-label">Tên cuộc bầu cử:</label>
+                <input type="text" id="newElectionTitle" class="form-input" placeholder="VD: Đại hội cổ đông thường niên 2026">
+              </div>
+              <div class="form-group">
+                <label class="form-label">Số ghế HĐQT cần bầu:</label>
+                <input type="number" id="newElectionSeats" class="form-input" placeholder="VD: 3" min="1" max="20" value="3">
+              </div>
+              <div class="form-group">
+                <label class="form-label">Thời gian bắt đầu bỏ phiếu:</label>
+                <input type="datetime-local" id="newElectionStart" class="form-input">
+              </div>
+              <div class="form-group">
+                <label class="form-label">Thời gian kết thúc bỏ phiếu:</label>
+                <input type="datetime-local" id="newElectionEnd" class="form-input">
+              </div>
+            </div>
+            <p style="font-size:12px;color:var(--text-muted);margin-bottom:12px;">
+              💡 Thời gian dùng để tự động tính thời hạn mở phiên (duration). Ứng viên và phiếu bầu có thể được cấp phát trước khi bắt đầu.
+            </p>
+            <button class="btn btn-primary" onclick="adminCreateElection()">➕ Tạo Cuộc Bầu Cử Mới</button>
+          </div>
+
+          <!-- 2. Chọn cuộc bầu cử đang quản lý -->
+          <div class="card">
+            <div class="card-title">
+              📋 2. Chọn Cuộc Bầu Cử Để Quản Lý
+              <button class="btn btn-outline btn-sm" onclick="loadAllElections()">🔄 Tải lại</button>
+            </div>
+            <div class="selector-card">
+              <label>Chọn cuộc bầu cử trong danh sách:</label>
+              <select id="adminElectionSelect" class="form-select" onchange="adminSelectElection(this.value)">
+                <option value="">-- Chưa có cuộc bầu cử nào --</option>
+              </select>
+            </div>
+
+            <!-- Hộp trạng thái 4 pha -->
+            <div id="adminElectionInfoBox" style="display:none;">
+              <div id="adminStatusInfoBox" class="status-info-box upcoming">
+                <span style="font-size:24px;">ℹ️</span>
+                <div>
+                  <strong id="adminStatusLabel" style="font-size:15px;">Sắp diễn ra</strong>
+                  <div id="adminStatusDesc">Admin đang tạo ứng viên &amp; cấp phiếu; Cổ đông &amp; Khách chỉ xem.</div>
+                </div>
+              </div>
+
+              <div class="grid-3">
+                <div class="stat-box">
+                  <div class="stat-label">Tên cuộc bầu cử</div>
+                  <div class="stat-value" id="adminElectionTitle" style="font-size:15px;">--</div>
+                </div>
+                <div class="stat-box">
+                  <div class="stat-label">Số ghế HĐQT</div>
+                  <div class="stat-value" id="adminElectionSeats">-- Ghế</div>
+                </div>
+                <div class="stat-box">
+                  <div class="stat-label">Snapshot Block</div>
+                  <div class="stat-value" id="adminElectionSnapshot" style="font-size:15px;">Block #0</div>
+                </div>
+                <div class="stat-box">
+                  <div class="stat-label">Thời hạn bỏ phiếu còn lại</div>
+                  <div class="stat-value" id="adminElectionCountdown">--:--:--</div>
+                  <div class="stat-desc" id="adminElectionEndTime">--</div>
+                </div>
+                <div class="stat-box">
+                  <div class="stat-label">Trạng thái phiên</div>
+                  <div class="stat-value" id="adminElectionStatusBadge">--</div>
+                </div>
+                <div class="stat-box">
+                  <div class="stat-label">Số ứng viên đăng ký</div>
+                  <div class="stat-value" style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:6px;">
+                    <span id="adminCandidateCount">0 ứng viên</span>
+                    <button type="button" class="btn btn-outline btn-sm" id="btnToggleCandidateTable" onclick="toggleAdminCandidateTable()" title="Bật/Tắt xem chi tiết danh sách ứng viên" style="font-size:12px; padding:2px 8px; font-weight:normal; border-radius:4px; display:inline-flex; align-items:center; gap:4px; background:#fff;">
+                      👁️ Xem chi tiết
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Bảng chi tiết ứng viên được đẩy lên ngay tại đây -->
+              <div id="adminCandidateDetailsSection" style="margin-top:16px; border-top:1px solid #e2e8f0; padding-top:14px;">
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+                  <div style="font-weight:600; font-size:14px; display:flex; align-items:center; gap:6px;">
+                    <span>📋</span> Danh Sách Ứng Viên Của Cuộc Bầu Cử
+                  </div>
+                  <div style="display:flex; gap:6px;">
+                    <button type="button" class="btn btn-outline btn-sm" onclick="refreshCurrentElection()">🔄 Cập nhật</button>
+                    <button type="button" class="btn btn-outline btn-sm" onclick="toggleAdminCandidateTable()">✖ Thu gọn</button>
+                  </div>
+                </div>
+                <div class="table-container">
+                  <table>
+                    <thead>
+                      <tr>
+                        <th style="width:60px">ID</th>
+                        <th>Ứng viên</th>
+                        <th>Hồ sơ IPFS</th>
+                        <th style="width:140px">Số phiếu hiện tại</th>
+                        <th style="width:140px">Trạng thái</th>
+                      </tr>
+                    </thead>
+                    <tbody id="adminCandidateBody">
+                      <tr><td colspan="5" style="text-align:center;padding:20px;color:var(--text-muted);">Vui lòng chọn cuộc bầu cử.</td></tr>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="grid-2">
+            <!-- 3. Cấp phát token cổ phần -->
+            <div class="card">
+              <div class="card-title">🪙 3. Cấp Phát Cổ Phần (Mint ShareToken)</div>
+              <p style="font-size:13px;color:var(--text-muted);margin-bottom:14px;">
+                Admin chỉ cấp phát Token cổ phần đại diện tỷ lệ sở hữu. Khi cuộc bầu cử mở, Smart Contract sẽ <strong>tự động đọc số dư cổ phần</strong> để quy đổi ra trọng số phiếu bầu theo Luật Doanh nghiệp: <br>
+                <code style="background:#f1f5f9; padding:2px 6px; border-radius:4px; font-weight:700; color:#1d4ed8;">Phiếu bầu tối đa = Số Token cổ phần × Số ghế HĐQT</code>.
+              </p>
+              <div class="form-group">
+                <label class="form-label">Địa chỉ ví cổ đông:</label>
+                <input type="text" id="mintToAddress" class="form-input" placeholder="0x...">
+              </div>
+              <div class="form-group">
+                <label class="form-label">Số cổ phần cấp phát (1 Token = 1 CP):</label>
+                <input type="number" id="mintAmount" class="form-input" placeholder="VD: 100" min="1">
+              </div>
+              <button class="btn btn-primary" onclick="adminMintTokens()">🪙 Cấp Phát Token Cổ Phần</button>
+            </div>
+
+            <!-- 4. Thêm / Chốt danh sách ứng viên (Dành riêng cho Ban tổ chức / Admin) -->
+            <div class="card">
+              <div class="card-title">👤 4. Thêm / Chốt Danh Sách Ứng Viên HĐQT (Ban Tổ Chức)</div>
+              <p style="font-size:12px;color:var(--text-muted);margin:-8px 0 14px 0;">
+                Ban Tổ chức nhập &amp; chốt danh sách ứng viên hợp lệ (bao gồm cổ đông ứng cử) trước khi thời gian bỏ phiếu bắt đầu.
+              </p>
+              <div id="adminAddCandidateLock" class="admin-lock-notice">
+                🔒 Đã khóa quyền sửa ứng viên vì phiên đang diễn ra hoặc đã kết thúc!
+              </div>
+
+              <!-- Chọn cuộc bầu cử ứng viên tham gia -->
+              <div class="form-group" style="background:#eff6ff; border:1px solid #bfdbfe; border-radius:8px; padding:12px; margin-bottom:14px;">
+                <label class="form-label" style="font-weight:700; color:#1e40af; margin-bottom:6px;">🎯 Cuộc bầu cử ứng viên tham gia:</label>
+                <select id="candidateElectionSelect" class="form-select" onchange="syncElectionFromCandidateForm(this.value)">
+                  <option value="">-- Chọn cuộc bầu cử để nạp ứng viên --</option>
+                </select>
+                <div id="candidateElectionStatusHint" style="font-size:12px; margin-top:6px; color:#1e40af;">
+                  💡 Chọn đúng cuộc bầu cử cần nạp ứng viên (tự động đồng bộ với Mục 2).
+                </div>
+              </div>
+
+              <div class="form-group">
+                <label class="form-label">Chọn ứng viên từ danh sách cổ đông (hoặc nhập tự do):</label>
+                <div style="display:flex; gap:8px; margin-bottom:8px;">
+                  <select id="quickCandidateSelect" class="form-select" onchange="applyQuickCandidate(this.value)">
+                    <option value="">-- Chọn cổ đông ứng cử viên nhanh --</option>
+                    <option value="Cổ đông Alice (60 CP)|0x70997970C51812dc3A010C7d01b50e0d17dc79C8">Alice (Cổ đông lớn - 60 CP)</option>
+                    <option value="Cổ đông Bob (25 CP)|0x3C44CdDdB6a900fa2b585dd299e03d12FA4293BC">Bob (Cổ đông nhỏ - 25 CP)</option>
+                    <option value="Cổ đông Carol (35 CP)|0x90F79bf6EB2c4f870365E785982E1f101E93b906">Carol (Cổ đông nhỏ - 35 CP)</option>
+                  </select>
+                </div>
+              </div>
+              <div class="form-group">
+                <label class="form-label">Họ và tên ứng viên:</label>
+                <input type="text" id="candidateNameInput" class="form-input" placeholder="VD: Nguyễn Văn A hoặc Cổ đông Alice">
+              </div>
+              <div class="form-group">
+                <label class="form-label">Địa chỉ ví cổ đông ứng cử (nếu là cổ đông - hệ thống tự động kiểm tra chống trùng):</label>
+                <input type="text" id="candidateWalletInput" class="form-input" placeholder="VD: 0x7099... (tùy chọn)">
+              </div>
+              <div class="form-group">
+                <label class="form-label">Tải tệp hồ sơ / ảnh trực tiếp (Upload lên mạng IPFS thực qua Pinata):</label>
+                <div style="display:flex; gap:10px; align-items:center;">
+                  <input type="file" id="candidateFileInput" class="form-input" style="padding:6px 10px;" accept=".pdf,.png,.jpg,.jpeg,.doc,.docx" onchange="handleCandidateFileUpload(this)">
+                </div>
+                <div id="ipfsUploadProgress" style="display:none; font-size:12px; color:#2563eb; margin-top:6px; font-weight:600;">
+                  ⏳ Đang tải tệp lên mạng IPFS (Pinata)... Vui lòng đợi trong giây lát!
+                </div>
+                <div id="ipfsUploadSuccessBox" style="display:none; margin-top:8px; background:#f0fdf4; border:1px solid #86efac; border-radius:6px; padding:10px;">
+                  <div style="font-weight:600; color:#166534; font-size:13px; display:flex; align-items:center; gap:6px;">
+                    <span>✅</span> Đã lưu tệp lên IPFS Pinata thành công!
+                  </div>
+                  <div style="font-size:12px; color:#15803d; margin-top:4px;">
+                    Mã CID: <code id="uploadedCidText" style="font-weight:700; background:#dcfce7; padding:2px 6px; border-radius:4px;"></code>
+                  </div>
+                  <div style="margin-top:6px;">
+                    <a id="uploadedGatewayBtn" href="#" target="_blank" rel="noopener noreferrer" class="btn btn-sm btn-success" style="padding:4px 10px; font-size:12px; text-decoration:none; display:inline-flex; align-items:center; gap:6px;">
+                      👁️ Xem hồ sơ trên IPFS Gateway ↗
+                    </a>
+                  </div>
+                </div>
+                <small style="color:var(--text-muted); font-size:11px; margin-top:6px; display:block;">
+                  💡 Hệ thống tải file PDF/ảnh lên Pinata IPFS Node, nhận về mã định danh CID thực tế và tự động điền vào ô bên dưới.
+                </small>
+              </div>
+              <div class="form-group">
+                <label class="form-label">Mã IPFS CID hồ sơ (tự động điền sau khi tải tệp hoặc nhập tay):</label>
+                <input type="text" id="candidateCidInput" class="form-input" placeholder="VD: QmXoypizjW3WknFiJnKLwHCnL72vedxjQkDDP1mXWo6uco (hoặc để trống)">
+              </div>
+              <button class="btn btn-primary" id="btnAddCandidate" onclick="adminAddCandidate()">👤 Thêm Vào Danh Sách Ứng Viên</button>
+            </div>
+          </div>
+
+          <!-- 5. Điều khiển vòng đời: Tạm hoãn (chưa diễn ra) / Tạm dừng (đang diễn ra) / Dừng cả hệ thống -->
+          <div class="card">
+            <div class="card-title">🎛️ 5. Điều Khiển &amp; Tạm Dừng / Tạm Hoãn Bầu Cử</div>
+            <p style="font-size:13px;color:var(--text-muted);margin-bottom:14px;">
+              Ban tổ chức có thể linh hoạt quản lý: <strong>Tạm hoãn</strong> kỳ chưa diễn ra, <strong>Tạm dừng</strong> kỳ đang bỏ phiếu, hoặc <strong>Dừng &amp; hoãn cả hệ thống</strong>:
+            </p>
+
+            <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap:16px;">
+              <!-- Khối 1: TẠM HOÃN (Chỉ hiển thị các cuộc bầu cử CHƯA DIỄN RA) -->
+              <div style="border:1px solid #cbd5e1; border-radius:8px; padding:14px; background:#f8fafc; display:flex; flex-direction:column;">
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px; flex-wrap:wrap; gap:6px;">
+                  <div style="font-weight:600; font-size:14px; display:flex; align-items:center; gap:6px; color:#334155;">
+                    <span>⏳</span> Tạm Hoãn Kỳ Chưa Diễn Ra
+                  </div>
+                  <div style="display:flex; gap:4px;">
+                    <button type="button" class="btn btn-outline btn-sm" style="font-size:11px; padding:2px 6px;" onclick="adminSelectAllUpcoming(true)">✓ Chọn tất cả</button>
+                    <button type="button" class="btn btn-outline btn-sm" style="font-size:11px; padding:2px 6px;" onclick="adminSelectAllUpcoming(false)">✕ Bỏ chọn</button>
+                  </div>
+                </div>
+                <p style="font-size:12px; color:var(--text-muted); margin-bottom:10px;">
+                  Đóng băng lịch trình tự động mở khi đến giờ (để thêm ứng viên, dời giờ họp).
+                </p>
+                <div id="upcomingChecklistContainer" style="flex:1; max-height:160px; min-height:90px; overflow-y:auto; border:1px solid #e2e8f0; border-radius:6px; background:#fff; margin-bottom:10px;">
+                  <!-- Render danh sách kỳ Registration -->
+                </div>
+                <div style="display:flex; gap:8px;">
+                  <button type="button" class="btn btn-warning btn-sm" style="flex:1;" onclick="adminApplyUpcomingPostpone(true)">
+                    ⏸️ Tạm Hoãn Đã Chọn
+                  </button>
+                  <button type="button" class="btn btn-success btn-sm" style="flex:1;" onclick="adminApplyUpcomingPostpone(false)">
+                    ▶️ Tiếp Tục Lịch Trình
+                  </button>
+                </div>
+              </div>
+
+              <!-- Khối 2: TẠM DỪNG (Chỉ hiển thị các cuộc bầu cử ĐANG DIỄN RA) -->
+              <div style="border:1px solid #fdba74; border-radius:8px; padding:14px; background:#fffaf5; display:flex; flex-direction:column;">
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px; flex-wrap:wrap; gap:6px;">
+                  <div style="font-weight:600; font-size:14px; display:flex; align-items:center; gap:6px; color:#c2410c;">
+                    <span>⏸️</span> Tạm Dừng Kỳ Đang Diễn Ra
+                  </div>
+                  <div style="display:flex; gap:4px;">
+                    <button type="button" class="btn btn-outline btn-sm" style="font-size:11px; padding:2px 6px;" onclick="adminSelectAllActive(true)">✓ Chọn tất cả</button>
+                    <button type="button" class="btn btn-outline btn-sm" style="font-size:11px; padding:2px 6px;" onclick="adminSelectAllActive(false)">✕ Bỏ chọn</button>
+                  </div>
+                </div>
+                <p style="font-size:12px; color:#9a3412; margin-bottom:10px;">
+                  Tạm dừng nhận phiếu bầu cử tri (giữ nguyên số phiếu đã bầu, khóa nút vote).
+                </p>
+                <div id="activeChecklistContainer" style="flex:1; max-height:160px; min-height:90px; overflow-y:auto; border:1px solid #fed7aa; border-radius:6px; background:#fff; margin-bottom:10px;">
+                  <!-- Render danh sách kỳ Voting -->
+                </div>
+                <div style="display:flex; gap:8px;">
+                  <button type="button" class="btn btn-warning btn-sm" style="flex:1;" onclick="adminApplyActivePause(true)">
+                    ⏸️ Tạm Dừng Bỏ Phiếu
+                  </button>
+                  <button type="button" class="btn btn-success btn-sm" style="flex:1;" onclick="adminApplyActivePause(false)">
+                    ▶️ Mở Lại Bỏ Phiếu
+                  </button>
+                </div>
+              </div>
+
+              <!-- Khối 3: DỪNG + HOÃN CẢ HỆ THỐNG (Smart Contract Global Pause) -->
+              <div style="border:1px solid #fecaca; border-radius:8px; padding:14px; background:#fff5f5; grid-column: 1 / -1;">
+                <div style="font-weight:600; font-size:14px; margin-bottom:6px; color:#b91c1c; display:flex; align-items:center; gap:6px;">
+                  <span>🚨</span> Dừng &amp; Hoãn Cả Hệ Thống (Smart Contract Pausable)
+                </div>
+                <p style="font-size:12px; color:#7f1d1d; margin-bottom:10px;">
+                  Khóa khẩn cấp toàn bộ hợp đồng trên Blockchain: Ngừng lập tức mọi cuộc bỏ phiếu đang diễn ra và khóa kích hoạt mọi kỳ sắp mở.
+                </p>
+                <button class="btn btn-danger" id="btnPauseToggle" onclick="adminTogglePause()" style="width:100%; font-weight:600;">
+                  🚨 Dừng &amp; Hoãn Cả Hệ Thống (Contract Pause)
+                </button>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- Tab 1.2: Kết quả -->
+        <section id="adminResultsTab" class="tab-content">
+          <div class="card">
+            <div class="card-title">
+              <span>📊 Bảng Xếp Hạng Kết Quả Bầu Cử</span>
+              <button class="btn btn-outline btn-sm" onclick="loadResults()">🔄 Cập nhật</button>
+            </div>
+            <div id="tiedWarningBox" class="tied-warning">
+              ⚠️ CẢNH BÁO: Phát hiện đồng phiếu (Tied) ở vị trí ghế cuối cùng! Cần xử lý theo điều lệ.
+            </div>
+            <div class="table-container">
+              <table>
+                <thead>
+                  <tr>
+                    <th style="width:70px">Hạng</th>
+                    <th>Ứng viên</th>
+                    <th>Hồ sơ IPFS</th>
+                    <th style="width:130px">Số phiếu nhận</th>
+                    <th>Tỷ lệ phiếu</th>
+                    <th style="width:160px">Trạng thái</th>
+                  </tr>
+                </thead>
+                <tbody id="resultsTableBody">
+                  <tr><td colspan="6" style="text-align:center;padding:28px;color:var(--text-muted);">Chưa chọn cuộc bầu cử.</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <div class="card">
+            <div class="card-title">
+              <span>📋 Tất Cả Các Cuộc Bầu Cử Trong Hệ Thống</span>
+              <button class="btn btn-outline btn-sm" onclick="loadAllElections()">🔄 Tải lại</button>
+            </div>
+            <div id="allElectionsListAdmin" class="election-list">
+              <div style="text-align:center;padding:20px;color:var(--text-muted);">Đang tải...</div>
+            </div>
+          </div>
+        </section>
+
+        <!-- Tab 1.3: Nhật ký -->
+        <section id="adminLogsTab" class="tab-content">
+          <div class="card">
+            <div class="card-title">
+              <span>📜 Nhật Ký Sự Kiện Blockchain On-chain</span>
+              <button class="btn btn-outline btn-sm" onclick="clearLogs()">Xóa log</button>
+            </div>
+            <div id="logsContainer" style="max-height:450px;overflow-y:auto;background:#020617;padding:16px;border-radius:8px;">
+              <div class="log-entry">[Hệ thống] Đang lắng nghe sự kiện từ Smart Contract...</div>
+            </div>
+          </div>
+        </section>
+      </div>
+
+      <!-- =====================================================
+           PHÂN QUYỀN MÀN HÌNH 2: CỔ ĐÔNG (VOTER SCREEN)
+           ===================================================== -->
+      <div id="screenVoter" class="role-screen">
+        <div class="screen-hero hero-voter">
+          <div class="hero-icon">🗳️</div>
+          <div>
+            <h2>Màn Hình Cổ Đông — Bỏ Phiếu Bầu Dồn HĐQT</h2>
+            <p>Thực hiện quyền biểu quyết, dồn phiếu cho các ứng viên bạn tín nhiệm và đối chiếu lịch sử giao dịch.</p>
+          </div>
+        </div>
+
+        <div class="tabs">
+          <button class="tab-btn active" onclick="switchTab('voterVotingTab', this)">🗳️ Bỏ Phiếu</button>
+          <button class="tab-btn" onclick="switchTab('voterResultsTab', this)">📊 Xem Cuộc Bầu Cử &amp; Kết Quả</button>
+          <button class="tab-btn" onclick="switchTab('voterHistoryTab', this)">📋 Xác Nhận &amp; Lịch Sử Bỏ Phiếu</button>
+          <button class="tab-btn" onclick="switchTab('voterLogsTab', this)">📜 Nhật Ký Giao Dịch</button>
+        </div>
+
+        <!-- Tab 2.1: Bỏ phiếu -->
+        <section id="voterVotingTab" class="tab-content active">
+          <div class="card">
+            <div class="card-title">
+              📋 Chọn Cuộc Bầu Cử Để Tham Gia Bỏ Phiếu
+              <button class="btn btn-outline btn-sm" onclick="loadAllElections()">🔄 Tải lại</button>
+            </div>
+            <div class="selector-card">
+              <label>Cuộc bầu cử đang diễn ra:</label>
+              <select id="voterElectionSelect" class="form-select" onchange="voterSelectElection(this.value)">
+                <option value="">-- Chọn cuộc bầu cử --</option>
+              </select>
+            </div>
+
+            <div id="voterElectionInfoBox" style="display:none;">
+              <div id="voterStatusInfoBox" class="status-info-box active">
+                <span style="font-size:24px;">🗳️</span>
+                <div>
+                  <strong id="voterStatusLabel" style="font-size:15px;">Đang diễn ra</strong>
+                  <div id="voterStatusDesc">Cổ đông đang thực hiện bỏ phiếu.</div>
+                </div>
+              </div>
+              <div class="grid-3">
+                <div class="stat-box">
+                  <div class="stat-label">Tên cuộc bầu cử</div>
+                  <div class="stat-value" id="voterElectionTitle" style="font-size:14px;">--</div>
+                </div>
+                <div class="stat-box">
+                  <div class="stat-label">Số ghế HĐQT cần bầu</div>
+                  <div class="stat-value" id="voterElectionSeats">-- Ghế</div>
+                </div>
+                <div class="stat-box">
+                  <div class="stat-label">Thời hạn bỏ phiếu còn lại</div>
+                  <div class="stat-value" id="voterElectionCountdown">--:--:--</div>
+                  <div class="stat-desc" id="voterElectionEndTime">--</div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Bảng phân bổ phiếu bầu -->
+          <div class="card" id="voterVotingFormCard">
+            <div class="card-title">
+              <span>Bảng Phân Bổ Phiếu Bầu Dồn (Cumulative Voting)</span>
+              <span id="votedStatusBadge" class="badge badge-primary">Chưa bỏ phiếu</span>
+            </div>
+
+            <div id="voterVoteBlockedBox" class="status-info-box paused" style="display:none;">
+              <span style="font-size:20px;">🔒</span>
+              <div>
+                <strong id="voterBlockedTitle">Không thể bỏ phiếu</strong>
+                <div id="voterBlockedDesc">Vui lòng chọn cuộc bầu cử đang diễn ra.</div>
+              </div>
+            </div>
+
+            <p style="font-size:14px;color:var(--text-muted);margin-bottom:14px;" id="voterVoteDesc">
+              Theo quy định của Luật Doanh nghiệp, cổ đông có quyền dồn toàn bộ số phiếu cho 1 hoặc nhiều ứng viên.
+              <strong>Tổng số phiếu phân bổ không được vượt quá số phiếu tối đa bạn sở hữu.</strong>
+            </p>
+
+            <div id="voteCalcBox" class="vote-calc-box">
+              <div>
+                <div style="font-size:13px;font-weight:600;color:#166534;">
+                  Đã phân bổ: <span id="allocatedVotes">0</span> / <span id="totalAllowedVotes">0</span> phiếu
+                </div>
+                <div style="font-size:12px;color:#15803d;" id="remainingVotesText">
+                  Còn lại: <span id="remainingVotes">0</span> phiếu có thể dồn
+                </div>
+              </div>
+              <div class="vote-progress" style="width:100%;">
+                <div id="voteProgressFill" class="vote-progress-fill" style="width:0%;"></div>
+              </div>
+            </div>
+
+            <div class="table-container">
+              <table>
+                <thead>
+                  <tr>
+                    <th style="width:60px;">ID</th>
+                    <th>Ứng viên HĐQT</th>
+                    <th>Hồ sơ IPFS (CID)</th>
+                    <th style="width:140px;">Số phiếu hiện tại</th>
+                    <th style="width:220px;">Số phiếu bạn dồn</th>
+                  </tr>
+                </thead>
+                <tbody id="candidateVotingBody">
+                  <tr><td colspan="5" style="text-align:center;padding:20px;color:var(--text-muted);">Vui lòng chọn cuộc bầu cử đang diễn ra.</td></tr>
+                </tbody>
+              </table>
+            </div>
+
+            <div style="margin-top:20px;display:flex;justify-content:flex-end;gap:10px;">
+              <button class="btn btn-outline" onclick="resetVotesForm()">Đặt lại</button>
+              <button class="btn btn-primary" id="btnSubmitVote" onclick="submitVote()" disabled>
+                🗳️ Ký &amp; Gửi Phiếu Bầu Lên Blockchain
+              </button>
+            </div>
+          </div>
+        </section>
+
+        <!-- Tab 2.2: Xem cuộc bầu cử & kết quả -->
+        <section id="voterResultsTab" class="tab-content">
+          <div class="card">
+            <div class="card-title">
+              📊 Danh Sách Các Cuộc Bầu Cử (Kèm Trạng Thái &amp; Kết Quả Chi Tiết)
+              <button class="btn btn-outline btn-sm" onclick="renderAllElectionsResults('voterAllElections')">🔄 Cập nhật</button>
+            </div>
+            <div id="voterAllElections" class="election-list">
+              <div style="text-align:center;padding:20px;color:var(--text-muted);">Đang tải...</div>
+            </div>
+          </div>
+        </section>
+
+        <!-- Tab 2.3: Xác nhận & Lịch sử bỏ phiếu -->
+        <section id="voterHistoryTab" class="tab-content">
+          <div class="card">
+            <div class="card-title">
+              📋 Xác Nhận &amp; Lịch Sử Bỏ Phiếu Của Cổ Đông
+              <button class="btn btn-outline btn-sm" onclick="loadVoteHistory()">🔄 Cập nhật</button>
+            </div>
+            <p style="font-size:13px;color:var(--text-muted);margin-bottom:14px;">
+              🔍 Minh bạch on-chain: Đối chiếu trực tiếp các lần bỏ phiếu của chính ví bạn (bầu cho ai, bao nhiêu phiếu, mã băm giao dịch Transaction Hash).
+            </p>
+            <div id="voteHistoryContainer">
+              <div class="history-empty">
+                <div class="history-icon">📋</div>
+                <div>Chưa có lịch sử bỏ phiếu nào cho ví này.</div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- Tab 2.4: Nhật ký -->
+        <section id="voterLogsTab" class="tab-content">
+          <div class="card">
+            <div class="card-title">
+              <span>📜 Nhật Ký Giao Dịch &amp; Sự Kiện On-chain</span>
+              <button class="btn btn-outline btn-sm" onclick="clearLogs()">Xóa log</button>
+            </div>
+            <div id="logsContainer2" style="max-height:450px;overflow-y:auto;background:#020617;padding:16px;border-radius:8px;">
+              <div class="log-entry">[Hệ thống] Đang lắng nghe sự kiện từ Smart Contract...</div>
+            </div>
+          </div>
+        </section>
+      </div>
+
+      <!-- =====================================================
+           PHÂN QUYỀN MÀN HÌNH 3: VÍ KHÁCH (GUEST SCREEN)
+           ===================================================== -->
+      <div id="screenGuest" class="role-screen">
+        <div class="screen-hero hero-guest">
+          <div class="hero-icon">👁️</div>
+          <div>
+            <h2>Màn Hình Dành Cho Khách (Chỉ Xem)</h2>
+            <p>Khách không được cấp số dư ví, không tham gia bỏ phiếu. Chỉ theo dõi công khai các cuộc bầu cử và kết quả kiểm phiếu.</p>
+          </div>
+        </div>
+
+        <div class="guest-notice">
+          💡 <strong>Quyền hạn:</strong> Tài khoản Khách không sở hữu cổ phần ShareToken nên không có quyền biểu quyết. Bạn có thể xem danh sách ứng viên, tiến trình bầu cử và kết quả trúng cử minh bạch.
+        </div>
+
+        <div class="tabs">
+          <button class="tab-btn active" onclick="switchTab('guestResultsTab', this)">📊 Xem Các Cuộc Bầu Cử &amp; Kết Quả</button>
+          <button class="tab-btn" onclick="switchTab('guestLogsTab', this)">📜 Nhật Ký Giao Dịch On-chain</button>
+        </div>
+
+        <section id="guestResultsTab" class="tab-content active">
+          <div class="card">
+            <div class="card-title">
+              📊 Danh Sách Cuộc Bầu Cử &amp; Kết Quả Chi Tiết
+              <button class="btn btn-outline btn-sm" onclick="renderAllElectionsResults('guestAllElections')">🔄 Cập nhật</button>
+            </div>
+            <div id="guestAllElections" class="election-list">
+              <div style="text-align:center;padding:20px;color:var(--text-muted);">Đang tải...</div>
+            </div>
+          </div>
+        </section>
+
+        <section id="guestLogsTab" class="tab-content">
+          <div class="card">
+            <div class="card-title">📜 Nhật Ký Giao Dịch &amp; Sự Kiện On-chain</div>
+            <div id="logsContainer3" style="max-height:450px;overflow-y:auto;background:#020617;padding:16px;border-radius:8px;">
+              <div class="log-entry">[Hệ thống] Đang lắng nghe sự kiện từ Smart Contract...</div>
+            </div>
+          </div>
+        </section>
+      </div>
+
+    </main>
+  </div>
+
+  <!-- Thông báo Toast -->
+  <div id="toast"></div>
+
+  <!-- Scripts -->
+  <script src="ethers.umd.min.js"></script>
+  <script src="config.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
