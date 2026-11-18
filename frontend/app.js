@@ -184,6 +184,7 @@ window.addEventListener("DOMContentLoaded", async () => {
   // Khởi tạo Sidebars bảng điều khiển (Admin & Voter)
   initAdminSidebar();
   initVoterSidebar();
+  initTableViewModes();
 
   // Khởi tạo lắng nghe xác thực ứng viên hợp lệ theo thời gian thực
   const cNameInp = document.getElementById("candidateNameInput");
@@ -982,32 +983,146 @@ function syncElectionFromCandidateForm(val) {
   adminSelectElection(val);
 }
 
+let currentVoterElectionFilter = "all";
+
+function filterVoterElections(filterType, btn) {
+  currentVoterElectionFilter = filterType || "all";
+  
+  // Highlight active filter chip
+  const bar = document.getElementById("voterElectionFilterBar");
+  if (bar) {
+    bar.querySelectorAll(".filter-chip").forEach(el => el.classList.remove("active"));
+  }
+  if (btn) {
+    btn.classList.add("active");
+  } else if (bar) {
+    const matchingBtn = bar.querySelector(`[data-voter-filter="${currentVoterElectionFilter}"]`);
+    if (matchingBtn) matchingBtn.classList.add("active");
+  }
+
+  populateVoterSelector();
+
+  // Kiểm tra nếu kỳ hiện tại không thuộc danh sách lọc thì tự động chọn kỳ đầu tiên
+  const filtered = getFilteredVoterElections();
+  if (filtered.length > 0) {
+    const isCurrentInList = filtered.some(e => Number(e.id) === Number(voterCurrentElectionId));
+    if (!isCurrentInList) {
+      voterSelectElection(filtered[0].id);
+    }
+  }
+}
+
+function getFilteredVoterElections() {
+  if (!allElections || allElections.length === 0) return [];
+  return allElections.slice().reverse().filter(e => {
+    const phase = getElectionPhase(e, isPaused);
+    const isCancelled = phase.isCancelled || phase.label === 'Đã hủy vĩnh viễn';
+    const isActive = !isCancelled && !isPaused && e.status === STATUS_CONTRACT.VOTING && !localStorage.getItem(`paused_election_${e.id}`);
+    const isUpcoming = !isCancelled && e.status === STATUS_CONTRACT.REGISTRATION;
+    const isClosed = isCancelled || e.status === STATUS_CONTRACT.CLOSED;
+
+    if (currentVoterElectionFilter === "active") return isActive;
+    if (currentVoterElectionFilter === "upcoming") return isUpcoming;
+    if (currentVoterElectionFilter === "closed") return isClosed;
+    return true; // 'all'
+  });
+}
+
 function populateVoterSelector() {
   const sel = document.getElementById("voterElectionSelect");
   if (!sel) return;
+
+  // Thống kê số lượng theo trạng thái
+  let countAll = allElections.length;
+  let countActive = 0;
+  let countUpcoming = 0;
+  let countClosed = 0;
+
+  allElections.forEach(e => {
+    const phase = getElectionPhase(e, isPaused);
+    const isCancelled = phase.isCancelled || phase.label === 'Đã hủy vĩnh viễn';
+    const isActive = !isCancelled && !isPaused && e.status === STATUS_CONTRACT.VOTING && !localStorage.getItem(`paused_election_${e.id}`);
+    const isUpcoming = !isCancelled && e.status === STATUS_CONTRACT.REGISTRATION;
+    const isClosed = isCancelled || e.status === STATUS_CONTRACT.CLOSED;
+
+    if (isActive) countActive++;
+    else if (isUpcoming) countUpcoming++;
+    else if (isClosed) countClosed++;
+  });
+
+  setText("voterFilterCountAll", countAll);
+  setText("voterFilterCountActive", countActive);
+  setText("voterFilterCountUpcoming", countUpcoming);
+  setText("voterFilterCountClosed", countClosed);
+
   const prev = sel.value;
   sel.innerHTML = "";
 
-  if (allElections.length === 0) {
-    sel.innerHTML = '<option value="">-- Hiện chưa có cuộc bầu cử nào --</option>';
-    return;
+  const filtered = getFilteredVoterElections();
+
+  if (filtered.length === 0) {
+    let emptyMsg = "-- Không có cuộc bầu cử nào --";
+    if (currentVoterElectionFilter === "active") emptyMsg = "-- Hiện không có kỳ nào đang mở bỏ phiếu --";
+    else if (currentVoterElectionFilter === "upcoming") emptyMsg = "-- Không có kỳ nào đang chờ mở phiên --";
+    else if (currentVoterElectionFilter === "closed") emptyMsg = "-- Không có kỳ nào đã kết thúc --";
+    sel.innerHTML = `<option value="">${emptyMsg}</option>`;
+  } else {
+    filtered.forEach(e => {
+      const phase = getElectionPhase(e, isPaused);
+      const isCancelled = phase.isCancelled || phase.label === 'Đã hủy vĩnh viễn';
+      const isVotable = !isCancelled && !isPaused && e.status === STATUS_CONTRACT.VOTING && !localStorage.getItem(`paused_election_${e.id}`);
+      const statusText = isVotable ? " [🔥 Đang mở bỏ phiếu]" : ` [${phase.label}]`;
+      const opt = document.createElement("option");
+      opt.value = e.id;
+      opt.textContent = `#${e.id} — ${e.title}${statusText}`;
+      sel.appendChild(opt);
+    });
+
+    if (prev && filtered.find(x => x.id === Number(prev))) {
+      sel.value = prev;
+    } else if (voterCurrentElectionId && filtered.find(x => x.id === Number(voterCurrentElectionId))) {
+      sel.value = voterCurrentElectionId;
+    } else {
+      sel.value = filtered[0].id;
+    }
   }
 
-  allElections.slice().reverse().forEach(e => {
-    const phase = getElectionPhase(e, isPaused);
-    const isCancelled = phase.isCancelled || phase.label === 'Đã hủy vĩnh viễn';
-    const isVotable = !isCancelled && !isPaused && e.status === STATUS_CONTRACT.VOTING && !localStorage.getItem(`paused_election_${e.id}`);
-    const statusText = isVotable ? " [Đang mở bỏ phiếu]" : ` [${phase.label}]`;
-    const opt = document.createElement("option");
-    opt.value = e.id;
-    opt.textContent = `#${e.id} — ${e.title}${statusText}`;
-    sel.appendChild(opt);
-  });
+  // Render các nút bấm chọn nhanh từng kỳ (Quick Election Badges)
+  const chipsContainer = document.getElementById("voterQuickElectionChips");
+  if (chipsContainer) {
+    if (filtered.length === 0) {
+      chipsContainer.innerHTML = `<span style="font-size:12px; color:var(--text-muted); font-style:italic; padding:4px 0;">Không có kỳ bầu cử phù hợp với bộ lọc hiện tại.</span>`;
+    } else {
+      chipsContainer.innerHTML = filtered.map(e => {
+        const phase = getElectionPhase(e, isPaused);
+        const isCancelled = phase.isCancelled || phase.label === 'Đã hủy vĩnh viễn';
+        const isVotable = !isCancelled && !isPaused && e.status === STATUS_CONTRACT.VOTING && !localStorage.getItem(`paused_election_${e.id}`);
+        const isSelected = Number(voterCurrentElectionId) === Number(e.id);
+        
+        let dotColor = '#64748b';
+        let bgTag = '#f1f5f9';
+        if (isVotable) {
+          dotColor = '#16a34a';
+          bgTag = isSelected ? '#dcfce7' : '#f0fdf4';
+        } else if (e.status === STATUS_CONTRACT.REGISTRATION) {
+          dotColor = '#d97706';
+          bgTag = isSelected ? '#fef3c7' : '#fffbeb';
+        }
 
-  if (prev && allElections.find(x => x.id === Number(prev))) {
-    sel.value = prev;
-  } else if (voterCurrentElectionId) {
-    sel.value = voterCurrentElectionId;
+        return `
+          <button type="button" 
+            class="btn-quick-chip ${isSelected ? 'active' : ''}" 
+            data-election-id="${e.id}"
+            onclick="voterSelectElection(${e.id})"
+            title="Nhấn để chọn kỳ #${e.id} — ${escapeHtml(e.title)}"
+            style="display:inline-flex; align-items:center; gap:6px; padding:6px 13px; border-radius:20px; font-size:12px; font-weight:600; cursor:pointer; transition:all 0.15s ease; border:1.5px solid ${isSelected ? 'var(--primary, #2563eb)' : '#cbd5e1'}; background:${isSelected ? 'var(--primary-light, #eff6ff)' : bgTag}; color:${isSelected ? 'var(--primary, #1d4ed8)' : '#1e293b'}; box-shadow:${isSelected ? '0 2px 6px rgba(37,99,235,0.18)' : 'none'};">
+            <span style="display:inline-block; width:8px; height:8px; border-radius:50%; background:${dotColor};"></span>
+            <span>#${e.id} ${escapeHtml(e.title)}</span>
+            <span style="font-size:11px; opacity:0.85; font-weight:500;">(${isVotable ? '🔥 Đang mở' : phase.label})</span>
+          </button>
+        `;
+      }).join("");
+    }
   }
 }
 
@@ -1077,6 +1192,31 @@ async function voterSelectElection(id) {
   voterCurrentElectionId = Number(id);
   const election = allElections.find(e => e.id === voterCurrentElectionId) || await loadSingleElection(voterCurrentElectionId);
   if (!election) return;
+
+  // Đồng bộ giá trị dropdown chọn kỳ
+  const sel = document.getElementById("voterElectionSelect");
+  if (sel && sel.value !== String(voterCurrentElectionId)) {
+    sel.value = String(voterCurrentElectionId);
+  }
+
+  // Đồng bộ trạng thái active của các nút chọn nhanh (Quick Chips)
+  const chips = document.querySelectorAll("#voterQuickElectionChips .btn-quick-chip");
+  chips.forEach(btn => {
+    const btnId = Number(btn.getAttribute("data-election-id"));
+    if (btnId === voterCurrentElectionId) {
+      btn.classList.add("active");
+      btn.style.borderColor = "var(--primary, #2563eb)";
+      btn.style.background = "var(--primary-light, #eff6ff)";
+      btn.style.color = "var(--primary, #1d4ed8)";
+      btn.style.boxShadow = "0 2px 6px rgba(37,99,235,0.18)";
+    } else {
+      btn.classList.remove("active");
+      btn.style.borderColor = "#cbd5e1";
+      btn.style.background = "#fff";
+      btn.style.color = "#1e293b";
+      btn.style.boxShadow = "none";
+    }
+  });
 
   const phase = getElectionPhase(election, isPaused);
   const infoBox = document.getElementById("voterElectionInfoBox");
@@ -3899,9 +4039,13 @@ async function openAddCandidateModal(electionId) {
   const progressBox = document.getElementById("ipfsUploadProgress");
   if (progressBox) progressBox.style.display = "none";
 
-  // Reset hộp cảnh báo quyền ứng cử và mở khóa nút
+  // Reset hộp thông báo quyền ứng cử và mở khóa nút
   const alertEl = document.getElementById("addCandidateValidationAlert");
-  if (alertEl) alertEl.style.display = "none";
+  if (alertEl) {
+    alertEl.style.display = "none";
+    alertEl.style.background = "";
+    alertEl.style.borderLeft = "";
+  }
   const submitBtn = document.getElementById("btnAddCandidate");
   if (submitBtn) submitBtn.disabled = false;
 
@@ -3919,37 +4063,25 @@ function closeAddCandidateModal() {
 function populateQuickCandidateDropdown() {
   const sel = document.getElementById("quickCandidateSelect");
   if (!sel) return;
-  sel.innerHTML = '<option value="">-- Chọn ứng viên đã được Admin phê duyệt --</option>';
 
-  const approvedCandidates = companyWallets.filter(w => (w.isCandidate || w.role === "candidate" || w.role === "voter_candidate") && w.role !== "admin");
-  const otherVoters = companyWallets.filter(w => !approvedCandidates.includes(w) && w.role !== "admin");
+  // CHỈ LẤY CÁC VÍ ĐÃ ĐƯỢC ADMIN DUYỆT TƯ CÁCH ỨNG CỬ (loại bỏ Cổ đông thường chưa duyệt)
+  const approvedCandidates = companyWallets.filter(w => (w.isCandidate === true || w.role === "candidate" || w.role === "voter_candidate") && w.role !== "admin");
 
-  if (approvedCandidates.length > 0) {
-    const group = document.createElement("optgroup");
-    group.label = "⭐ ĐÃ ĐƯỢC ADMIN DUYỆT ỨNG CỬ";
-    approvedCandidates.forEach(v => {
-      const opt = document.createElement("option");
-      const shares = (v.onChainBalance !== undefined) ? v.onChainBalance : (Number(v.shares) || 0);
-      const roleDesc = (shares > 0) ? `Cổ đông & Ứng viên (${shares} CP)` : "Ứng viên HĐQT";
-      opt.value = `${v.name} (${roleDesc})|${v.address}`;
-      opt.textContent = `🎯 ${v.name} — ${roleDesc} (${v.title || 'Nhân sự'})`;
-      group.appendChild(opt);
-    });
-    sel.appendChild(group);
+  if (approvedCandidates.length === 0) {
+    sel.innerHTML = '<option value="" disabled selected>-- Chưa có ứng viên nào được duyệt (Vui lòng vào tab "Danh Sách Ví" để duyệt ứng cử trước) --</option>';
+    return;
   }
 
-  if (otherVoters.length > 0) {
-    const group = document.createElement("optgroup");
-    group.label = "Cổ đông khác trong công ty";
-    otherVoters.forEach(v => {
-      const opt = document.createElement("option");
-      const shares = (v.onChainBalance !== undefined) ? v.onChainBalance : (Number(v.shares) || 0);
-      opt.value = `${v.name} (${shares} CP)|${v.address}`;
-      opt.textContent = `${v.name} (${shares} CP) — ${v.title || 'Cổ đông'}`;
-      group.appendChild(opt);
-    });
-    sel.appendChild(group);
-  }
+  sel.innerHTML = `<option value="">-- Chọn nhanh ứng viên đã duyệt (${approvedCandidates.length} ứng viên sẵn sàng) --</option>`;
+
+  approvedCandidates.forEach(v => {
+    const opt = document.createElement("option");
+    const shares = (v.onChainBalance !== undefined) ? v.onChainBalance : (Number(v.shares) || 0);
+    const roleDesc = (shares > 0) ? `Cổ đông & Ứng viên (${shares} CP)` : "Ứng viên HĐQT";
+    opt.value = `${v.name} (${roleDesc})|${v.address}`;
+    opt.textContent = `👑 ${v.name} — ${roleDesc} (${v.title || 'Nhân sự'})`;
+    sel.appendChild(opt);
+  });
 }
 
 // Mở phiên nhanh từ Card
@@ -4209,18 +4341,26 @@ function checkCandidateValidity(name, wallet) {
   if (matched) {
     const isCand = matched.isCandidate === true || matched.role === "candidate" || matched.role === "voter_candidate";
     if (!isCand) {
+      // Cổ đông chưa được cấp quyền trước đó -> Nhập tay vẫn OK, thông báo chuyển đổi vai trò tự động
       if (alertEl) {
         alertEl.style.display = "block";
+        alertEl.style.background = "#f5f3ff";
+        alertEl.style.borderLeft = "4px solid #7c3aed";
+        const iconEl = alertEl.querySelector("span");
+        if (iconEl) iconEl.textContent = "👑";
+        const titleEl = alertEl.querySelector("strong");
+        if (titleEl) {
+          titleEl.textContent = "Tự động nâng cấp quyền Ứng viên HĐQT";
+          titleEl.style.color = "#6d28d9";
+        }
         if (alertMsg) {
-          alertMsg.innerHTML = `Cổ đông <b>${matched.name}</b> (ví <code>${(matched.address || '').substring(0, 10)}...</code>) hiện chỉ có vai trò là Cổ đông biểu quyết thông thường, <u>chưa được Admin phê duyệt quyền ứng cử HĐQT</u>! Vui lòng vào tab "Danh sách ví nội bộ" để duyệt quyền Ứng viên trước khi nạp vào kỳ bầu cử.`;
+          const shares = (matched.onChainBalance !== undefined) ? matched.onChainBalance : (Number(matched.shares) || 0);
+          alertMsg.innerHTML = `Cổ đông <b>${matched.name}</b> (${shares} CP) sẽ được <u>tự động chuyển đổi vai trò sang "Cổ đông & Ứng viên HĐQT"</u> khi bạn thêm vào kỳ bầu cử này.`;
+          alertMsg.style.color = "#5b21b6";
         }
       }
-      if (submitBtn) submitBtn.disabled = true;
-      return {
-        valid: false,
-        reason: "Ứng viên hiện tại chưa được ứng cử! Cần được Admin phê duyệt quyền ứng cử trước khi thêm vào kỳ bầu cử.",
-        entry: matched
-      };
+      if (submitBtn) submitBtn.disabled = false;
+      return { valid: true, autoUpgrade: true, entry: matched };
     } else {
       if (alertEl) alertEl.style.display = "none";
       if (submitBtn) submitBtn.disabled = false;
@@ -4416,6 +4556,93 @@ async function adminAddCandidate() {
         savedWallets.push(wallet);
         localStorage.setItem(`candidate_wallets_${currentElectionId}`, JSON.stringify(savedWallets));
       }
+    }
+
+    // Tự động nâng cấp / đồng bộ vai trò Ứng viên HĐQT cho cổ đông trong danh bạ công ty
+    try {
+      const walletClean = (wallet || "").trim().toLowerCase();
+      const pureName = (name || "").split("[")[0].split("(")[0].trim().toLowerCase();
+
+      let targetWallet = null;
+      if (walletClean && ethers.isAddress(walletClean)) {
+        targetWallet = companyWallets.find(w => w.address && w.address.toLowerCase() === walletClean);
+      }
+      if (!targetWallet && pureName) {
+        targetWallet = companyWallets.find(w => (w.name || "").toLowerCase().trim() === pureName);
+      }
+
+      if (targetWallet) {
+        // Cổ đông đã có trong danh bạ: tự động chuyển role sang Cổ đông & Ứng viên
+        const shares = Number(targetWallet.onChainBalance !== undefined ? targetWallet.onChainBalance : targetWallet.shares) || 0;
+        targetWallet.isCandidate = true;
+        targetWallet.role = (shares > 0 || targetWallet.role === "voter" || targetWallet.role === "voter_candidate")
+          ? "voter_candidate"
+          : "candidate";
+        targetWallet.updatedAt = new Date().toISOString();
+
+        localStorage.setItem("company_wallets_cache", JSON.stringify(companyWallets));
+        try {
+          await fetch(`/api/company-wallets/${targetWallet.address}`, {
+            method: "PUT",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              role: targetWallet.role,
+              isCandidate: true
+            })
+          });
+        } catch (e) {
+          console.warn("Backend API sync failed, fallback LocalStorage:", e);
+        }
+      } else if (walletClean && ethers.isAddress(walletClean)) {
+        // Ví nhập tay mới: tự động ghi nhận vào danh bạ nội bộ
+        let balNum = 0;
+        try {
+          if (tokenContract) {
+            const bal = await tokenContract.balanceOf(walletClean);
+            balNum = Number(bal);
+          }
+        } catch (e) {}
+
+        const displayName = (name || "").split("[")[0].split("(")[0].trim() || `Ứng viên ${walletClean.substring(0, 8)}...`;
+        const newEntry = {
+          address: ethers.getAddress(walletClean),
+          name: displayName,
+          title: "Ứng viên HĐQT",
+          role: balNum > 0 ? "voter_candidate" : "candidate",
+          isCandidate: true,
+          shares: balNum,
+          onChainBalance: balNum,
+          notes: `Tự động cấp quyền ứng cử khi nạp vào Kỳ #${currentElectionId}`,
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString()
+        };
+        companyWallets.push(newEntry);
+        localStorage.setItem("company_wallets_cache", JSON.stringify(companyWallets));
+
+        try {
+          await fetch("/api/company-wallets", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(newEntry)
+          });
+        } catch (e) {
+          console.warn("Backend API sync failed, fallback LocalStorage:", e);
+        }
+      }
+
+      // Làm mới danh bạ ví và dropdown ứng viên
+      filterCompanyWallets();
+      populateQuickCandidateDropdown();
+
+      // Nếu ví của tài khoản đang kết nối trùng với ứng viên vừa thêm -> tự động cập nhật ngay lập tức
+      if (currentAccountInfo && targetWallet && currentAccountInfo.address.toLowerCase() === targetWallet.address.toLowerCase()) {
+        currentAccountInfo.role = targetWallet.role;
+        currentAccountInfo.resolvedRole = targetWallet.role;
+        currentAccountInfo.isCandidate = true;
+        renderRoleScreen(targetWallet.role);
+      }
+    } catch (errSync) {
+      console.warn("Lỗi tự động nâng cấp vai trò ứng viên:", errSync);
     }
 
     showToast(`✅ Đã thêm ứng viên "${name}" thành công!`, "success");

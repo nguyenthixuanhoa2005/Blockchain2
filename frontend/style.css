@@ -2770,3 +2770,29 @@ tr:hover td { background: #f7faf8; }
   }
 }
 
+/* ==========================================================================
+   NÚT CHỌN NHANH KỲ BẦU CỬ (QUICK ELECTION CHIPS FOR VOTER & ADMIN)
+   ========================================================================== */
+.btn-quick-chip {
+  cursor: pointer;
+  user-select: none;
+  font-family: inherit;
+  outline: none;
+  transition: all 0.18s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.btn-quick-chip:hover {
+  transform: translateY(-1px);
+  border-color: #93c5fd !important;
+  box-shadow: 0 3px 8px rgba(37, 99, 235, 0.12) !important;
+}
+.btn-quick-chip:active {
+  transform: translateY(0);
+}
+.btn-quick-chip.active {
+  border-color: var(--primary, #2563eb) !important;
+  background: var(--primary-light, #eff6ff) !important;
+  color: var(--primary, #1d4ed8) !important;
+  box-shadow: 0 2px 6px rgba(37, 99, 235, 0.2) !important;
+}
+
+

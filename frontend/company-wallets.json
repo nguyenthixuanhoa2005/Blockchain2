@@ -13,12 +13,12 @@
     "address": "0x97dDAB73649438b3a6bfE791B184d7F2aE7D31D4",
     "name": "Alicu",
     "title": "Thành viên công ty",
-    "role": "voter_candidate",
+    "role": "voter",
     "isCandidate": true,
     "shares": 200,
     "notes": "Cổ đông (200 CP) kiêm Ứng viên HĐQT được Admin duyệt",
     "createdAt": "2026-11-17T12:36:07.454Z",
-    "updatedAt": "2026-11-17T23:17:12.357Z"
+    "updatedAt": "2026-11-18T00:13:03.871Z"
   },
   {
     "address": "0xEC724825a8d91B1C7Fbc39720eaF56D51c28f7Ea",

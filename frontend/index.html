@@ -941,14 +941,39 @@
             <!-- Tab 2.1: Bỏ phiếu -->
             <section id="voterVotingTab" class="tab-content">
           <div class="card">
-            <div class="card-title">
-              Chọn cuộc bầu cử
+            <div class="card-title" style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px;">
+              <span>Chọn cuộc bầu cử</span>
+              <span style="font-size:12px; font-weight:500; color:var(--text-muted);">Bấm lọc nhanh để chọn kỳ bỏ phiếu</span>
             </div>
-            <div class="selector-card">
-              <label>Cuộc bầu cử:</label>
-              <select id="voterElectionSelect" class="form-select" onchange="voterSelectElection(this.value)">
-                <option value="">-- Chọn cuộc bầu cử --</option>
-              </select>
+
+            <!-- Bộ lọc trạng thái kỳ bầu cử (Filter Chips) -->
+            <div class="filter-chip-bar" id="voterElectionFilterBar" style="margin-bottom:12px;">
+              <button type="button" class="filter-chip active" data-voter-filter="all" onclick="filterVoterElections('all', this)">
+                Tất cả <span class="filter-chip-count" id="voterFilterCountAll">0</span>
+              </button>
+              <button type="button" class="filter-chip" data-voter-filter="active" onclick="filterVoterElections('active', this)">
+                🔥 Đang diễn ra <span class="filter-chip-count" id="voterFilterCountActive" style="background:#dcfce7; color:#15803d;">0</span>
+              </button>
+              <button type="button" class="filter-chip" data-voter-filter="upcoming" onclick="filterVoterElections('upcoming', this)">
+                ⏳ Chờ mở phiên <span class="filter-chip-count" id="voterFilterCountUpcoming" style="background:#fef3c7; color:#b45309;">0</span>
+              </button>
+              <button type="button" class="filter-chip" data-voter-filter="closed" onclick="filterVoterElections('closed', this)">
+                🏁 Đã kết thúc <span class="filter-chip-count" id="voterFilterCountClosed">0</span>
+              </button>
+            </div>
+
+            <div class="selector-card" style="display:flex; flex-direction:column; gap:10px;">
+              <div style="display:flex; align-items:center; gap:10px; width:100%; flex-wrap:wrap;">
+                <label style="min-width:110px; font-weight:700; color:#334155;">Cuộc bầu cử:</label>
+                <select id="voterElectionSelect" class="form-select" style="flex:1; min-width:240px;" onchange="voterSelectElection(this.value)">
+                  <option value="">-- Chọn cuộc bầu cử --</option>
+                </select>
+              </div>
+
+              <!-- Danh sách nút bấm nhanh từng kỳ (Quick Election Badges) -->
+              <div id="voterQuickElectionChips" style="display:flex; gap:8px; flex-wrap:wrap; padding-top:4px;">
+                <!-- Render động bởi populateVoterSelector -->
+              </div>
             </div>
 
             <div id="voterElectionInfoBox" style="display:none;">
@@ -1549,13 +1574,13 @@
       <div class="modal-body">
         <input type="hidden" id="candidateTargetElectionId" value="">
 
-        <!-- Hộp cảnh báo kiểm tra quyền ứng cử (Mặc định ẩn, bật khi ví/tên chưa có quyền ứng cử) -->
-        <div id="addCandidateValidationAlert" class="alert alert-danger" style="display: none; margin-bottom: 14px; border-left: 4px solid #ef4444; background: #fef2f2; border-radius: 8px; padding: 12px 14px;">
+        <!-- Hộp thông báo kiểm tra quyền ứng cử (Mặc định ẩn, hiển thị khi phát hiện nhập tay thông tin cổ đông) -->
+        <div id="addCandidateValidationAlert" class="alert" style="display: none; margin-bottom: 14px; border-radius: 8px; padding: 12px 14px;">
           <div style="display: flex; align-items: flex-start; gap: 10px;">
-            <span style="font-size: 18px; line-height: 1;">⚠️</span>
+            <span style="font-size: 18px; line-height: 1;">👑</span>
             <div>
-              <strong style="color: #991b1b; font-size: 13.5px; display: block;">Ứng viên hiện tại chưa được ứng cử!</strong>
-              <span id="addCandidateValidationAlertMsg" style="color: #b91c1c; font-size: 12.5px;">Cổ đông này chưa được cấp quyền ứng cử HĐQT. Vui lòng chuyển vai trò thành Ứng viên trong Danh sách ví nội bộ trước khi nạp vào kỳ bầu cử.</span>
+              <strong style="font-size: 13.5px; display: block;">Tự động nâng cấp vai trò Ứng viên HĐQT</strong>
+              <span id="addCandidateValidationAlertMsg" style="font-size: 12.5px;">Hệ thống sẽ tự động cập nhật vai trò sang Ứng cử viên khi thêm vào kỳ bầu cử.</span>
             </div>
           </div>
         </div>
@@ -1563,7 +1588,7 @@
         <!-- Thông báo quy chế hợp lệ -->
         <div style="background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 8px; padding: 10px 14px; margin-bottom: 14px; font-size: 12.5px; color: #1e40af; display: flex; align-items: center; gap: 8px;">
           <span style="font-size: 16px;">ℹ️</span>
-          <span><strong>Quy chế ứng cử:</strong> Ứng viên bắt buộc phải có vai trò là Ứng viên (được Admin phê duyệt trong Danh bạ ví). Cổ đông thông thường chưa được cấp quyền ứng cử sẽ không thể tham gia tranh cử HĐQT.</span>
+          <span><strong>Quy chế ứng cử:</strong> Bạn có thể chọn nhanh từ danh sách Ứng viên đã duyệt hoặc <u>nhập tay thông tin cổ đông</u> — hệ thống sẽ tự động chuyển đổi vai trò sang Ứng cử viên HĐQT (Cổ đông &amp; Ứng viên) ngay khi nạp vào kỳ bầu cử.</span>
         </div>
 
         <!-- Chọn nhanh từ danh bạ cổ đông công ty -->
