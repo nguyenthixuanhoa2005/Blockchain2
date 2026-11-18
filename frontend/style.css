@@ -360,6 +360,10 @@ body {
   box-shadow: var(--shadow);
   border: 1px solid var(--border);
   margin-bottom: 20px;
+  min-width: 0;
+  max-width: 100%;
+  box-sizing: border-box;
+  overflow: hidden;
 }
 
 .card-title {
@@ -1594,6 +1598,7 @@ body.admin-sidebar-resizing .admin-sidebar-resizer::after {
   flex: 1;
   min-width: 0;
   max-width: 100%;
+  overflow-x: hidden;
   box-sizing: border-box;
 }
 
@@ -2392,18 +2397,59 @@ tr:hover td { background: #f7faf8; }
 }
 
 /* ==========================================================================
+   VIEW MODE SWITCH: BẢNG vs THẺ CARD
+   ========================================================================== */
+.view-mode-switch {
+  display: inline-flex;
+  align-items: center;
+  background: #f1f5f9;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  padding: 2px;
+  gap: 2px;
+}
+
+.btn-view-mode {
+  padding: 4px 11px;
+  font-size: 12px;
+  border: none;
+  background: transparent;
+  color: #64748b;
+  border-radius: 6px;
+  cursor: pointer;
+  font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  transition: all 0.15s ease;
+  line-height: 1.4;
+}
+
+.btn-view-mode:hover {
+  color: #0f172a;
+}
+
+.btn-view-mode.active {
+  background: #ffffff;
+  color: #0284c7;
+  font-weight: 700;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+}
+
+/* ==========================================================================
    RESPONSIVE DATA TABLES: DANH SÁCH VÍ NỘI BỘ & QUẢN LÝ ỨNG VIÊN HĐQT
    ========================================================================== */
 .table-container {
-  width: 100%;
-  max-width: 100%;
-  overflow-x: auto;
-  -webkit-overflow-scrolling: touch;
-  position: relative;
-  border-radius: 8px;
-  background: #ffffff;
-  border: 1px solid var(--border);
-  box-sizing: border-box;
+  width: 100% !important;
+  max-width: 100% !important;
+  min-width: 0 !important;
+  overflow-x: auto !important;
+  -webkit-overflow-scrolling: touch !important;
+  position: relative !important;
+  border-radius: 10px !important;
+  background: #ffffff !important;
+  border: 1px solid var(--border) !important;
+  box-sizing: border-box !important;
 }
 
 .table-container::-webkit-scrollbar {
@@ -2421,24 +2467,175 @@ tr:hover td { background: #f7faf8; }
   background: #94a3b8;
 }
 
-/* Thanh chỉ dẫn hỗ trợ responsive trên màn hình vừa và nhỏ */
-.table-responsive-hint {
-  display: none;
-  align-items: center;
-  gap: 6px;
-  font-size: 11.5px;
-  color: #475569;
-  background: #f8fafc;
-  border: 1px dashed #cbd5e1;
-  border-radius: 6px;
-  padding: 6px 12px;
-  margin-bottom: 8px;
+/* Ngăn bảng tràn sang phải: Tự co giãn theo container, không làm phình trang */
+#companyWalletsTable,
+#adminCandidatesTable {
+  width: 100% !important;
+  min-width: 760px;
+  border-collapse: collapse !important;
+  font-size: 13px !important;
+  box-sizing: border-box !important;
 }
 
-@media (max-width: 1024px) {
-  .table-responsive-hint {
-    display: flex;
-  }
+#companyWalletsTable th,
+#adminCandidatesTable th {
+  background: #f8fafc !important;
+  padding: 10px 12px !important;
+  font-size: 12px !important;
+  font-weight: 700 !important;
+  color: #475569 !important;
+  border-bottom: 2px solid #e2e8f0 !important;
+  white-space: nowrap !important;
+}
+
+#companyWalletsTable td,
+#adminCandidatesTable td {
+  padding: 10px 12px !important;
+  border-bottom: 1px solid #f1f5f9 !important;
+  vertical-align: middle !important;
+  font-size: 12.5px !important;
+}
+
+/* Tinh gọn các ô địa chỉ ví, tên và nút thao tác */
+.addr-badge-wrapper {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: #f8fafc;
+  padding: 2px 6px;
+  border-radius: 5px;
+  border: 1px solid #e2e8f0;
+  max-width: 100%;
+}
+
+.addr-mono {
+  font-family: monospace;
+  font-size: 11.5px;
+  color: #334155;
+  font-weight: 600;
+}
+
+.table-actions {
+  display: flex !important;
+  flex-wrap: wrap !important;
+  gap: 4px !important;
+  align-items: center !important;
+  justify-content: center !important;
+  min-width: 160px;
+}
+
+.table-actions .btn {
+  padding: 3px 8px !important;
+  font-size: 11px !important;
+  border-radius: 4px !important;
+  white-space: nowrap !important;
+}
+
+/* Chế độ xem thẻ (View Cards Mode) khi người dùng bấm nút hoặc trên màn hình nhỏ */
+.table-container.view-cards {
+  background: transparent !important;
+  border: none !important;
+  overflow: visible !important;
+}
+
+.table-container.view-cards table,
+.table-container.view-cards thead,
+.table-container.view-cards tbody,
+.table-container.view-cards tr,
+.table-container.view-cards td {
+  display: block !important;
+  width: 100% !important;
+  min-width: 0 !important;
+  box-sizing: border-box !important;
+}
+
+.table-container.view-cards thead {
+  display: none !important;
+}
+
+.table-container.view-cards tbody {
+  display: grid !important;
+  grid-template-columns: repeat(auto-fill, minmax(310px, 1fr)) !important;
+  gap: 14px !important;
+  background: transparent !important;
+}
+
+.table-container.view-cards tbody tr {
+  background: #ffffff !important;
+  border: 1px solid #e2e8f0 !important;
+  border-radius: 12px !important;
+  padding: 14px 16px !important;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.04) !important;
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 8px !important;
+  transition: all 0.2s ease !important;
+}
+
+.table-container.view-cards tbody tr:hover {
+  border-color: #cbd5e1 !important;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.08) !important;
+  transform: translateY(-2px) !important;
+}
+
+.table-container.view-cards tbody td {
+  display: flex !important;
+  justify-content: space-between !important;
+  align-items: center !important;
+  flex-wrap: wrap !important;
+  gap: 8px !important;
+  padding: 7px 0 !important;
+  border-bottom: 1px solid #f1f5f9 !important;
+  font-size: 13px !important;
+  text-align: right !important;
+}
+
+.table-container.view-cards tbody td::before {
+  content: attr(data-label) !important;
+  font-weight: 700 !important;
+  color: #64748b !important;
+  font-size: 11.5px !important;
+  text-align: left !important;
+  margin-right: auto !important;
+  flex-shrink: 0 !important;
+}
+
+.table-container.view-cards tbody td:last-child {
+  border-bottom: none !important;
+  padding-top: 10px !important;
+  margin-top: 4px !important;
+  border-top: 1px dashed #e2e8f0 !important;
+  justify-content: center !important;
+}
+
+.table-container.view-cards tbody td:last-child::before {
+  display: none !important;
+}
+
+.table-container.view-cards tbody td[colspan] {
+  grid-column: 1 / -1 !important;
+  display: block !important;
+  text-align: center !important;
+  padding: 30px !important;
+}
+
+.table-container.view-cards tbody td[colspan]::before {
+  display: none !important;
+}
+
+.table-container.view-cards .table-actions {
+  width: 100% !important;
+  min-width: 0 !important;
+  display: flex !important;
+  flex-wrap: wrap !important;
+  gap: 6px !important;
+  justify-content: stretch !important;
+}
+
+.table-container.view-cards .table-actions .btn {
+  flex: 1 1 calc(50% - 6px) !important;
+  text-align: center !important;
+  justify-content: center !important;
 }
 
 /* Tablet & Mobile Breakpoints for Responsive Tables */
@@ -2459,9 +2656,14 @@ tr:hover td { background: #f7faf8; }
   }
   .wallets-filter-group input,
   .wallets-filter-group select,
-  .wallets-filter-group button {
+  .wallets-filter-group button,
+  .wallets-filter-group .view-mode-switch {
     width: 100% !important;
     min-width: 0 !important;
+  }
+  .view-mode-switch .btn-view-mode {
+    flex: 1;
+    justify-content: center;
   }
   .wallets-actions-group {
     width: 100% !important;

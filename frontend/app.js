@@ -461,20 +461,7 @@ async function initContractsAndRole() {
       (w) => w.address && w.address.toLowerCase() === address.toLowerCase()
     );
 
-    // 3. KIỂM SOÁT BẢO MẬT: NẾU VÍ KHÔNG CÓ TRONG DANH SÁCH NỘI BỘ VÀ KHÔNG PHẢI SUPER ADMIN
-    if (!isSuperAdmin && !companyEntry && !currentAccountInfo.isGuest) {
-      console.warn(`[Quyền Truy Cập] Ví ${address} chưa có trong danh sách cổ đông công ty!`);
-      const screenApp = document.getElementById("screenApp");
-      if (screenApp) screenApp.style.display = "none";
-      const screenLogin = document.getElementById("screenLogin");
-      if (screenLogin) screenLogin.style.display = "none";
-
-      showAccessDeniedModal(address);
-      hideLoadingOverlay();
-      return;
-    }
-
-    // Đóng modal Từ Chối Truy Cập nếu trước đó mở và ví này hợp lệ
+    // Đóng modal Từ Chối Truy Cập nếu trước đó mở
     const deniedModal = document.getElementById("modalAccessDenied");
     if (deniedModal) deniedModal.style.display = "none";
 
@@ -493,16 +480,13 @@ async function initContractsAndRole() {
 
     const balNum = Number(balance);
 
-    // 4. XÁC ĐỊNH VAI TRÒ NỘI BỘ:
-    // - Super Admin HOẶC role 'admin' trong danh bạ công ty => Admin
-    // - Nếu được Admin duyệt cho ứng cử (isCandidate || role === 'voter_candidate' || role === 'candidate'):
-    //   + Nếu có cổ phần (> 0) hoặc role voter_candidate => Cổ đông & Ứng viên (2 vai trò)
-    //   + Nếu chưa có cổ phần (0 CP) => Ứng viên HĐQT
-    // - Cổ đông biểu quyết thông thường => Voter
+    // 4. XÁC ĐỊNH VAI TRÒ NỘI BỘ (HỆ THỐNG CHỈ CÓ 1 ADMIN DUY NHẤT):
+    // - Chỉ có 1 Admin duy nhất: SUPER_ADMIN_ADDRESS
+    // - Các ví còn lại: Cổ đông hoặc Ứng viên HĐQT
     const isCandidateFlag = Boolean(companyEntry?.isCandidate || companyEntry?.role === "candidate" || companyEntry?.role === "voter_candidate");
 
     let resolvedRole = "voter";
-    if (isSuperAdmin || (companyEntry && companyEntry.role === "admin")) {
+    if (isSuperAdmin) {
       resolvedRole = "admin";
     } else if (isCandidateFlag) {
       if (balNum > 0 || companyEntry?.role === "voter_candidate" || companyEntry?.role === "voter") {
@@ -514,12 +498,12 @@ async function initContractsAndRole() {
       resolvedRole = "voter";
     }
 
-    if (companyEntry && companyEntry.name) {
+    if (isSuperAdmin) {
+      currentAccountInfo.name = companyEntry?.name || "Quản trị viên (Admin)";
+    } else if (companyEntry && companyEntry.name) {
       currentAccountInfo.name = companyEntry.name;
-    } else if (isSuperAdmin) {
-      currentAccountInfo.name = "Chủ tịch HĐQT / Quản trị viên tối cao";
     } else {
-      currentAccountInfo.name = `Cổ đông nội bộ (${address.substring(0, 6)}...${address.substring(38)})`;
+      currentAccountInfo.name = `Cổ đông (${address.substring(0, 6)}...${address.substring(38)})`;
     }
 
     currentAccountInfo.resolvedRole = resolvedRole;
@@ -601,19 +585,11 @@ function renderRoleScreen(role, balance) {
     attachStatsCardToMain("adminMainContent");
     if (maxVotesBox) maxVotesBox.style.display = "none";
     if (shareTokenBox) shareTokenBox.style.display = "none";
-    if (currentAccountInfo.isSuperAdmin) {
-      pill.className = "role-pill super-admin";
-      pill.textContent = "Quản trị tối cao";
-      setText("currentRole", "Vai trò: Quản Trị Viên Tối Cao");
-      const rEl = document.getElementById("currentRole");
-      if (rEl) rEl.title = "Toàn quyền kiểm soát và điều hành hệ thống bầu cử công ty";
-    } else {
-      pill.className = "role-pill admin";
-      pill.textContent = "Quản trị viên";
-      setText("currentRole", "Vai trò: Quản Trị Viên");
-      const rEl = document.getElementById("currentRole");
-      if (rEl) rEl.title = "Toàn quyền tạo kỳ, cấp phiếu, quản lý ứng viên, mở/đóng phiên";
-    }
+    pill.className = "role-pill admin";
+    pill.textContent = "Quản trị viên";
+    setText("currentRole", "Vai trò: Quản Trị Viên (Admin)");
+    const rEl = document.getElementById("currentRole");
+    if (rEl) rEl.title = "Toàn quyền kiểm soát và điều hành hệ thống bầu cử công ty (1 Admin duy nhất)";
     renderCandidateDashboardSection();
   } else if (role === "voter_candidate") {
     // 2 VAI TRÒ: VỪA LÀ CỔ ĐÔNG, VỪA LÀ ỨNG VIÊN
@@ -1454,7 +1430,7 @@ async function updateAccountCard() {
   const sidebarAdminName = document.getElementById("sidebarAdminName");
   if (sidebarAdminName) sidebarAdminName.textContent = currentAccountInfo.name || "Quản Trị Viên";
   const sidebarAdminRole = document.getElementById("sidebarAdminRole");
-  if (sidebarAdminRole) sidebarAdminRole.textContent = currentAccountInfo.isSuperAdmin ? "Quản Trị Tối Cao" : "Quản Trị Viên";
+  if (sidebarAdminRole) sidebarAdminRole.textContent = "Quản Trị Viên (Admin)";
 
   const diffNoteEl = document.getElementById("snapshotDiffNote");
   if (diffNoteEl) diffNoteEl.style.display = "none";
@@ -3135,13 +3111,14 @@ function updateResultsChipCounters() {
 
   for (const e of allElections) {
     const ph = getElectionPhase(e, isPaused);
-    if (ph.isCancelled || Number(e.status) === STATUS_CONTRACT.CANCELLED) {
+    const isCancelled = Boolean(ph.isCancelled || ph.label === 'Đã hủy vĩnh viễn' || Number(e.status) === STATUS_CONTRACT.CANCELLED);
+    if (isCancelled) {
       countCancelled++;
-    } else if (Number(e.status) === STATUS_CONTRACT.CLOSED) {
+    } else if (Number(e.status) === STATUS_CONTRACT.CLOSED || ph.label === 'Đã kết thúc' || ph.cssClass === 'phase-closed') {
       countClosed++;
-    } else if (Number(e.status) === STATUS_CONTRACT.VOTING && !isPaused) {
+    } else if ((Number(e.status) === STATUS_CONTRACT.VOTING && !isPaused && !ph.isPaused) || ph.label === 'Đang diễn ra') {
       countVoting++;
-    } else if (Number(e.status) === STATUS_CONTRACT.REGISTRATION) {
+    } else if (Number(e.status) === STATUS_CONTRACT.REGISTRATION || ph.label === 'Sắp diễn ra' || ph.label === 'Chờ mở phiên' || ph.label.includes('Tạm hoãn') || ph.cssClass === 'phase-upcoming') {
       countDraft++;
     }
   }
@@ -3185,17 +3162,18 @@ function filterAndSortElections(searchInputId, statusFilterId, sortFilterId) {
   if (statusVal !== "all") {
     list = list.filter(e => {
       const ph = getElectionPhase(e, isPaused);
+      const isCancelled = Boolean(ph.isCancelled || ph.label === 'Đã hủy vĩnh viễn' || Number(e.status) === STATUS_CONTRACT.CANCELLED);
       if (statusVal === "cancelled") {
-        return Boolean(ph.isCancelled || Number(e.status) === STATUS_CONTRACT.CANCELLED);
+        return isCancelled;
       }
       if (statusVal === "voting") {
-        return Number(e.status) === STATUS_CONTRACT.VOTING && !isPaused && !ph.isCancelled;
+        return !isCancelled && !isPaused && !ph.isPaused && (Number(e.status) === STATUS_CONTRACT.VOTING || ph.label === 'Đang diễn ra');
       }
       if (statusVal === "closed") {
-        return Number(e.status) === STATUS_CONTRACT.CLOSED && !ph.isCancelled;
+        return !isCancelled && (Number(e.status) === STATUS_CONTRACT.CLOSED || ph.label === 'Đã kết thúc' || ph.cssClass === 'phase-closed');
       }
       if (statusVal === "draft") {
-        return Number(e.status) === STATUS_CONTRACT.REGISTRATION && !ph.isCancelled;
+        return !isCancelled && (Number(e.status) === STATUS_CONTRACT.REGISTRATION || ph.label === 'Sắp diễn ra' || ph.label === 'Chờ mở phiên' || ph.label.includes('Tạm hoãn') || ph.cssClass === 'phase-upcoming');
       }
       if (statusVal === "paused") {
         return Boolean(isPaused || ph.isPaused || localStorage.getItem(`paused_election_${e.id}`) === "true" || localStorage.getItem(`postponed_election_${e.id}`) === "true");
@@ -3421,7 +3399,10 @@ async function renderAllElectionsResults(containerId) {
 
 function setAdminElectionFilter(filterType, btnEl) {
   currentAdminFilter = filterType;
-  document.querySelectorAll(".filter-chip").forEach(el => el.classList.remove("active"));
+  const chipBar = btnEl?.closest(".filter-chip-bar") || document.querySelector("#adminPanelTab .filter-chip-bar");
+  if (chipBar) {
+    chipBar.querySelectorAll(".filter-chip").forEach(el => el.classList.remove("active"));
+  }
   if (btnEl) btnEl.classList.add("active");
   renderAdminUnifiedElectionList();
 }
@@ -3434,19 +3415,25 @@ async function renderAdminUnifiedElectionList() {
   const total = allElections.length;
   const countCancelled = allElections.filter(e => {
     const ph = getElectionPhase(e, isPaused);
-    return ph.isCancelled || ph.label === 'Đã hủy vĩnh viễn';
+    return Boolean(ph.isCancelled || ph.label === 'Đã hủy vĩnh viễn' || Number(e.status) === STATUS_CONTRACT.CANCELLED);
   }).length;
+
   const countUpcoming = allElections.filter(e => {
     const ph = getElectionPhase(e, isPaused);
-    return ph.label === 'Sắp diễn ra' || ph.label.includes('Tạm hoãn');
+    const isCancelled = Boolean(ph.isCancelled || ph.label === 'Đã hủy vĩnh viễn' || Number(e.status) === STATUS_CONTRACT.CANCELLED);
+    return !isCancelled && (Number(e.status) === STATUS_CONTRACT.REGISTRATION || ph.label === 'Sắp diễn ra' || ph.label === 'Chờ mở phiên' || ph.label.includes('Tạm hoãn') || ph.cssClass === 'phase-upcoming');
   }).length;
+
   const countActive = allElections.filter(e => {
     const ph = getElectionPhase(e, isPaused);
-    return ph.label === 'Đang diễn ra' || ph.label === 'Tạm dừng bỏ phiếu';
+    const isCancelled = Boolean(ph.isCancelled || ph.label === 'Đã hủy vĩnh viễn' || Number(e.status) === STATUS_CONTRACT.CANCELLED);
+    return !isCancelled && (Number(e.status) === STATUS_CONTRACT.VOTING || ph.label === 'Đang diễn ra' || ph.label === 'Tạm dừng bỏ phiếu' || ph.cssClass === 'phase-active');
   }).length;
+
   const countClosed = allElections.filter(e => {
     const ph = getElectionPhase(e, isPaused);
-    return ph.label === 'Đã kết thúc';
+    const isCancelled = Boolean(ph.isCancelled || ph.label === 'Đã hủy vĩnh viễn' || Number(e.status) === STATUS_CONTRACT.CANCELLED);
+    return !isCancelled && (Number(e.status) === STATUS_CONTRACT.CLOSED || ph.label === 'Đã kết thúc' || ph.cssClass === 'phase-closed');
   }).length;
 
   setText("countFilterAll", total);
@@ -3491,22 +3478,25 @@ async function renderAdminUnifiedElectionList() {
   if (currentAdminFilter === "upcoming") {
     filtered = filtered.filter(e => {
       const ph = getElectionPhase(e, isPaused);
-      return ph.label === 'Sắp diễn ra' || ph.label.includes('Tạm hoãn');
+      const isCancelled = Boolean(ph.isCancelled || ph.label === 'Đã hủy vĩnh viễn' || Number(e.status) === STATUS_CONTRACT.CANCELLED);
+      return !isCancelled && (Number(e.status) === STATUS_CONTRACT.REGISTRATION || ph.label === 'Sắp diễn ra' || ph.label === 'Chờ mở phiên' || ph.label.includes('Tạm hoãn') || ph.cssClass === 'phase-upcoming');
     });
   } else if (currentAdminFilter === "active") {
     filtered = filtered.filter(e => {
       const ph = getElectionPhase(e, isPaused);
-      return ph.label === 'Đang diễn ra' || ph.label === 'Tạm dừng bỏ phiếu';
+      const isCancelled = Boolean(ph.isCancelled || ph.label === 'Đã hủy vĩnh viễn' || Number(e.status) === STATUS_CONTRACT.CANCELLED);
+      return !isCancelled && (Number(e.status) === STATUS_CONTRACT.VOTING || ph.label === 'Đang diễn ra' || ph.label === 'Tạm dừng bỏ phiếu' || ph.cssClass === 'phase-active');
     });
   } else if (currentAdminFilter === "closed") {
     filtered = filtered.filter(e => {
       const ph = getElectionPhase(e, isPaused);
-      return ph.label === 'Đã kết thúc';
+      const isCancelled = Boolean(ph.isCancelled || ph.label === 'Đã hủy vĩnh viễn' || Number(e.status) === STATUS_CONTRACT.CANCELLED);
+      return !isCancelled && (Number(e.status) === STATUS_CONTRACT.CLOSED || ph.label === 'Đã kết thúc' || ph.cssClass === 'phase-closed');
     });
   } else if (currentAdminFilter === "cancelled") {
     filtered = filtered.filter(e => {
       const ph = getElectionPhase(e, isPaused);
-      return ph.isCancelled || ph.label === 'Đã hủy vĩnh viễn';
+      return Boolean(ph.isCancelled || ph.label === 'Đã hủy vĩnh viễn' || Number(e.status) === STATUS_CONTRACT.CANCELLED);
     });
   }
 
@@ -3629,7 +3619,7 @@ async function renderAdminUnifiedElectionList() {
       // Hiển thị danh sách ứng viên đã nạp
       if (candList.length === 0) {
         detailsHtml = `
-          <div style="padding:14px; background:#fffbeb; border:1px dashed #fde68a; border-radius:8px; font-size:13px; color:#92400e; display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:8px;">
+          <div style="margin-top:16px; padding:14px 16px; background:#fffbeb; border:1px dashed #fde68a; border-radius:8px; font-size:13px; color:#92400e; display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:10px;">
             <span><strong>Chưa có ứng viên:</strong> Cần ít nhất <strong>${seats} ứng viên</strong> để mở phiên bỏ phiếu.</span>
             <button type="button" class="btn btn-warning btn-sm" onclick="openAddCandidateModal(${e.id})">
               Thêm ứng viên đầu tiên
@@ -3740,7 +3730,7 @@ async function renderAdminUnifiedElectionList() {
 
     itemsHtml.push(`
       <div class="election-card-item ${phase.cssClass}" id="adminElectionCard_${e.id}">
-        <div style="display:flex; justify-content:space-between; align-items:flex-start; flex-wrap:wrap; gap:12px;">
+        <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px; margin-bottom:6px;">
           <div>
             <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
               <h4 style="font-size:16px; font-weight:800; color:#0f172a; margin:0;">
@@ -5620,10 +5610,37 @@ function filterAdminCandidatesTable() {
   }).join("");
 }
 
-function adminViewCandidateElection(electionId) {
-  const panelBtn = document.querySelector('.admin-sidebar-nav [data-tab="adminPanelTab"]');
-  if (panelBtn) switchTab('adminPanelTab', panelBtn);
-  if (typeof adminSelectElection === "function") adminSelectElection(electionId);
+async function adminViewCandidateElection(electionId) {
+  const eid = Number(electionId);
+  if (isNaN(eid)) return;
+
+  // 1. Chuyển sang Tab Quản Lý Kỳ Bầu Cử trên Admin Sidebar
+  const panelBtn = document.getElementById("btnNavAdminElections") || document.querySelector('.admin-sidebar-nav [data-tab="adminPanelTab"]');
+  if (panelBtn) {
+    switchTab('adminPanelTab', panelBtn);
+  } else {
+    document.querySelectorAll(".admin-main-content .tab-content").forEach(el => el.classList.remove("active"));
+    const target = document.getElementById("adminPanelTab");
+    if (target) target.classList.add("active");
+  }
+
+  // 2. Đồng bộ dropdown chọn kỳ bầu cử
+  currentElectionId = eid;
+  const sel = document.getElementById("adminElectionSelect");
+  if (sel) sel.value = String(eid);
+
+  // 3. Tải thông tin kỳ bầu cử vào giao diện Admin
+  if (typeof adminSelectElection === "function") {
+    await adminSelectElection(eid);
+  }
+
+  // 4. Mở ngay Popup Modal Bảng Điểm & Kết Quả chi tiết của kỳ đó
+  if (typeof openElectionScoreboardModal === "function") {
+    await openElectionScoreboardModal(eid);
+  }
+
+  // 5. Cuộn mượt lên trên
+  window.scrollTo({ top: 0, behavior: "smooth" });
 }
 
 function openAddCandidateForPending(name, wallet) {
@@ -5636,6 +5653,42 @@ function openAddCandidateForPending(name, wallet) {
   const wInput = document.getElementById("candidateWalletInput");
   if (wInput) wInput.value = wallet || "";
   checkCandidateValidity(name, wallet);
+}
+
+// ============================================================
+// CHUYỂN ĐỔI CHẾ ĐỘ XEM BẢNG / DẠNG THẺ (TABLE vs CARDS VIEW)
+// ============================================================
+function setTableViewMode(tableKey, mode) {
+  const containerId = tableKey === 'wallets' ? 'walletsTableContainer' : 'candidatesTableContainer';
+  const container = document.getElementById(containerId);
+  const btnTable = document.getElementById(`btnViewTable_${tableKey}`);
+  const btnCards = document.getElementById(`btnViewCards_${tableKey}`);
+  if (!container) return;
+
+  if (mode === 'cards') {
+    container.classList.add('view-cards');
+    if (btnCards) btnCards.classList.add('active');
+    if (btnTable) btnTable.classList.remove('active');
+    try { localStorage.setItem(`tableViewMode_${tableKey}`, 'cards'); } catch (e) {}
+  } else {
+    container.classList.remove('view-cards');
+    if (btnTable) btnTable.classList.add('active');
+    if (btnCards) btnCards.classList.remove('active');
+    try { localStorage.setItem(`tableViewMode_${tableKey}`, 'table'); } catch (e) {}
+  }
+}
+
+function initTableViewModes() {
+  ['wallets', 'candidates'].forEach(key => {
+    let saved = null;
+    try { saved = localStorage.getItem(`tableViewMode_${key}`); } catch (e) {}
+    // Mặc định: nếu màn hình nhỏ (<= 860px) hoặc đã lưu cards thì bật dạng thẻ
+    if (saved === 'cards' || (window.innerWidth <= 860 && !saved)) {
+      setTableViewMode(key, 'cards');
+    } else {
+      setTableViewMode(key, 'table');
+    }
+  });
 }
 
 // ============================================================
@@ -6139,7 +6192,7 @@ function renderCompanyWalletsTable() {
     .reduce((sum, w) => sum + (w.onChainBalance !== undefined ? w.onChainBalance : (Number(w.shares) || 0)), 0);
 
   setText("statCompanyWalletsTotal", total);
-  setText("statCompanyWalletsAdmin", adminCount);
+  setText("statCompanyWalletsAdmin", `${adminCount || 1} ví`);
   setText("statCompanyWalletsCandidate", candidateCount);
   setText("statCompanyWalletsVoter", voterWithSharesCount);
   setText("statCompanyWalletsShares", `${totalShares.toLocaleString()} CP`);
@@ -6168,7 +6221,7 @@ function renderCompanyWalletsTable() {
                 <button type="button" class="btn-icon-link" onclick="copyWalletAddress('${w.address}')" title="Sao chép địa chỉ">Copy</button>
                 <a href="${etherscanUrl}" target="_blank" rel="noopener noreferrer" class="btn-icon-link" title="Xem trên Sepolia Etherscan">↗️</a>
               </div>
-              ${isSuper ? '<div style="font-size:10px; color:#d97706; font-weight:700; margin-top:3px;">Genesis Super Admin</div>' : ''}
+              ${isSuper ? '<div style="font-size:10px; color:#d97706; font-weight:700; margin-top:3px;">Admin Duy Nhất</div>' : ''}
             </td>
             <td data-label="Họ tên & Chức danh">
               <div class="wallet-person-name">${escapeHtml(w.name || "Chưa đặt tên")}</div>
@@ -6228,9 +6281,6 @@ function renderCompanyWalletsTable() {
                     Mint
                   </button>
                 `}
-                <button type="button" class="btn btn-primary btn-sm" onclick="openManageRoleModal('${w.address}')" title="Phân quyền Admin trên Smart Contract">
-                  Phân quyền
-                </button>
                 ${isSuper ? '' : `
                   <button type="button" class="btn btn-danger btn-sm" onclick="deleteCompanyWallet('${w.address}')" title="Xóa khỏi danh bạ">
                     Xóa
