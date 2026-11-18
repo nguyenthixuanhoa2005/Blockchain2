@@ -37,10 +37,10 @@
     "title": "Thành viên công ty",
     "role": "voter",
     "isCandidate": false,
-    "shares": 50,
+    "shares": 49,
     "notes": "bố là chủ tịch",
     "createdAt": "2026-11-17T16:04:52.782Z",
-    "updatedAt": "2026-11-17T16:05:16.788Z"
+    "updatedAt": "2026-11-18T00:31:17.681Z"
   },
   {
     "address": "0xabbC81db44b1B05033C6AEa9321c544A51C7AE19",
@@ -48,9 +48,9 @@
     "title": "Thành viên công ty",
     "role": "candidate",
     "isCandidate": true,
-    "shares": 0,
+    "shares": 1,
     "notes": "Ứng viên HĐQT được Admin phê duyệt",
     "createdAt": "2026-11-17T21:21:03.463Z",
-    "updatedAt": "2026-11-17T21:21:03.463Z"
+    "updatedAt": "2026-11-18T00:31:17.679Z"
   }
 ]

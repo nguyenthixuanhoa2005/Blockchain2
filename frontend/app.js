@@ -7292,10 +7292,13 @@ function onTransferRecipientChange(addr) {
   }
   const w = companyWallets.find(item => item.address && item.address.toLowerCase() === addr.toLowerCase());
   if (w) {
+    const shortAddr = (w.address && w.address.length > 14)
+      ? `${w.address.substring(0, 8)}...${w.address.substring(w.address.length - 6)}`
+      : (w.address || "");
     infoBox.style.display = "block";
     infoBox.innerHTML = `
       <span>✓ <strong>Đã chọn:</strong> ${escapeHtml(w.name)} (${escapeHtml(w.title || 'Cổ đông biểu quyết')})</span><br>
-      <span style="font-family:monospace; font-size:11px;">Địa chỉ on-chain: ${w.address}</span>
+      <span style="font-family:monospace; font-size:11.5px; color:#15803d;" title="${w.address}">Địa chỉ on-chain: <code>${shortAddr}</code></span>
     `;
   } else {
     infoBox.style.display = "none";
@@ -7350,10 +7353,19 @@ function openTransferConfirmModal() {
     remaining: currentBal - amountVal
   };
 
+  const shortSender = currentAccountInfo?.address && currentAccountInfo.address.length > 14
+    ? `${currentAccountInfo.address.substring(0, 8)}...${currentAccountInfo.address.substring(currentAccountInfo.address.length - 6)}`
+    : (currentAccountInfo?.address || "0x...");
+  const shortRecipient = recipient.address && recipient.address.length > 14
+    ? `${recipient.address.substring(0, 8)}...${recipient.address.substring(recipient.address.length - 6)}`
+    : (recipient.address || "0x...");
+
   setText("modalTransferSenderName", currentAccountInfo?.name || "Bạn");
-  setText("modalTransferSenderAddr", currentAccountInfo?.address || "0x...");
+  const sEl = document.getElementById("modalTransferSenderAddr");
+  if (sEl) { sEl.textContent = shortSender; sEl.title = currentAccountInfo?.address || ""; }
   setText("modalTransferRecipientName", recipient.name || "Cổ đông nội bộ");
-  setText("modalTransferRecipientAddr", recipient.address);
+  const rEl = document.getElementById("modalTransferRecipientAddr");
+  if (rEl) { rEl.textContent = shortRecipient; rEl.title = recipient.address || ""; }
   setText("modalTransferAmount", `${amountVal.toLocaleString()} CP`);
   setText("modalTransferRemaining", `${(currentBal - amountVal).toLocaleString()} CP`);
 
