@@ -5801,7 +5801,7 @@ function filterAdminCandidatesTable() {
     let actionBtn = "";
     if (c.electionId) {
       actionBtn = `
-        <button type="button" class="btn btn-outline btn-sm" style="font-size:11px; padding:3px 8px;" onclick="adminViewCandidateElection(${c.electionId})" title="Chuyển đến quản trị kỳ bầu cử này">
+        <button type="button" class="btn btn-outline btn-sm" style="font-size:11px; padding:3px 8px; font-weight:600;" onclick="adminViewCandidateElection(${c.electionId}, '${escapeHtml(c.name)}')" title="Xem bảng kỳ và kết quả ứng cử trực tiếp tại màn này">
           👁️ Xem Kỳ
         </button>
       `;
@@ -5837,37 +5837,128 @@ function filterAdminCandidatesTable() {
   }).join("");
 }
 
-async function adminViewCandidateElection(electionId) {
+async function adminViewCandidateElection(electionId, highlightCandidateName = "") {
   const eid = Number(electionId);
   if (isNaN(eid)) return;
 
-  // 1. Chuyển sang Tab Quản Lý Kỳ Bầu Cử trên Admin Sidebar
-  const panelBtn = document.getElementById("btnNavAdminElections") || document.querySelector('.admin-sidebar-nav [data-tab="adminPanelTab"]');
-  if (panelBtn) {
-    switchTab('adminPanelTab', panelBtn);
-  } else {
-    document.querySelectorAll(".admin-main-content .tab-content").forEach(el => el.classList.remove("active"));
-    const target = document.getElementById("adminPanelTab");
-    if (target) target.classList.add("active");
-  }
-
-  // 2. Đồng bộ dropdown chọn kỳ bầu cử
+  // GIỮ NGUYÊN MÀN HÌNH "QUẢN LÝ ỨNG VIÊN" (adminCandidatesTab), TUYỆT ĐỐI KHÔNG CHUYỂN TAB
   currentElectionId = eid;
-  const sel = document.getElementById("adminElectionSelect");
-  if (sel) sel.value = String(eid);
 
-  // 3. Tải thông tin kỳ bầu cử vào giao diện Admin
-  if (typeof adminSelectElection === "function") {
-    await adminSelectElection(eid);
-  }
-
-  // 4. Mở ngay Popup Modal Bảng Điểm & Kết Quả chi tiết của kỳ đó
+  // 1. Mở popup Modal Bảng Điểm & Kết Quả chi tiết của kỳ đó ngay tại màn này
   if (typeof openElectionScoreboardModal === "function") {
     await openElectionScoreboardModal(eid);
   }
 
-  // 5. Cuộn mượt lên trên
-  window.scrollTo({ top: 0, behavior: "smooth" });
+  // 2. Đồng thời nạp và hiển thị Bảng Điểm chi tiết kỳ này ngay dưới danh sách ứng viên (Inline Card)
+  await renderAdminCandidateElectionInline(eid, highlightCandidateName);
+}
+
+function closeAdminCandidateElectionInline() {
+  const card = document.getElementById("adminCandidateElectionInlineCard");
+  if (card) card.style.display = "none";
+}
+
+async function renderAdminCandidateElectionInline(electionId, highlightName = "") {
+  const card = document.getElementById("adminCandidateElectionInlineCard");
+  if (!card) return;
+
+  const election = allElections.find(e => e.id === electionId) || await loadSingleElection(electionId);
+  if (!election) return;
+
+  const phase = getElectionPhase(election, isPaused);
+  card.style.display = "block";
+
+  setText("inlineCandidateElectionTitle", `Bảng Điểm & Kết Quả: Kỳ #${election.id} — ${election.title}`);
+  setText("inlineCandidateElectionSub", `Trạng thái: ${phase.label} • Số ghế HĐQT cần bầu: ${election.seats} ghế • Snapshot Block: #${election.snapshotBlock || 'Chưa chốt'}`);
+
+  const phaseBadge = document.getElementById("inlineCandidateElectionPhaseBadge");
+  if (phaseBadge) {
+    phaseBadge.innerHTML = `<span class="badge ${phase.badgeClass}">${phase.icon} ${phase.label}</span>`;
+  }
+
+  // Nạp dữ liệu ứng viên của kỳ từ Smart Contract
+  let all = [], totalAllVotes = 0;
+  if (electionContract) {
+    try {
+      for (let i = 0; i < election.candidateCount; i++) {
+        const c = await electionContract.getCandidate(election.id, i);
+        const v = Number(c[2]);
+        totalAllVotes += v;
+        all.push({ id: i, name: c[0], profileCid: c[1], votes: v });
+      }
+    } catch (e) {
+      console.warn("Lỗi nạp ứng viên kỳ:", e);
+    }
+  }
+
+  // Lấy danh sách trúng cử nếu kỳ đã đóng
+  let winners = [];
+  if (Number(election.status) === STATUS_CONTRACT.CLOSED && electionContract) {
+    try {
+      const res = await electionContract.getWinners(election.id);
+      winners = (res[0] || []).map(w => Number(w));
+    } catch (e) {}
+  }
+
+  // Sắp xếp theo số phiếu giảm dần
+  const sorted = [...all].sort((a, b) => b.votes - a.votes);
+
+  const tbody = document.getElementById("inlineCandidateElectionTableBody");
+  if (tbody) {
+    if (sorted.length === 0) {
+      tbody.innerHTML = `<tr><td colspan="6" style="text-align:center; padding:20px; color:var(--text-muted);">Kỳ này chưa có ứng viên nào trên blockchain.</td></tr>`;
+    } else {
+      tbody.innerHTML = sorted.map((cand, idx) => {
+        const pct = totalAllVotes > 0 ? ((cand.votes / totalAllVotes) * 100).toFixed(1) : 0;
+        const isWinner = winners.includes(cand.id);
+        
+        let statusHtml = "";
+        if (Number(election.status) === STATUS_CONTRACT.CLOSED) {
+          statusHtml = isWinner 
+            ? `<span class="badge-elected">🏆 Đã Đắc Cử HĐQT</span>` 
+            : `<span class="badge-not-elected">❌ Không Đắc Cử</span>`;
+        } else if (Number(election.status) === STATUS_CONTRACT.VOTING) {
+          statusHtml = `<span class="badge-running">⏳ Đang Tranh Cử (Top ${election.seats})</span>`;
+        } else {
+          statusHtml = `<span class="badge" style="background:#f1f5f9; color:#475569;">Đang Chuẩn Bị</span>`;
+        }
+
+        const isHighlighted = highlightName && cand.name.toLowerCase().includes(highlightName.toLowerCase().trim());
+        const rowBg = isHighlighted 
+          ? 'background:#f5f3ff; font-weight:600;' 
+          : (idx < election.seats && Number(election.status) === STATUS_CONTRACT.CLOSED ? 'background:#f0fdf4;' : '');
+
+        return `
+          <tr style="${rowBg}">
+            <td data-label="Hạng" style="text-align:center; font-weight:700; color:${idx < election.seats ? '#16a34a' : '#64748b'};">
+              ${idx === 0 ? '🥇 1' : (idx === 1 ? '🥈 2' : (idx === 2 ? '🥉 3' : `#${idx + 1}`))}
+            </td>
+            <td data-label="Ứng viên">
+              <div style="font-weight:700; color:#1e293b;">
+                ${escapeHtml(cand.name)}
+                ${isHighlighted ? '<span class="badge" style="background:#8b5cf6; color:#fff; font-size:10px; margin-left:6px;">Ứng viên đang chọn</span>' : ''}
+              </div>
+            </td>
+            <td data-label="Hồ sơ">
+              ${cand.profileCid && cand.profileCid !== "N/A" ? `<a href="https://purple-fashionable-rooster-653.mypinata.cloud/ipfs/${cand.profileCid.replace('ipfs://', '')}" target="_blank" rel="noopener noreferrer" style="font-size:11.5px; color:#2563eb;">📄 Xem hồ sơ IPFS</a>` : '<span style="color:var(--text-muted); font-size:12px;">--</span>'}
+            </td>
+            <td data-label="Số phiếu" style="text-align:right;">
+              <strong style="color:#059669; font-size:14px;">${cand.votes.toLocaleString()}</strong> phiếu
+            </td>
+            <td data-label="Tỷ lệ" style="text-align:right;">
+              <span style="font-weight:600; color:#475569;">${pct}%</span>
+            </td>
+            <td data-label="Trạng thái" style="text-align:center;">
+              ${statusHtml}
+            </td>
+          </tr>
+        `;
+      }).join("");
+    }
+  }
+
+  // Cuộn nhẹ xuống bảng chi tiết kỳ
+  card.scrollIntoView({ behavior: "smooth", block: "nearest" });
 }
 
 function openAddCandidateForPending(name, wallet) {
